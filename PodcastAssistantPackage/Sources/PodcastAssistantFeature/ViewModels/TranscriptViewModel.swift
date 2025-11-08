@@ -31,6 +31,15 @@ public class TranscriptViewModel: ObservableObject {
     public func handleImportedFile(result: Result<URL, Error>) {
         switch result {
         case .success(let url):
+            // Start accessing security-scoped resource
+            guard url.startAccessingSecurityScopedResource() else {
+                errorMessage = "Failed to access file: Permission denied"
+                return
+            }
+            defer {
+                url.stopAccessingSecurityScopedResource()
+            }
+            
             do {
                 let content = try String(contentsOf: url, encoding: .utf8)
                 inputText = content
