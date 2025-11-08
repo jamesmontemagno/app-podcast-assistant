@@ -56,14 +56,14 @@ public struct PodcastFormView: View {
                 Divider()
                 
                 // Tab Content
-                TabView(selection: $selectedTab) {
-                    basicInfoTab
-                        .tag(FormTab.basicInfo)
-                    
-                    thumbnailDefaultsTab
-                        .tag(FormTab.thumbnailDefaults)
+                Group {
+                    switch selectedTab {
+                    case .basicInfo:
+                        basicInfoTab
+                    case .thumbnailDefaults:
+                        thumbnailDefaultsTab
+                    }
                 }
-                .tabViewStyle(.automatic)
                 
                 if let errorMessage = errorMessage {
                     Divider()
@@ -249,7 +249,7 @@ public struct PodcastFormView: View {
                     Text("\(Int(defaultFontSize))")
                         .foregroundColor(.secondary)
                     Slider(value: $defaultFontSize, in: 24...200, step: 4)
-                        .frame(width: 200)
+                        .frame(width: 300)
                 }
             } header: {
                 Text("Typography")
@@ -293,7 +293,7 @@ public struct PodcastFormView: View {
                     Text("\(Int(defaultHorizontalPadding))")
                         .foregroundColor(.secondary)
                     Slider(value: $defaultHorizontalPadding, in: 0...200, step: 5)
-                        .frame(width: 200)
+                        .frame(width: 300)
                 }
                 
                 HStack {
@@ -302,7 +302,7 @@ public struct PodcastFormView: View {
                     Text("\(Int(defaultVerticalPadding))")
                         .foregroundColor(.secondary)
                     Slider(value: $defaultVerticalPadding, in: 0...200, step: 5)
-                        .frame(width: 200)
+                        .frame(width: 300)
                 }
             } header: {
                 Text("Layout")
