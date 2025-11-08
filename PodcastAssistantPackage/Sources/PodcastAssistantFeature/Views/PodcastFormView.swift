@@ -1,9 +1,10 @@
 import SwiftUI
 import AppKit
+import SwiftData
 
 /// Form view for creating or editing a podcast
 public struct PodcastFormView: View {
-    @Environment(\.managedObjectContext) private var viewContext
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
     // Editing existing podcast (nil for new podcast)
@@ -230,7 +231,8 @@ public struct PodcastFormView: View {
         if let existingPodcast = podcast {
             podcastToSave = existingPodcast
         } else {
-            podcastToSave = Podcast(context: viewContext)
+            podcastToSave = Podcast(name: trimmedName)
+            modelContext.insert(podcastToSave)
         }
         
         podcastToSave.name = trimmedName
@@ -255,7 +257,7 @@ public struct PodcastFormView: View {
         }
         
         do {
-            try viewContext.save()
+            try modelContext.save()
             dismiss()
         } catch {
             errorMessage = "Failed to save: \(error.localizedDescription)"

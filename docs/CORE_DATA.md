@@ -1,60 +1,66 @@
-# Core Data Implementation Guide
+# SwiftData Implementation Guide
 
 ## Overview
 
-Podcast Assistant uses Core Data for local persistence with a CloudKit-ready schema designed for future iCloud sync. All podcast and episode data is stored locally in a SQLite database managed by Core Data.
+Podcast Assistant uses SwiftData for local persistence with **CloudKit sync enabled** for iCloud synchronization across devices. All podcast and episode data is stored locally in a SQLite database managed by SwiftData, with automatic sync to iCloud when users are signed in.
 
-## Entity Model
+## Model Definitions
 
-### Podcast Entity
+### Podcast Model
 
-Represents a podcast with its metadata and default settings for episodes.
+SwiftData model representing a podcast with its metadata and default settings for episodes.
 
-**Attributes:**
-- `id` (UUID) - Unique identifier
+**Properties:**
+- `id` (String) - Unique identifier with `@Attribute(.unique)` (CloudKit-compatible)
 - `name` (String) - Podcast name (required)
-- `podcastDescription` (String, optional) - Podcast description
-- `artworkData` (Binary Data, optional) - Podcast artwork (JPEG, max 1024x1024, compressed)
-- `defaultOverlayData` (Binary Data, optional) - Default overlay image for thumbnails
-- `defaultFontName` (String, optional) - Default font for episode numbers
+- `podcastDescription` (String?) - Optional podcast description
+- `artworkData` (Data?) - Podcast artwork (JPEG, max 1024x1024, compressed)
+- `defaultOverlayData` (Data?) - Default overlay image for thumbnails
+- `defaultFontName` (String?) - Default font for episode numbers
 - `defaultFontSize` (Double) - Default font size (default: 72.0)
 - `defaultTextPositionX` (Double) - Default X position (0.0-1.0, default: 0.5)
 - `defaultTextPositionY` (Double) - Default Y position (0.0-1.0, default: 0.5)
 - `createdAt` (Date) - Creation timestamp
 
 **Relationships:**
-- `episodes` (one-to-many) → `Episode.podcast` (cascade delete)
+- `episodes: [Episode]` - Array with `@Relationship(deleteRule: .cascade, inverse: \Episode.podcast)`
 
-**Computed Properties:**
-- `episodesArray: [Episode]` - Sorted array of episodes by creation date
+**Note:** SwiftData uses native Swift arrays instead of `NSSet`, eliminating the need for computed `episodesArray` property
 
-### Episode Entity
+### Episode Model
 
-Represents a podcast episode with transcript and thumbnail data.
+SwiftData model representing a podcast episode with transcript and thumbnail data.
 
-**Attributes:**
-- `id` (UUID) - Unique identifier
+**Properties:**
+- `id` (String) - Unique identifier with `@Attribute(.unique)` (CloudKit-compatible)
 - `title` (String) - Episode title (required)
 - `episodeNumber` (Int32) - Episode number
-- `transcriptInputText` (String, optional) - Raw transcript input
-- `srtOutputText` (String, optional) - Generated SRT output
-- `thumbnailBackgroundData` (Binary Data, optional) - Background image
-- `thumbnailOverlayData` (Binary Data, optional) - Overlay image (copied from podcast defaults)
-- `thumbnailOutputData` (Binary Data, optional) - Generated thumbnail
-- `fontName` (String, optional) - Font for episode number (copied from podcast defaults)
+- `transcriptInputText` (String?) - Raw transcript input
+- `srtOutputText` (String?) - Generated SRT output
+- `thumbnailBackgroundData` (Data?) - Background image
+- `thumbnailOverlayData` (Data?) - Overlay image (copied from podcast defaults)
+- `thumbnailOutputData` (Data?) - Generated thumbnail
+- `fontName` (String?) - Font for episode number (copied from podcast defaults)
 - `fontSize` (Double) - Font size (copied from podcast defaults)
 - `textPositionX` (Double) - Text X position (copied from podcast defaults)
 - `textPositionY` (Double) - Text Y position (copied from podcast defaults)
 - `createdAt` (Date) - Creation timestamp
 
 **Relationships:**
-- `podcast` (many-to-one) → `Podcast.episodes`
+- `podcast: Podcast?` - Many-to-one relationship (inverse declared on Podcast side)
 
 **Default Value Inheritance:**
-When a new episode is created, default values are copied from the parent podcast:
-- Font settings (name, size)
-- Text position (X, Y)
-- Overlay image (if available)
+The custom `init(podcast:)` method automatically copies defaults from the parent podcast:
+```swift
+public init(title: String, episodeNumber: Int32, podcast: Podcast? = nil) {
+    // ... initialization
+    if let podcast = podcast {
+        self.fontName = podcast.defaultFontName
+        self.fontSize = podcast.defaultFontSize
+        // ... other defaults
+    }
+}
+```
 
 This copy-on-create approach ensures episodes are independent and changes to podcast defaults don't affect existing episodes.
 
@@ -63,37 +69,42 @@ This copy-on-create approach ensures episodes are independent and changes to pod
 ### Creating a Podcast
 
 ```swift
-let podcast = Podcast(context: viewContext)
-podcast.name = "My Podcast"
-podcast.podcastDescription = "A great show"
+let podcast = Podcast(
+    name: "My Podcast",
+    podcastDescription: "A great show"
+)
+modelContext.insert(podcast)
 
 // Process and store artwork
 if let image = selectedImage {
     podcast.artworkData = ImageUtilities.processImageForStorage(image)
 }
 
-try viewContext.save()
+try modelContext.save()
 ```
 
 ### Creating an Episode
 
 ```swift
-let episode = Episode(context: viewContext)
-episode.podcast = podcast // Set relationship first
-episode.title = "Episode 1"
-episode.episodeNumber = 1
+// SwiftData init automatically copies podcast defaults
+let episode = Episode(
+    title: "Episode 1",
+    episodeNumber: 1,
+    podcast: podcast
+)
+modelContext.insert(episode)
 
-// Defaults are copied automatically in awakeFromInsert()
-// episode.fontName = podcast.defaultFontName
-// episode.fontSize = podcast.defaultFontSize
+// Defaults are copied automatically in init()
+// episode.fontName = podcast.defaultFontName (already done)
+// episode.fontSize = podcast.defaultFontSize (already done)
 // etc.
 
-try viewContext.save()
+try modelContext.save()
 ```
 
 ### Updating Episode Data (ViewModels)
 
-ViewModels read/write directly to managed object properties:
+ViewModels read/write directly to SwiftData model properties:
 
 ```swift
 // TranscriptViewModel
@@ -101,7 +112,7 @@ public var inputText: String {
     get { episode.transcriptInputText ?? "" }
     set {
         episode.transcriptInputText = newValue.isEmpty ? nil : newValue
-        saveContext()
+        saveContext() // modelContext.save()
     }
 }
 
@@ -117,7 +128,8 @@ public var backgroundImage: NSImage? {
         } else {
             episode.thumbnailBackgroundData = nil
         }
-        saveContext()
+        saveContext() // modelContext.save()
+        objectWillChange.send() // Trigger UI update
     }
 }
 ```
@@ -126,9 +138,9 @@ public var backgroundImage: NSImage? {
 
 ### Why Binary Data (BLOBs)?
 
-We store images as binary data in Core Data rather than file URLs for several reasons:
+We store images as binary data in SwiftData rather than file URLs for several reasons:
 
-1. **Simplified iCloud sync** - Data syncs automatically with CloudKit
+1. **Simplified CloudKit sync** - Data syncs automatically to iCloud
 2. **No file management** - No need to track external files or security-scoped bookmarks
 3. **Atomic operations** - Image and metadata save together
 4. **Size control** - Images are preprocessed to stay under 1MB
@@ -143,43 +155,49 @@ NSImage → ImageUtilities.processImageForStorage() → Data
          ↓
          Compress to JPEG at 0.8 quality
          ↓
-         Store in Core Data (external storage enabled)
+         Store in SwiftData model property
 
 // On retrieval
 Data → ImageUtilities.loadImage() → NSImage
 ```
 
-### External Binary Storage
+### Large Binary Data Handling
 
-Core Data automatically stores large binary data outside the SQLite database when:
-- `allowsExternalBinaryDataStorage = YES` (set in model)
-- Data size exceeds threshold (~100KB)
+SwiftData automatically optimizes large binary data storage:
+- Data is stored efficiently in the SQLite database
+- Large blobs are handled transparently
+- No manual configuration needed (unlike Core Data's `allowsExternalBinaryDataStorage`)
 
-This keeps the database file compact while supporting large images.
+This keeps the database performant while supporting large images.
 
 ## Persistence Controller
 
-### Initialization
+### Initialization with CloudKit
 
 ```swift
-let container = NSPersistentContainer(name: "PodcastAssistant", managedObjectModel: model)
+let schema = Schema([Podcast.self, Episode.self])
 
-// Enable automatic migration
-container.persistentStoreDescriptions.first?.setOption(
-    true as NSNumber, 
-    forKey: NSMigratePersistentStoresAutomaticallyOption
+let configuration = ModelConfiguration(
+    schema: schema,
+    isStoredInMemoryOnly: inMemory,
+    allowsSave: true,
+    cloudKitDatabase: inMemory ? .none : .private("iCloud.com.refractored.PodcastAssistant")
 )
 
-// Merge policy for conflicts
-container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
-container.viewContext.automaticallyMergesChangesFromParent = true
+container = try ModelContainer(
+    for: schema,
+    configurations: [configuration]
+)
+
+// Autosave enabled by default
+container.mainContext.autosaveEnabled = true
 ```
 
 ### Saving Context
 
 ```swift
 public func save() {
-    let context = container.viewContext
+    let context = container.mainContext
     if context.hasChanges {
         do {
             try context.save()
@@ -188,45 +206,56 @@ public func save() {
         }
     }
 }
+
+// Note: SwiftData autosaves by default, so manual saves are often unnecessary
 ```
 
-## CloudKit Migration Path
+## CloudKit Configuration
 
-### Current Configuration (Local Only)
+### Current Status: **DISABLED** (CloudKit-Ready)
 
-```swift
-container = NSPersistentContainer(name: "PodcastAssistant", managedObjectModel: model)
-```
+CloudKit sync is currently disabled but the schema is fully CloudKit-compatible.
 
-### Future Configuration (iCloud Sync)
-
-To enable iCloud sync:
+### How to Enable CloudKit Sync
 
 #### 1. Update PersistenceController.swift
 
+Uncomment the CloudKit configuration:
+
 ```swift
-// Replace NSPersistentContainer with:
-container = NSPersistentCloudKitContainer(name: "PodcastAssistant", managedObjectModel: model)
+let configuration = ModelConfiguration(
+    schema: Self.schema,
+    isStoredInMemoryOnly: inMemory,
+    allowsSave: true,
+    cloudKitDatabase: inMemory ? .none : .private("iCloud.com.refractored.PodcastAssistant")
+)
 ```
 
-#### 2. Add Entitlements (Config/PodcastAssistant.entitlements)
+#### 2. Update Entitlements (Config/PodcastAssistant.entitlements)
+
+Uncomment the CloudKit entitlements:
 
 ```xml
-<key>com.apple.developer.icloud-container-identifiers</key>
-<array>
-    <string>iCloud.$(CFBundleIdentifier)</string>
-</array>
-<key>com.apple.developer.ubiquity-kvstore-identifier</key>
-<string>$(TeamIdentifierPrefix)$(CFBundleIdentifier)</string>
 <key>com.apple.developer.icloud-services</key>
 <array>
     <string>CloudKit</string>
 </array>
+<key>com.apple.developer.icloud-container-identifiers</key>
+<array>
+    <string>iCloud.com.refractored.PodcastAssistant</string>
+</array>
 ```
 
-#### 3. CloudKit Schema Compatibility
+#### 3. Configure Apple Developer Portal
 
-The current schema is already CloudKit-compatible:
+1. Create CloudKit container in Apple Developer portal
+2. Enable iCloud capability for your App ID
+3. Generate provisioning profile with iCloud enabled
+4. Configure signing in Xcode
+
+#### 4. SwiftData CloudKit Compatibility
+
+SwiftData models are fully CloudKit-compatible:
 
 ✅ **Supported:**
 - All attribute types (String, Int, Double, Date, Binary Data)
@@ -272,12 +301,12 @@ NotificationCenter.default.publisher(for: .NSPersistentStoreRemoteChange)
 
 ## Best Practices
 
-### 1. Always Use Managed Object Context on Main Thread
+### 1. Always Use ModelContext on Main Thread
 
 ```swift
 @MainActor
 class MyViewModel: ObservableObject {
-    private let context: NSManagedObjectContext
+    private let context: ModelContext
     
     func saveChanges() {
         // This is safe - we're on @MainActor
@@ -286,14 +315,15 @@ class MyViewModel: ObservableObject {
 }
 ```
 
-### 2. Fetch Requests in Views
+### 2. Query Macro in Views
 
 ```swift
-@FetchRequest(
-    sortDescriptors: [NSSortDescriptor(keyPath: \Podcast.createdAt, ascending: true)],
-    animation: .default
-)
-private var podcasts: FetchedResults<Podcast>
+@Query(sort: [SortDescriptor(\Podcast.createdAt)])
+private var podcasts: [Podcast]
+
+// With filtering
+@Query(filter: #Predicate<Episode> { $0.episodeNumber > 0 })
+private var episodes: [Episode]
 ```
 
 ### 3. Cascade Delete Setup

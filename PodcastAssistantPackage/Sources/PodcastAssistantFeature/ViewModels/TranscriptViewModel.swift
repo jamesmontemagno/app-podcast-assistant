@@ -1,10 +1,10 @@
 import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
-import CoreData
+import SwiftData
 
 /// ViewModel for transcript conversion functionality
-/// Binds directly to Core Data Episode entity
+/// Binds directly to SwiftData Episode model
 @MainActor
 public class TranscriptViewModel: ObservableObject {
     @Published public var isProcessing: Bool = false
@@ -15,9 +15,9 @@ public class TranscriptViewModel: ObservableObject {
     
     private let converter = TranscriptConverter()
     
-    // Core Data episode
+    // SwiftData episode
     public let episode: Episode
-    private let context: NSManagedObjectContext
+    private let context: ModelContext
     
     // Computed properties that read/write to Core Data
     public var inputText: String {
@@ -36,7 +36,7 @@ public class TranscriptViewModel: ObservableObject {
         }
     }
     
-    public init(episode: Episode, context: NSManagedObjectContext) {
+    public init(episode: Episode, context: ModelContext) {
         self.episode = episode
         self.context = context
     }
@@ -46,7 +46,7 @@ public class TranscriptViewModel: ObservableObject {
         SRTDocument(text: outputSRT)
     }
     
-    /// Save the Core Data context
+    /// Save the SwiftData context
     private func saveContext() {
         if context.hasChanges {
             do {

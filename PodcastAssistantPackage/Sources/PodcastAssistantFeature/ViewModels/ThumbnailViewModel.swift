@@ -1,10 +1,10 @@
 import Foundation
 import SwiftUI
 import AppKit
-import CoreData
+import SwiftData
 
 /// ViewModel for thumbnail generation functionality
-/// Binds directly to Core Data Episode entity
+/// Binds directly to SwiftData Episode model
 @MainActor
 public class ThumbnailViewModel: ObservableObject {
     @Published public var episodeNumber: String = "" {
@@ -46,9 +46,9 @@ public class ThumbnailViewModel: ObservableObject {
     private let defaults = UserDefaults.standard
     private let customFontsKey = "ThumbnailCustomFonts"
     
-    // Core Data episode
+    // SwiftData episode
     public let episode: Episode
-    private let context: NSManagedObjectContext
+    private let context: ModelContext
     
     // Computed properties for images from Core Data
     public var backgroundImage: NSImage? {
@@ -104,7 +104,7 @@ public class ThumbnailViewModel: ObservableObject {
         return fonts
     }
     
-    public init(episode: Episode, context: NSManagedObjectContext) {
+    public init(episode: Episode, context: ModelContext) {
         self.episode = episode
         self.context = context
         
@@ -129,7 +129,7 @@ public class ThumbnailViewModel: ObservableObject {
         }
     }
     
-    /// Save the Core Data context
+    /// Save the SwiftData context
     private func saveContext() {
         if context.hasChanges {
             do {

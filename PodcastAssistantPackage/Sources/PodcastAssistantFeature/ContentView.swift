@@ -1,16 +1,14 @@
 import SwiftUI
-import CoreData
+import SwiftData
 
 /// Main navigation view with two-column layout: Sidebar (podcast selector + episodes) → Episode detail
 public struct ContentView: View {
-    @Environment(\.managedObjectContext) private var viewContext
+    @Environment(\.modelContext) private var modelContext
     
-    @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Podcast.createdAt, ascending: true)],
-        animation: .default)
-    private var podcasts: FetchedResults<Podcast>
+    @Query(sort: [SortDescriptor(\Podcast.createdAt)])
+    private var podcasts: [Podcast]
     
-    @State private var selectedPodcastID: UUID?
+    @State private var selectedPodcastID: String?
     @State private var selectedEpisode: Episode?
     @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var showingPodcastForm = false
@@ -75,7 +73,7 @@ public struct ContentView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
                         Picker("Select Podcast", selection: $selectedPodcastID) {
-                            Text("Select a podcast...").tag(nil as UUID?)
+                            Text("Select a podcast...").tag(nil as String?)
                             ForEach(podcasts) { podcast in
                                 HStack {
                                     if let artworkData = podcast.artworkData,
@@ -87,7 +85,7 @@ public struct ContentView: View {
                                     }
                                     Text(podcast.name)
                                 }
-                                .tag(podcast.id as UUID?)
+                                .tag(podcast.id as String?)
                             }
                         }
                         .labelsHidden()
@@ -119,7 +117,7 @@ public struct ContentView: View {
                         
                         Divider()
                         
-                        if podcast.episodesArray.isEmpty {
+                        if podcast.episodes.isEmpty {
                             ContentUnavailableView(
                                 "No Episodes",
                                 systemImage: "waveform.slash",
@@ -127,7 +125,7 @@ public struct ContentView: View {
                             )
                         } else {
                             List(selection: $selectedEpisode) {
-                                ForEach(podcast.episodesArray) { episode in
+                                ForEach(podcast.episodes.sorted(by: { $0.createdAt < $1.createdAt })) { episode in
                                     EpisodeRow(episode: episode)
                                         .tag(episode)
                                         .contextMenu {
@@ -190,7 +188,7 @@ public struct ContentView: View {
         }
         .onChange(of: selectedPodcastID) { _, newPodcastID in
             if let id = newPodcastID {
-                lastSelectedPodcastID = id.uuidString
+                lastSelectedPodcastID = id
                 // Clear episode selection when podcast changes
                 selectedEpisode = nil
             }
@@ -204,9 +202,8 @@ public struct ContentView: View {
         
         // Try to restore last selected podcast
         if !lastSelectedPodcastID.isEmpty,
-           let uuid = UUID(uuidString: lastSelectedPodcastID),
-           podcasts.contains(where: { $0.id == uuid }) {
-            selectedPodcastID = uuid
+           podcasts.contains(where: { $0.id == lastSelectedPodcastID }) {
+            selectedPodcastID = lastSelectedPodcastID
             return
         }
         
@@ -217,10 +214,10 @@ public struct ContentView: View {
     // MARK: - Delete Actions
     
     private func deletePodcast(_ podcast: Podcast) {
-        viewContext.delete(podcast)
+        modelContext.delete(podcast)
         
         do {
-            try viewContext.save()
+            try modelContext.save()
             // Clear selection if deleted podcast was selected
             if selectedPodcastID == podcast.id {
                 selectedPodcastID = nil
@@ -232,10 +229,10 @@ public struct ContentView: View {
     }
     
     private func deleteEpisode(_ episode: Episode) {
-        viewContext.delete(episode)
+        modelContext.delete(episode)
         
         do {
-            try viewContext.save()
+            try modelContext.save()
             // Clear selection if deleted episode was selected
             if selectedEpisode?.id == episode.id {
                 selectedEpisode = nil
@@ -287,7 +284,7 @@ private struct EpisodeRow: View {
 
 /// Detail view for an episode with split view: Episode info + selector on left, content on right
 private struct EpisodeDetailView: View {
-    @ObservedObject var episode: Episode
+    let episode: Episode
     @Binding var selectedTab: DetailTab
     @Binding var showingEpisodeDetailEdit: Bool
     

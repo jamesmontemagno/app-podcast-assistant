@@ -1,17 +1,17 @@
 import SwiftUI
-import CoreData
+import SwiftData
 
 /// View for generating podcast thumbnails
 public struct ThumbnailView: View {
-    @Environment(\.managedObjectContext) private var viewContext
-    @ObservedObject var episode: Episode
+    @Environment(\.modelContext) private var modelContext
+    let episode: Episode
     @StateObject private var viewModel: ThumbnailViewModel
     
     public init(episode: Episode) {
         self.episode = episode
         _viewModel = StateObject(wrappedValue: ThumbnailViewModel(
             episode: episode,
-            context: episode.managedObjectContext ?? PersistenceController.shared.container.viewContext
+            context: PersistenceController.shared.container.mainContext
         ))
     }
     

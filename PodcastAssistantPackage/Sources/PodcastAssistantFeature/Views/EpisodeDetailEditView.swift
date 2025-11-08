@@ -1,9 +1,10 @@
 import SwiftUI
 import AppKit
+import SwiftData
 
 /// View for editing episode details and settings
 public struct EpisodeDetailEditView: View {
-    @Environment(\.managedObjectContext) private var viewContext
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
     public let episode: Episode
@@ -88,7 +89,7 @@ public struct EpisodeDetailEditView: View {
         episode.episodeNumber = Int32(episodeNumber)
         
         do {
-            try viewContext.save()
+            try modelContext.save()
             dismiss()
         } catch {
             errorMessage = "Failed to save: \(error.localizedDescription)"

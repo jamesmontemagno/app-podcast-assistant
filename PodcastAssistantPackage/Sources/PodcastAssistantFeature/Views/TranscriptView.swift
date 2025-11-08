@@ -1,18 +1,18 @@
 import SwiftUI
 import UniformTypeIdentifiers
-import CoreData
+import SwiftData
 
 /// View for converting transcript text files to SRT format
 public struct TranscriptView: View {
-    @Environment(\.managedObjectContext) private var viewContext
-    @ObservedObject var episode: Episode
+    @Environment(\.modelContext) private var modelContext
+    let episode: Episode
     @StateObject private var viewModel: TranscriptViewModel
     
     public init(episode: Episode) {
         self.episode = episode
         _viewModel = StateObject(wrappedValue: TranscriptViewModel(
             episode: episode,
-            context: episode.managedObjectContext ?? PersistenceController.shared.container.viewContext
+            context: PersistenceController.shared.container.mainContext
         ))
     }
     

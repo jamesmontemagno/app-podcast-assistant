@@ -10,7 +10,7 @@ PodcastAssistant/                          # App shell (minimal)
 
 PodcastAssistantPackage/                   # All feature code
 └── Sources/PodcastAssistantFeature/
-    ├── Models/                            # Core Data entities
+    ├── Models/                            # SwiftData models
     ├── Services/                          # Business logic
     ├── ViewModels/                        # @MainActor state management
     └── Views/                             # SwiftUI views
@@ -21,7 +21,7 @@ PodcastAssistantPackage/                   # All feature code
 1. **Workspace-first development** - Always open `PodcastAssistant.xcworkspace`, never `.xcodeproj`
 2. **Public API pattern** - All types in the package exposed to the app target must be `public` with `public init()`
 3. **MVVM pattern** - Service → ViewModel → View separation
-4. **Core Data persistence** - Local storage with CloudKit-ready schema for future iCloud sync
+4. **SwiftData persistence** - Local storage, CloudKit-ready (see `PersistenceController.swift` to enable)
 
 ## Application Flow
 
@@ -30,18 +30,18 @@ PodcastAssistantPackage/                   # All feature code
 ```
 Sidebar (Podcasts)  →  Middle (Episodes)  →  Detail (Transcript/Thumbnail)
      ↓                        ↓                         ↓
- @FetchRequest          episodesArray           TranscriptView
-  (Podcasts)          (from selected podcast)   ThumbnailView
+    @Query              podcast.episodes         TranscriptView
+  (Podcasts)          (sorted by createdAt)      ThumbnailView
 ```
 
 #### Column 1: Podcast Sidebar
-- Displays all podcasts with artwork thumbnails
+- Displays all podcasts with artwork thumbnails using `@Query`
 - Create/Edit/Delete podcast operations
-- Persists last selected podcast ID in UserDefaults
+- Persists last selected podcast ID (String) in UserDefaults
 - Auto-selects first podcast on launch if no saved selection
 
 #### Column 2: Episode List
-- Shows episodes for selected podcast (sorted by creation date)
+- Shows episodes from selected podcast's array (native SwiftData array)
 - Create/Edit/Delete episode operations
 - Episode number auto-increment suggestion
 - Visual indicators for transcript/thumbnail completion
@@ -55,26 +55,27 @@ Sidebar (Podcasts)  →  Middle (Episodes)  →  Detail (Transcript/Thumbnail)
 ### Data Flow
 
 ```
-User Action → ViewModel → Core Data Entity → Context Save → UI Update
-                ↑                                              ↓
-                └──────────── @Published / objectWillChange ──┘
+User Action → ViewModel → SwiftData Model → ModelContext Save → UI Update (automatic)
+                ↑                                                    ↓
+                └──────────── @Published / objectWillChange ─────────┘
 ```
 
 ## Core Components
 
-### Core Data Stack
+### SwiftData Stack
 
-**Entities:**
-- `Podcast` - Podcast metadata, artwork, default thumbnail settings
-- `Episode` - Episode data, transcript text, thumbnail images, settings
+**Models:**
+- `Podcast` - @Model with podcast metadata, artwork, default thumbnail settings
+- `Episode` - @Model with episode data, transcript text, thumbnail images, settings
 
 **Relationships:**
-- `Podcast.episodes` ↔ `Episode.podcast` (one-to-many, cascade delete)
+- `Podcast.episodes: [Episode]` with `@Relationship(deleteRule: .cascade, inverse: \Episode.podcast)`
+- `Episode.podcast: Podcast?` (inverse relationship)
 
 **PersistenceController:**
-- Singleton pattern for shared Core Data stack
-- Local-only storage with `NSPersistentContainer`
-- CloudKit migration path documented in-code
+- Singleton pattern for shared SwiftData stack
+- `ModelContainer` with local-only storage (CloudKit disabled)
+- CloudKit-ready schema - see class documentation for enabling
 - Preview support with in-memory store
 
 ### Services Layer
@@ -147,11 +148,8 @@ User Action → ViewModel → Core Data Entity → Context Save → UI Update
 
 ```
 Models/
-├── PodcastAssistant.xcdatamodeld/          # Core Data model definition
-├── Podcast+CoreDataClass.swift             # Podcast entity class
-├── Podcast+CoreDataProperties.swift        # Podcast properties + helpers
-├── Episode+CoreDataClass.swift             # Episode entity class
-├── Episode+CoreDataProperties.swift        # Episode properties + helpers
+├── Podcast.swift                           # @Model definition with all properties
+├── Episode.swift                           # @Model definition with custom init
 ├── TranscriptEntry.swift                   # Legacy model (used for SRT)
 └── SRTDocument.swift                       # FileDocument for export
 
@@ -226,11 +224,11 @@ xcodebuild -workspace PodcastAssistant.xcworkspace \
 
 ## Future Enhancements
 
-### iCloud Sync (Planned)
-- Swap `NSPersistentContainer` → `NSPersistentCloudKitContainer`
-- Add CloudKit entitlements
-- Configure iCloud container identifiers
-- Current schema is CloudKit-compatible (no migration needed)
+### iCloud Sync (CloudKit-Ready)
+- Schema is CloudKit-compatible (String IDs, proper relationships)
+- Instructions in `PersistenceController.swift` class documentation
+- Container ID prepared: `iCloud.com.refractored.PodcastAssistant`
+- Requires: Uncomment config + entitlements + Apple Developer setup
 
 ### Multi-Window Support
 - Replace `WindowGroup` with `WindowGroup(for: Podcast.ID.self)`

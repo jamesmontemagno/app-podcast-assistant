@@ -1,8 +1,9 @@
 import SwiftUI
+import SwiftData
 
 /// Form view for creating or editing an episode
 public struct EpisodeFormView: View {
-    @Environment(\.managedObjectContext) private var viewContext
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
     // Parent podcast (required for new episodes)
@@ -97,7 +98,7 @@ public struct EpisodeFormView: View {
             episodeNumber = Int(episode.episodeNumber)
         } else {
             // Suggest next episode number
-            let existingEpisodes = podcast.episodesArray
+            let existingEpisodes = podcast.episodes
             if let maxNumber = existingEpisodes.map({ $0.episodeNumber }).max() {
                 episodeNumber = Int(maxNumber) + 1
             }
@@ -117,27 +118,20 @@ public struct EpisodeFormView: View {
         if let existingEpisode = episode {
             episodeToSave = existingEpisode
         } else {
-            episodeToSave = Episode(context: viewContext)
-            episodeToSave.podcast = podcast
-            
-            // Copy defaults from parent podcast (happens automatically in awakeFromInsert,
-            // but we need to ensure the podcast relationship is set first)
-            episodeToSave.fontName = podcast.defaultFontName
-            episodeToSave.fontSize = podcast.defaultFontSize
-            episodeToSave.textPositionX = podcast.defaultTextPositionX
-            episodeToSave.textPositionY = podcast.defaultTextPositionY
-            
-            // Copy default overlay image if available
-            if let defaultOverlayData = podcast.defaultOverlayData {
-                episodeToSave.thumbnailOverlayData = defaultOverlayData
-            }
+            // SwiftData init automatically copies defaults from podcast
+            episodeToSave = Episode(
+                title: trimmedTitle,
+                episodeNumber: Int32(episodeNumber),
+                podcast: podcast
+            )
+            modelContext.insert(episodeToSave)
         }
         
         episodeToSave.title = trimmedTitle
         episodeToSave.episodeNumber = Int32(episodeNumber)
         
         do {
-            try viewContext.save()
+            try modelContext.save()
             dismiss()
         } catch {
             errorMessage = "Failed to save: \(error.localizedDescription)"
