@@ -295,16 +295,19 @@ To bundle fonts directly in the app package for distribution:
 4. **Register bundled fonts** in `ThumbnailViewModel.init()`:
    ```swift
    // Add this code to register bundled fonts on app launch
-   if let fontURLs = Bundle.module.urls(forResourcesWithExtension: "ttf", subdirectory: "Fonts") {
-       for fontURL in fontURLs {
-           registerCustomFont(from: fontURL)
-       }
+   let ttfFonts = Bundle.module.urls(forResourcesWithExtension: "ttf", subdirectory: "Fonts") ?? []
+   let otfFonts = Bundle.module.urls(forResourcesWithExtension: "otf", subdirectory: "Fonts") ?? []
+   for fontURL in ttfFonts + otfFonts {
+       registerCustomFont(from: fontURL)
    }
    ```
 
 5. **Rebuild the app** to include the bundled fonts
 
-**Note:** System fonts (Helvetica, Arial, Futura, etc.) are always available without any setup.
+**Note:** 
+- System fonts (Helvetica, Arial, Futura, etc.) are always available without any setup.
+- Unlike iOS, macOS apps don't require `UIAppFonts`/`Fonts provided by application` entries in Info.plist when using runtime font registration via `CTFontManagerRegisterGraphicsFont`.
+- The SPM package resources are automatically included in the app bundle, no additional build settings needed.
 
 ### Modifying Transcript Format
 Edit `TranscriptConverter.swift` to support different timestamp patterns by updating the format detection logic.
