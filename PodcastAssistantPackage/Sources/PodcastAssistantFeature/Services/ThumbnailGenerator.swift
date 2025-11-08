@@ -28,6 +28,8 @@ public class ThumbnailGenerator {
     ///   - fontName: The font to use for the episode number
     ///   - fontSize: The size of the font
     ///   - position: The position where the episode number should appear
+    ///   - horizontalPadding: Padding from left/right edges
+    ///   - verticalPadding: Padding from top/bottom edges
     /// - Returns: The generated thumbnail image
     public func generateThumbnail(
         backgroundImage: NSImage,
@@ -35,7 +37,9 @@ public class ThumbnailGenerator {
         episodeNumber: String,
         fontName: String = "Helvetica-Bold",
         fontSize: CGFloat = 72,
-        position: TextPosition = .topRight
+        position: TextPosition = .topRight,
+        horizontalPadding: CGFloat = 40,
+        verticalPadding: CGFloat = 40
     ) -> NSImage? {
         
         // Get the size of the background image
@@ -98,24 +102,23 @@ public class ThumbnailGenerator {
         let attributedString = NSAttributedString(string: episodeNumber, attributes: attributes)
         let textSize = attributedString.size()
         
-        // Calculate position based on user preference
-        let padding: CGFloat = 40
+        // Calculate position based on user preference with custom padding
         let textRect: NSRect
         
         switch position {
         case .topLeft:
             paragraphStyle.alignment = .left
             textRect = NSRect(
-                x: padding,
-                y: size.height - textSize.height - padding,
+                x: horizontalPadding,
+                y: size.height - textSize.height - verticalPadding,
                 width: textSize.width,
                 height: textSize.height
             )
         case .topRight:
             paragraphStyle.alignment = .right
             textRect = NSRect(
-                x: size.width - textSize.width - padding,
-                y: size.height - textSize.height - padding,
+                x: size.width - textSize.width - horizontalPadding,
+                y: size.height - textSize.height - verticalPadding,
                 width: textSize.width,
                 height: textSize.height
             )
@@ -123,23 +126,23 @@ public class ThumbnailGenerator {
             paragraphStyle.alignment = .center
             textRect = NSRect(
                 x: (size.width - textSize.width) / 2,
-                y: size.height - textSize.height - padding,
+                y: size.height - textSize.height - verticalPadding,
                 width: textSize.width,
                 height: textSize.height
             )
         case .bottomLeft:
             paragraphStyle.alignment = .left
             textRect = NSRect(
-                x: padding,
-                y: padding,
+                x: horizontalPadding,
+                y: verticalPadding,
                 width: textSize.width,
                 height: textSize.height
             )
         case .bottomRight:
             paragraphStyle.alignment = .right
             textRect = NSRect(
-                x: size.width - textSize.width - padding,
-                y: padding,
+                x: size.width - textSize.width - horizontalPadding,
+                y: verticalPadding,
                 width: textSize.width,
                 height: textSize.height
             )
@@ -147,7 +150,7 @@ public class ThumbnailGenerator {
             paragraphStyle.alignment = .center
             textRect = NSRect(
                 x: (size.width - textSize.width) / 2,
-                y: padding,
+                y: verticalPadding,
                 width: textSize.width,
                 height: textSize.height
             )

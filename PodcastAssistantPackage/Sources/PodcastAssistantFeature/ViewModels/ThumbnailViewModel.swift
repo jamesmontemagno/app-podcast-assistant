@@ -23,6 +23,12 @@ public class ThumbnailViewModel: ObservableObject {
     @Published public var episodeNumberPosition: ThumbnailGenerator.TextPosition = .topRight {
         didSet { generateThumbnail() }
     }
+    @Published public var horizontalPadding: Double = 40 {
+        didSet { generateThumbnail() }
+    }
+    @Published public var verticalPadding: Double = 40 {
+        didSet { generateThumbnail() }
+    }
     @Published public var generatedThumbnail: NSImage?
     @Published public var errorMessage: String?
     @Published public var successMessage: String?
@@ -227,7 +233,9 @@ public class ThumbnailViewModel: ObservableObject {
             episodeNumber: episodeNumber,
             fontName: selectedFont,
             fontSize: CGFloat(fontSize),
-            position: episodeNumberPosition
+            position: episodeNumberPosition,
+            horizontalPadding: CGFloat(horizontalPadding),
+            verticalPadding: CGFloat(verticalPadding)
         ) {
             generatedThumbnail = thumbnail
             successMessage = "Thumbnail generated successfully!"

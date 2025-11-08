@@ -151,6 +151,30 @@ public struct ThumbnailView: View {
                                     }
                                     .labelsHidden()
                                 }
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text("Horizontal Padding")
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                        Spacer()
+                                        Text("\(Int(viewModel.horizontalPadding))")
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Slider(value: $viewModel.horizontalPadding, in: 0...200, step: 5)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text("Vertical Padding")
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                        Spacer()
+                                        Text("\(Int(viewModel.verticalPadding))")
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Slider(value: $viewModel.verticalPadding, in: 0...200, step: 5)
+                                }
                             }
                             .padding(.vertical, 8)
                         }
