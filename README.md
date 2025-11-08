@@ -1,5 +1,8 @@
 # Podcast Assistant - macOS App
 
+> **⚠️ IMPORTANT:** Always open `PodcastAssistant.xcworkspace`, **NOT** `PodcastAssistant.xcodeproj`  
+> Opening the `.xcodeproj` file directly will cause build errors: `Missing package product 'PodcastAssistantFeature'`
+
 A SwiftUI macOS application for podcast management with two key features:
 1. **Transcript to SRT Converter** - Convert text transcripts to YouTube-compatible SRT format
 2. **Thumbnail Generator** - Create podcast thumbnails with episode numbers and custom backgrounds
@@ -26,6 +29,15 @@ A SwiftUI macOS application for podcast management with two key features:
 - Xcode 16 or later (for building)
 
 ## Getting Started
+
+### Quick Start (macOS)
+
+The easiest way to open the project correctly:
+```bash
+./open-in-xcode.sh
+```
+
+Or manually:
 
 ### Opening the Project
 1. Open `PodcastAssistant.xcworkspace` in Xcode (NOT the .xcodeproj file)
@@ -321,7 +333,19 @@ Modify `ThumbnailGenerator.swift` to adjust:
 ## Troubleshooting
 
 ### Build Issues
-- Make sure you're opening `.xcworkspace`, not `.xcodeproj`
+
+**Error: "Missing package product 'PodcastAssistantFeature'"**
+
+This error means you opened the wrong file. You must open `PodcastAssistant.xcworkspace`, NOT `PodcastAssistant.xcodeproj`.
+
+**Why?** The project uses a local Swift Package for features. The `.xcworkspace` file tells Xcode about this package. Opening just the `.xcodeproj` file will cause Xcode to fail with missing package errors.
+
+**Fix:**
+1. Close Xcode
+2. Open `PodcastAssistant.xcworkspace` (the workspace file)
+3. Build and run (⌘R)
+
+**Other build issues:**
 - Clean build folder: Product → Clean Build Folder (⇧⌘K)
 - Reset package caches: File → Packages → Reset Package Caches
 
