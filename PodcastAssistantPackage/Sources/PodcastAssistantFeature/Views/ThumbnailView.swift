@@ -16,21 +16,20 @@ public struct ThumbnailView: View {
     }
     
     public var body: some View {
-        VStack(spacing: 0) {
-            // Content
-            ScrollView {
-                HStack(alignment: .top, spacing: 20) {
-                    // Left Panel - Controls
-                    VStack(alignment: .leading, spacing: 20) {
+        GeometryReader { geometry in
+            HSplitView {
+                // Left Panel - Controls (30% of width, min 280, max 350)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
                         // Images Section
                         GroupBox(label: Label("Images", systemImage: "photo")) {
                             VStack(spacing: 12) {
-                                VStack(alignment: .leading, spacing: 8) {
+                                VStack(alignment: .leading, spacing: 6) {
                                     Text("Background Image")
                                         .font(.subheadline)
                                         .fontWeight(.medium)
                                     
-                                    HStack(spacing: 8) {
+                                    HStack(spacing: 6) {
                                         Button(action: viewModel.importBackgroundImage) {
                                             Label(viewModel.backgroundImage == nil ? "Select" : "Change", systemImage: "photo")
                                         }
@@ -55,12 +54,12 @@ public struct ThumbnailView: View {
                                 
                                 Divider()
                                 
-                                VStack(alignment: .leading, spacing: 8) {
+                                VStack(alignment: .leading, spacing: 6) {
                                     Text("Overlay Image (Optional)")
                                         .font(.subheadline)
                                         .fontWeight(.medium)
                                     
-                                    HStack(spacing: 8) {
+                                    HStack(spacing: 6) {
                                         Button(action: viewModel.importOverlayImage) {
                                             Label(viewModel.overlayImage == nil ? "Select" : "Change", systemImage: "square.on.square")
                                         }
@@ -91,12 +90,12 @@ public struct ThumbnailView: View {
                                     }
                                 }
                             }
-                            .padding(.vertical, 8)
+                            .padding(.vertical, 6)
                         }
                         
                         // Episode Details Section
                         GroupBox(label: Label("Episode Details", systemImage: "number")) {
-                            VStack(alignment: .leading, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 10) {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("Episode Number")
                                         .font(.subheadline)
@@ -104,36 +103,35 @@ public struct ThumbnailView: View {
                                     TextField("e.g., EP 42 or 42", text: $viewModel.episodeNumber)
                                         .textFieldStyle(.roundedBorder)
                                 }
-
                                 
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("Font")
                                         .font(.subheadline)
                                         .fontWeight(.medium)
-                                    HStack(spacing: 8) {
-                                        Picker("Font", selection: $viewModel.selectedFont) {
-                                            ForEach(viewModel.availableFonts, id: \.self) { font in
-                                                Text(font.replacingOccurrences(of: "-Bold", with: ""))
-                                                    .tag(font)
-                                            }
+                                    Picker("Font", selection: $viewModel.selectedFont) {
+                                        ForEach(viewModel.availableFonts, id: \.self) { font in
+                                            Text(font.replacingOccurrences(of: "-Bold", with: ""))
+                                                .tag(font)
                                         }
-                                        .labelsHidden()
-                                        
-                                        Button(action: viewModel.loadCustomFont) {
-                                            Label("Load Font", systemImage: "plus.circle")
-                                        }
-                                        .buttonStyle(.glass)
-                                        .help("Load a custom .ttf or .otf font file")
                                     }
+                                    .labelsHidden()
+                                    
+                                    Button(action: viewModel.loadCustomFont) {
+                                        Label("Load Custom Font", systemImage: "plus.circle")
+                                            .font(.caption)
+                                    }
+                                    .buttonStyle(.glass)
+                                    .help("Load a custom .ttf or .otf font file")
                                 }
                                 
                                 VStack(alignment: .leading, spacing: 4) {
                                     HStack {
-                                        Text("Font Size")
+                                        Text("Size")
                                             .font(.subheadline)
                                             .fontWeight(.medium)
                                         Spacer()
                                         Text("\(Int(viewModel.fontSize))")
+                                            .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
                                     Slider(value: $viewModel.fontSize, in: 24...120, step: 4)
@@ -153,11 +151,12 @@ public struct ThumbnailView: View {
                                 
                                 VStack(alignment: .leading, spacing: 4) {
                                     HStack {
-                                        Text("Horizontal Padding")
+                                        Text("H-Padding")
                                             .font(.subheadline)
                                             .fontWeight(.medium)
                                         Spacer()
                                         Text("\(Int(viewModel.horizontalPadding))")
+                                            .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
                                     Slider(value: $viewModel.horizontalPadding, in: 0...200, step: 5)
@@ -165,26 +164,28 @@ public struct ThumbnailView: View {
                                 
                                 VStack(alignment: .leading, spacing: 4) {
                                     HStack {
-                                        Text("Vertical Padding")
+                                        Text("V-Padding")
                                             .font(.subheadline)
                                             .fontWeight(.medium)
                                         Spacer()
                                         Text("\(Int(viewModel.verticalPadding))")
+                                            .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
                                     Slider(value: $viewModel.verticalPadding, in: 0...200, step: 5)
                                 }
                             }
-                            .padding(.vertical, 8)
+                            .padding(.vertical, 6)
                         }
                         
-                        // Messages
+                        // Messages (compact)
                         if let error = viewModel.errorMessage {
-                            HStack {
+                            HStack(spacing: 6) {
                                 Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.caption)
                                     .foregroundColor(.red)
                                 Text(error)
-                                    .font(.caption)
+                                    .font(.caption2)
                                     .foregroundColor(.red)
                             }
                             .padding(8)
@@ -194,11 +195,12 @@ public struct ThumbnailView: View {
                         }
                         
                         if let success = viewModel.successMessage {
-                            HStack {
+                            HStack(spacing: 6) {
                                 Image(systemName: "checkmark.circle.fill")
+                                    .font(.caption)
                                     .foregroundColor(.green)
                                 Text(success)
-                                    .font(.caption)
+                                    .font(.caption2)
                                     .foregroundColor(.green)
                             }
                             .padding(8)
@@ -206,46 +208,61 @@ public struct ThumbnailView: View {
                             .background(Color.green.opacity(0.1))
                             .cornerRadius(6)
                         }
-                        
-                        Spacer()
                     }
-                    .frame(width: 380)
+                    .padding()
+                }
+                .frame(minWidth: 280, idealWidth: 320, maxWidth: 350)
+                .background(Color(NSColor.controlBackgroundColor))
+                
+                // Right Panel - Preview (70% of width, flexible)
+                VStack(spacing: 0) {
+                    // Header
+                    HStack {
+                        Text("Preview")
+                            .font(.headline)
+                        Spacer()
+                        if let thumbnail = viewModel.generatedThumbnail {
+                            Text("\(Int(thumbnail.size.width)) × \(Int(thumbnail.size.height))")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color(NSColor.controlBackgroundColor))
                     
                     Divider()
                     
-                    // Right Panel - Preview
-                    VStack {
-                        Text("Preview")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        
-                        if let thumbnail = viewModel.generatedThumbnail {
+                    // Preview content
+                    if let thumbnail = viewModel.generatedThumbnail {
+                        ScrollView([.horizontal, .vertical]) {
                             Image(nsImage: thumbnail)
                                 .resizable()
                                 .aspectRatio(contentMode: .fit)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .background(Color.black.opacity(0.1))
-                                .cornerRadius(8)
-                        } else {
-                            VStack(spacing: 16) {
-                                Image(systemName: "photo.on.rectangle.angled")
-                                    .font(.system(size: 64))
-                                    .foregroundColor(.secondary)
-                                
-                                Text("Generated thumbnail will appear here")
-                                    .foregroundColor(.secondary)
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(Color(NSColor.controlBackgroundColor))
-                            .cornerRadius(8)
+                                .frame(maxWidth: .infinity)
+                                .padding()
                         }
+                        .background(Color.black.opacity(0.05))
+                    } else {
+                        VStack(spacing: 16) {
+                            Image(systemName: "photo.on.rectangle.angled")
+                                .font(.system(size: 64))
+                                .foregroundColor(.secondary)
+                            
+                            Text("Generated thumbnail will appear here")
+                                .foregroundColor(.secondary)
+                            
+                            Text("Select a background image and tap Generate")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color(NSColor.textBackgroundColor).opacity(0.3))
                     }
-                    .frame(maxWidth: .infinity)
                 }
-                .padding()
+                .frame(minWidth: 400)
             }
         }
-        .frame(minWidth: 1000, minHeight: 700)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button(action: viewModel.generateThumbnail) {

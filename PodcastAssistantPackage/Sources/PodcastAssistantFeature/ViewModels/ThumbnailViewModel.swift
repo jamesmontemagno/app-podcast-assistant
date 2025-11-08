@@ -75,7 +75,8 @@ public class ThumbnailViewModel: ObservableObject {
         }
         set {
             if let image = newValue {
-                episode.thumbnailOverlayData = ImageUtilities.processImageForStorage(image)
+                // Preserve transparency for overlay images (save as PNG instead of JPEG)
+                episode.thumbnailOverlayData = ImageUtilities.processImageForStorage(image, preserveTransparency: true)
             } else {
                 episode.thumbnailOverlayData = nil
             }

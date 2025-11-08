@@ -251,7 +251,8 @@ public struct PodcastFormView: View {
         
         // Process and save default overlay
         if let overlayImage = defaultOverlayImage {
-            podcastToSave.defaultOverlayData = ImageUtilities.processImageForStorage(overlayImage)
+            // Preserve transparency for overlay images (save as PNG instead of JPEG)
+            podcastToSave.defaultOverlayData = ImageUtilities.processImageForStorage(overlayImage, preserveTransparency: true)
         } else {
             podcastToSave.defaultOverlayData = nil
         }
