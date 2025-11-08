@@ -160,6 +160,15 @@ public class ThumbnailViewModel: ObservableObject {
     
     /// Registers a custom font and saves it
     private func registerCustomFont(from url: URL) {
+        // Start accessing security-scoped resource
+        guard url.startAccessingSecurityScopedResource() else {
+            errorMessage = "Failed to access font file: Permission denied"
+            return
+        }
+        defer {
+            url.stopAccessingSecurityScopedResource()
+        }
+        
         guard let fontDataProvider = CGDataProvider(url: url as CFURL),
               let font = CGFont(fontDataProvider),
               let fontName = font.postScriptName as String? else {
@@ -206,6 +215,16 @@ public class ThumbnailViewModel: ObservableObject {
         panel.begin { response in
             if response == .OK, let url = panel.url {
                 Task { @MainActor in
+                    // Start accessing security-scoped resource
+                    guard url.startAccessingSecurityScopedResource() else {
+                        self.errorMessage = "Failed to access file: Permission denied"
+                        completion(nil, nil)
+                        return
+                    }
+                    defer {
+                        url.stopAccessingSecurityScopedResource()
+                    }
+                    
                     if let image = NSImage(contentsOf: url) {
                         completion(image, saveToOverlay ? url : nil)
                     } else {
