@@ -1,29 +1,22 @@
 import SwiftUI
+import CoreData
 
 /// View for generating podcast thumbnails
 public struct ThumbnailView: View {
-    @StateObject private var viewModel = ThumbnailViewModel()
+    @Environment(\.managedObjectContext) private var viewContext
+    @ObservedObject var episode: Episode
+    @StateObject private var viewModel: ThumbnailViewModel
     
-    public init() {}
+    public init(episode: Episode) {
+        self.episode = episode
+        _viewModel = StateObject(wrappedValue: ThumbnailViewModel(
+            episode: episode,
+            context: episode.managedObjectContext ?? PersistenceController.shared.container.viewContext
+        ))
+    }
     
     public var body: some View {
         VStack(spacing: 0) {
-            // Header
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Thumbnail Generator")
-                    .font(.title)
-                    .fontWeight(.bold)
-                
-                Text("Create podcast thumbnails with episode numbers and custom backgrounds")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding()
-            .background(Color(NSColor.windowBackgroundColor))
-            
-            Divider()
-            
             // Content
             ScrollView {
                 HStack(alignment: .top, spacing: 20) {
@@ -41,10 +34,12 @@ public struct ThumbnailView: View {
                                         Button(action: viewModel.importBackgroundImage) {
                                             Label(viewModel.backgroundImage == nil ? "Select" : "Change", systemImage: "photo")
                                         }
+                                        .buttonStyle(.glass)
                                         
                                         Button(action: viewModel.pasteBackgroundFromClipboard) {
                                             Label("Paste", systemImage: "doc.on.clipboard")
                                         }
+                                        .buttonStyle(.glass)
                                     }
                                     
                                     if viewModel.backgroundImage != nil {
@@ -69,15 +64,18 @@ public struct ThumbnailView: View {
                                         Button(action: viewModel.importOverlayImage) {
                                             Label(viewModel.overlayImage == nil ? "Select" : "Change", systemImage: "square.on.square")
                                         }
+                                        .buttonStyle(.glass)
                                         
                                         Button(action: viewModel.pasteOverlayFromClipboard) {
                                             Label("Paste", systemImage: "doc.on.clipboard")
                                         }
+                                        .buttonStyle(.glass)
                                         
                                         if viewModel.overlayImage != nil {
                                             Button(action: viewModel.removeOverlayImage) {
                                                 Label("Remove", systemImage: "trash")
                                             }
+                                            .buttonStyle(.glass)
                                             .foregroundColor(.red)
                                         }
                                     }
@@ -124,6 +122,7 @@ public struct ThumbnailView: View {
                                         Button(action: viewModel.loadCustomFont) {
                                             Label("Load Font", systemImage: "plus.circle")
                                         }
+                                        .buttonStyle(.glass)
                                         .help("Load a custom .ttf or .otf font file")
                                     }
                                 }
@@ -177,30 +176,6 @@ public struct ThumbnailView: View {
                                 }
                             }
                             .padding(.vertical, 8)
-                        }
-                        
-                        // Actions
-                        VStack(spacing: 12) {
-                            Button(action: viewModel.generateThumbnail) {
-                                Label("Generate Thumbnail", systemImage: "wand.and.stars")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.large)
-                            .disabled(viewModel.backgroundImage == nil)
-                            
-                            HStack {
-                                Button(action: viewModel.clear) {
-                                    Label("Clear", systemImage: "trash")
-                                }
-                                .frame(maxWidth: .infinity)
-                                
-                                Button(action: viewModel.exportThumbnail) {
-                                    Label("Export", systemImage: "square.and.arrow.up")
-                                }
-                                .frame(maxWidth: .infinity)
-                                .disabled(viewModel.generatedThumbnail == nil)
-                            }
                         }
                         
                         // Messages
@@ -271,5 +246,31 @@ public struct ThumbnailView: View {
             }
         }
         .frame(minWidth: 1000, minHeight: 700)
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button(action: viewModel.generateThumbnail) {
+                    Label("Generate", systemImage: "wand.and.stars")
+                }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.glassProminent)
+                .disabled(viewModel.backgroundImage == nil)
+                .help("Generate thumbnail")
+                
+                Button(action: viewModel.exportThumbnail) {
+                    Label("Export", systemImage: "square.and.arrow.up")
+                }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.glassProminent)
+                .disabled(viewModel.generatedThumbnail == nil)
+                .help("Export thumbnail")
+                
+                Button(action: viewModel.clear) {
+                    Label("Clear", systemImage: "trash")
+                }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.glass)
+                .help("Clear all")
+            }
+        }
     }
 }

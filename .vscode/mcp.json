@@ -7,6 +7,15 @@
 				"xcodebuildmcp@latest"
 			],
 			"type": "stdio"
+		},
+		"apple-docs": {
+			"command": "npx",
+			"args": [
+				"-y",
+				"@kimsungwhee/apple-docs-mcp"
+			],
+			"env": {},
+			"type": "stdio"
 		}
 	},
 	"inputs": []

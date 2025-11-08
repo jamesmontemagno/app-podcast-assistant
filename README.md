@@ -3,25 +3,33 @@
 > **⚠️ IMPORTANT:** Always open `PodcastAssistant.xcworkspace`, **NOT** `PodcastAssistant.xcodeproj`  
 > Opening the `.xcodeproj` file directly will cause build errors: `Missing package product 'PodcastAssistantFeature'`
 
-A SwiftUI macOS application for podcast management with two key features:
-1. **Transcript to SRT Converter** - Convert text transcripts to YouTube-compatible SRT format
-2. **Thumbnail Generator** - Create podcast thumbnails with episode numbers and custom backgrounds
+A SwiftUI macOS application for comprehensive podcast production management with Core Data persistence. Manage multiple podcasts, create episodes, convert transcripts to SRT format, and generate custom thumbnails—all in one integrated workflow.
 
 ## Features
 
+### 🎙️ Multi-Podcast Management
+- Create and manage multiple podcasts with metadata and artwork
+- Set default thumbnail settings per podcast (overlay, fonts, positioning)
+- Organize episodes within each podcast
+- Persistent local storage with Core Data
+- CloudKit-ready schema for future iCloud sync
+
 ### 📝 Transcript Conversion
-- Import text transcript files
+- Import text transcript files per episode
 - Automatically detect and convert multiple timestamp formats to SRT
 - Export ready-to-upload SRT files for YouTube
 - Speaker name preservation (Zencastr format)
 - Intelligent timestamp calculation
+- Episode-scoped storage (auto-saved to Core Data)
 
 ### 🎨 Thumbnail Generation
+- Episode-specific thumbnail creation with live preview
+- Inherit default settings from parent podcast or customize per episode
 - Load custom background images
 - Optional overlay layer for branding
-- Automatic episode number placement (top right corner)
-- Customizable fonts and font sizes
+- Automatic episode number placement with customizable fonts and positioning
 - Export as PNG or JPEG
+- Generated thumbnails auto-saved with episode
 
 ## Requirements
 
@@ -53,59 +61,72 @@ xcodebuild -workspace PodcastAssistant.xcworkspace -scheme PodcastAssistant -con
 
 ## Project Architecture
 
+The app uses a **workspace + SPM package architecture** with Core Data for local persistence:
+
 ```
 PodcastAssistant/
 ├── PodcastAssistant.xcworkspace/              # Open this file in Xcode
-├── PodcastAssistant.xcodeproj/                # App shell project
-├── PodcastAssistant/                          # App target (minimal)
-│   ├── Assets.xcassets/                # App-level assets (icons, colors)
-│   ├── PodcastAssistantApp.swift              # App entry point
-│   ├── PodcastAssistant.entitlements          # App sandbox settings
-│   └── PodcastAssistant.xctestplan            # Test configuration
+├── PodcastAssistant/                          # App shell (minimal)
+│   └── PodcastAssistantApp.swift              # Entry point with Core Data injection
 ├── PodcastAssistantPackage/                   # 🚀 Primary development area
-│   ├── Package.swift                   # Package configuration
-│   ├── Sources/PodcastAssistantFeature/       # Your feature code
-│   └── Tests/PodcastAssistantFeatureTests/    # Unit tests
-├── PodcastAssistantUITests/                   # UI automation tests
+│   └── Sources/PodcastAssistantFeature/
+│       ├── Models/                            # Core Data entities
+│       │   ├── PodcastAssistant.xcdatamodeld  # Core Data model
+│       │   ├── Podcast+CoreData*.swift        # Podcast entity
+│       │   └── Episode+CoreData*.swift        # Episode entity
+│       ├── Services/                          # Business logic
+│       │   ├── PersistenceController.swift    # Core Data stack
+│       │   ├── TranscriptConverter.swift      # SRT conversion
+│       │   ├── ThumbnailGenerator.swift       # Image compositing
+│       │   └── ImageUtilities.swift           # Image processing
+│       ├── ViewModels/                        # Core Data-backed state
+│       │   ├── TranscriptViewModel.swift      # Episode transcript state
+│       │   └── ThumbnailViewModel.swift       # Episode thumbnail state
+│       └── Views/                             # SwiftUI views
+│           ├── ContentView.swift              # Master-detail navigation
+│           ├── PodcastFormView.swift          # Create/edit podcasts
+│           ├── EpisodeFormView.swift          # Create/edit episodes
+│           ├── TranscriptView.swift           # Transcript editor
+│           └── ThumbnailView.swift            # Thumbnail generator
+├── docs/                                      # 📚 Architecture documentation
+│   ├── ARCHITECTURE.md                        # System design & data flow
+│   └── CORE_DATA.md                           # Core Data implementation guide
 └── Config/                                    # XCConfig build settings
 ```
 
-The complete project structure:
+### Navigation Flow
+
+The app uses a three-column master-detail layout:
+
 ```
-PodcastAssistant/
-└── PodcastAssistantPackage/
-    ├── Sources/PodcastAssistantFeature/
-    │   ├── Models/                            # Data models
-    │   │   └── TranscriptEntry.swift
-    │   ├── Services/                          # Business logic
-    │   │   ├── TranscriptConverter.swift      # SRT conversion engine
-    │   │   └── ThumbnailGenerator.swift       # Thumbnail creation engine
-    │   ├── ViewModels/                        # View models
-    │   │   ├── TranscriptViewModel.swift
-    │   │   └── ThumbnailViewModel.swift
-    │   └── Views/                             # SwiftUI views
-    │       ├── ContentView.swift              # Main tab view
-    │       ├── TranscriptView.swift           # Transcript converter UI
-    │       └── ThumbnailView.swift            # Thumbnail generator UI
-    └── Tests/PodcastAssistantFeatureTests/    # Unit tests
+Podcast List  →  Episode List  →  Episode Detail (Transcript/Thumbnail)
+     ↓                ↓                      ↓
+  Sidebar        Middle Column          Detail Pane
 ```
 
-## Key Architecture Points
-
-### Workspace + SPM Structure
-- **App Shell**: `PodcastAssistant/` contains minimal app lifecycle code
-- **Feature Code**: `PodcastAssistantPackage/Sources/PodcastAssistantFeature/` is where most development happens
-- **Separation**: Business logic lives in the SPM package, app target just imports and displays it
-
-### Buildable Folders (Xcode 16)
-- Files added to the filesystem automatically appear in Xcode
-- No need to manually add files to project targets
-- Reduces project file conflicts in teams
-
-### App Sandbox
-The app is sandboxed by default with basic file access permissions. Modify `PodcastAssistant.entitlements` to add capabilities as needed.
+**See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for complete architectural details.**
 
 ## Usage
+
+### Getting Started
+
+1. **Create a Podcast**
+   - Click the "+" button in the podcast sidebar
+   - Enter podcast name and optional description
+   - Upload podcast artwork (resized to 1024x1024, JPEG compressed)
+   - Configure default thumbnail settings (overlay, font, positioning)
+   - These defaults will be copied to new episodes
+
+2. **Create an Episode**
+   - Select a podcast from the sidebar
+   - Click the "+" button in the episode list
+   - Enter episode title and number
+   - Default thumbnail settings are automatically copied from the podcast
+
+3. **Work on Episode Content**
+   - Select an episode to view its detail pane
+   - Switch between Transcript and Thumbnail tabs
+   - All changes auto-save to Core Data
 
 ### Transcript Conversion
 
@@ -130,19 +151,13 @@ I am the other host. Hi, everyone.
 00:00:05 - 00:00:10 Today we're talking about...
 ```
 
-Or with text on separate lines:
-```
-00:00:00 - 00:00:05
-Welcome to the podcast
-00:00:05 - 00:00:10
-Today we're talking about...
-```
-
 **Steps:**
-1. Click the "Transcript" tab
-2. Import your text file or paste content directly
-3. Click "Convert to SRT" (format is auto-detected)
-4. Export the generated SRT file
+1. Select an episode from the episode list
+2. Click the "Transcript" tab in the detail pane
+3. Import your text file or paste content directly
+4. Click "Convert to SRT" (format is auto-detected)
+5. Export the generated SRT file
+6. Input and output are auto-saved with the episode
 
 **Output Format:**
 ```srt
@@ -155,28 +170,57 @@ James: Welcome back everyone to Merge Conflict, your weekly developer podcast.
 Frank: I am the other host. Hi, everyone.
 ```
 
-**Features:**
-- Automatic format detection
-- Speaker name preservation (Zencastr format)
-- Intelligent timestamp calculation
-- YouTube-compatible SRT output
-
 ### Thumbnail Generation
 
 **Steps:**
-1. Click the "Thumbnail" tab
-2. Select a background image (required)
-3. Optionally select an overlay image for branding
-4. Enter the episode number
-5. Customize font and size
-6. Click "Generate Thumbnail"
-7. Export when satisfied with the preview
+1. Select an episode from the episode list
+2. Click the "Thumbnail" tab in the detail pane
+3. Select a background image (required) - auto-processed and saved
+4. Optionally select an overlay image for branding
+5. Episode number is pre-filled from episode data
+6. Font and position settings are inherited from podcast defaults
+7. Thumbnail generates automatically with live preview
+8. Generated thumbnail auto-saves with the episode
+9. Click "Export Thumbnail" to save as PNG/JPEG file
 
-**Tips:**
-- Background images are scaled to fit
-- Overlay images maintain transparency
-- Episode numbers appear in top right corner
-- White text with black stroke for readability
+**Default Settings:**
+- New episodes automatically copy font, overlay, and positioning from podcast defaults
+- Customize per-episode if needed—changes won't affect the podcast defaults
+
+## Core Data & Persistence
+
+### Data Model
+
+**Podcast Entity:**
+- Name, description, artwork
+- Default thumbnail settings (overlay, font, positioning)
+- One-to-many relationship with episodes (cascade delete)
+
+**Episode Entity:**
+- Title, episode number
+- Transcript input text and SRT output text
+- Thumbnail images (background, overlay, generated output)
+- Font and positioning settings (copied from podcast defaults)
+- Many-to-one relationship with podcast
+
+**See [docs/CORE_DATA.md](docs/CORE_DATA.md) for complete Core Data implementation details.**
+
+### Image Storage
+
+Images are stored as binary data (BLOBs) in Core Data for simplicity and future iCloud compatibility:
+- Automatically resized to max 1024x1024 pixels
+- JPEG compressed at 0.8 quality
+- External binary storage enabled for large files
+- Typical size: 100-500KB per image
+
+### iCloud Sync (Future)
+
+The Core Data schema is CloudKit-ready. To enable iCloud sync in the future:
+1. Change `NSPersistentContainer` → `NSPersistentCloudKitContainer`
+2. Add CloudKit entitlements
+3. No data migration needed
+
+**See detailed iCloud migration steps in [docs/CORE_DATA.md](docs/CORE_DATA.md).**
 
 ## Development Notes
 

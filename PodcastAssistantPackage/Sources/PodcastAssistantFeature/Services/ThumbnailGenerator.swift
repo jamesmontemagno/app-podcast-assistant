@@ -16,6 +16,38 @@ public class ThumbnailGenerator {
         case center = "Center"
         
         public var id: String { rawValue }
+        
+        /// Converts the position to relative coordinates (0.0 to 1.0)
+        public var relativePosition: (x: Double, y: Double) {
+            switch self {
+            case .topLeft: return (0.0, 0.0)
+            case .topRight: return (1.0, 0.0)
+            case .topCenter: return (0.5, 0.0)
+            case .bottomLeft: return (0.0, 1.0)
+            case .bottomRight: return (1.0, 1.0)
+            case .bottomCenter: return (0.5, 1.0)
+            case .center: return (0.5, 0.5)
+            }
+        }
+        
+        /// Creates a TextPosition from relative coordinates
+        public static func fromRelativePosition(x: Double, y: Double) -> TextPosition {
+            // Match to closest position
+            let epsilon = 0.1
+            if abs(y - 0.0) < epsilon {
+                if abs(x - 0.0) < epsilon { return .topLeft }
+                if abs(x - 1.0) < epsilon { return .topRight }
+                if abs(x - 0.5) < epsilon { return .topCenter }
+            } else if abs(y - 1.0) < epsilon {
+                if abs(x - 0.0) < epsilon { return .bottomLeft }
+                if abs(x - 1.0) < epsilon { return .bottomRight }
+                if abs(x - 0.5) < epsilon { return .bottomCenter }
+            } else if abs(y - 0.5) < epsilon && abs(x - 0.5) < epsilon {
+                return .center
+            }
+            // Default to topRight if no close match
+            return .topRight
+        }
     }
     
     public init() {}
@@ -77,11 +109,14 @@ public class ThumbnailGenerator {
         
         // Draw overlay image if provided
         if let overlayImage = overlayImage {
+            // Ensure we're drawing with alpha blending
             overlayImage.draw(
                 in: NSRect(origin: .zero, size: size),
                 from: NSRect(origin: .zero, size: overlayImage.size),
                 operation: .sourceOver,
-                fraction: 1.0
+                fraction: 1.0,
+                respectFlipped: false,
+                hints: [.interpolation: NSNumber(value: NSImageInterpolation.high.rawValue)]
             )
         }
         
