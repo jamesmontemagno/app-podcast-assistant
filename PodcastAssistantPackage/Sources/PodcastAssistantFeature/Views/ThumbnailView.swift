@@ -6,6 +6,7 @@ public struct ThumbnailView: View {
     @Environment(\.modelContext) private var modelContext
     let episode: Episode
     @StateObject private var viewModel: ThumbnailViewModel
+    @State private var previewZoom: CGFloat = 1.0
     
     public init(episode: Episode) {
         self.episode = episode
@@ -216,15 +217,56 @@ public struct ThumbnailView: View {
                 
                 // Right Panel - Preview (70% of width, flexible)
                 VStack(spacing: 0) {
-                    // Header
+                    // Header with zoom controls
                     HStack {
                         Text("Preview")
                             .font(.headline)
+                        
                         Spacer()
-                        if let thumbnail = viewModel.generatedThumbnail {
-                            Text("\(Int(thumbnail.size.width)) × \(Int(thumbnail.size.height))")
-                                .font(.caption)
+                        
+                        if viewModel.generatedThumbnail != nil {
+                            // Zoom controls
+                            HStack(spacing: 8) {
+                                Button {
+                                    previewZoom = max(0.25, previewZoom - 0.25)
+                                } label: {
+                                    Image(systemName: "minus.magnifyingglass")
+                                }
+                                .buttonStyle(.borderless)
+                                .disabled(previewZoom <= 0.25)
+                                .help("Zoom out")
+                                
+                                Text("\(Int(previewZoom * 100))%")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .frame(minWidth: 40)
+                                
+                                Button {
+                                    previewZoom = min(4.0, previewZoom + 0.25)
+                                } label: {
+                                    Image(systemName: "plus.magnifyingglass")
+                                }
+                                .buttonStyle(.borderless)
+                                .disabled(previewZoom >= 4.0)
+                                .help("Zoom in")
+                                
+                                Button {
+                                    previewZoom = 1.0
+                                } label: {
+                                    Image(systemName: "arrow.counterclockwise")
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Reset zoom")
+                            }
+                            
+                            Text("•")
                                 .foregroundStyle(.secondary)
+                            
+                            if let thumbnail = viewModel.generatedThumbnail {
+                                Text("\(Int(thumbnail.size.width)) × \(Int(thumbnail.size.height))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                     .padding(.horizontal, 16)
@@ -239,7 +281,7 @@ public struct ThumbnailView: View {
                             Image(nsImage: thumbnail)
                                 .resizable()
                                 .aspectRatio(contentMode: .fit)
-                                .frame(maxWidth: .infinity)
+                                .scaleEffect(previewZoom)
                                 .padding()
                         }
                         .background(Color.black.opacity(0.05))
