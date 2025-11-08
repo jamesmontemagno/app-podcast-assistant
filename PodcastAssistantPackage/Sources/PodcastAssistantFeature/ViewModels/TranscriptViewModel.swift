@@ -10,35 +10,37 @@ public class TranscriptViewModel: ObservableObject {
     @Published public var isProcessing: Bool = false
     @Published public var errorMessage: String?
     @Published public var successMessage: String?
+    @Published public var showingExporter: Bool = false
+    @Published public var showingImporter: Bool = false
     
     private let converter = TranscriptConverter()
     
     public init() {}
     
-    /// Imports a text file
+    /// Returns an SRTDocument for the current output
+    public var srtDocument: SRTDocument {
+        SRTDocument(text: outputSRT)
+    }
+    
+    /// Triggers the file importer
     public func importFile() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-        panel.allowedContentTypes = [.plainText, .text]
-        panel.message = "Select a transcript text file"
-        
-        panel.begin { [weak self] response in
-            guard let self = self else { return }
-            
-            if response == .OK, let url = panel.url {
-                Task { @MainActor in
-                    do {
-                        let content = try String(contentsOf: url, encoding: .utf8)
-                        self.inputText = content
-                        self.errorMessage = nil
-                        self.successMessage = "File loaded successfully"
-                    } catch {
-                        self.errorMessage = "Failed to read file: \(error.localizedDescription)"
-                    }
-                }
+        showingImporter = true
+    }
+    
+    /// Handles the imported file from fileImporter
+    public func handleImportedFile(result: Result<URL, Error>) {
+        switch result {
+        case .success(let url):
+            do {
+                let content = try String(contentsOf: url, encoding: .utf8)
+                inputText = content
+                errorMessage = nil
+                successMessage = "File loaded successfully"
+            } catch {
+                errorMessage = "Failed to read file: \(error.localizedDescription)"
             }
+        case .failure(let error):
+            errorMessage = "Failed to import file: \(error.localizedDescription)"
         }
     }
     
@@ -66,40 +68,23 @@ public class TranscriptViewModel: ObservableObject {
         }
     }
     
-    /// Exports the SRT to a file
+    /// Triggers the file exporter
     public func exportSRT() {
         guard !outputSRT.isEmpty else {
             errorMessage = "No SRT content to export"
             return
         }
-        
-        let panel = NSSavePanel()
-        // Create proper UTType for SRT files
-        if let srtType = UTType(filenameExtension: "srt") {
-            panel.allowedContentTypes = [srtType]
-        } else {
-            // Fallback to plain text if SRT type isn't recognized
-            panel.allowedContentTypes = [.plainText]
-        }
-        panel.nameFieldStringValue = "transcript.srt"
-        panel.message = "Save SRT file"
-        panel.canCreateDirectories = true
-        panel.isExtensionHidden = false
-        
-        panel.begin { [weak self] response in
-            guard let self = self else { return }
-            
-            if response == .OK, let url = panel.url {
-                Task { @MainActor in
-                    do {
-                        try self.outputSRT.write(to: url, atomically: true, encoding: .utf8)
-                        self.successMessage = "SRT file saved successfully to \(url.lastPathComponent)"
-                        self.errorMessage = nil
-                    } catch {
-                        self.errorMessage = "Failed to save file: \(error.localizedDescription)"
-                    }
-                }
-            }
+        showingExporter = true
+    }
+    
+    /// Handles the export completion from fileExporter
+    public func handleExportCompletion(result: Result<URL, Error>) {
+        switch result {
+        case .success(let url):
+            successMessage = "SRT file saved successfully to \(url.lastPathComponent)"
+            errorMessage = nil
+        case .failure(let error):
+            errorMessage = "Failed to save file: \(error.localizedDescription)"
         }
     }
     
