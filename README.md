@@ -257,14 +257,57 @@ To include assets in your feature package:
 ## Customization
 
 ### Adding New Fonts
-Edit `ThumbnailViewModel.swift` and add fonts to the `availableFonts` array:
-```swift
-public let availableFonts = [
-    "YourCustomFont-Bold",
-    "Helvetica-Bold",
-    // ... more fonts
-]
-```
+
+The app supports two approaches for adding custom fonts:
+
+#### Option 1: Runtime Font Loading (Recommended)
+The app includes a built-in font loader that lets you add custom fonts at runtime without rebuilding:
+
+1. Click the "Thumbnail" tab
+2. Click "Load Custom Font" button
+3. Select a `.ttf` or `.otf` font file
+4. The font will be registered and added to the font picker automatically
+
+**Advantages:**
+- No code changes needed
+- Fonts persist across app launches (saved in UserDefaults)
+- Easy to add/test different fonts
+
+#### Option 2: Bundling Fonts in the App
+To bundle fonts directly in the app package for distribution:
+
+1. **Create a Fonts folder:**
+   ```bash
+   mkdir -p PodcastAssistantPackage/Sources/PodcastAssistantFeature/Resources/Fonts
+   ```
+
+2. **Add your font files** (`.ttf` or `.otf`) to this folder
+
+3. **Update Package.swift** to include resources:
+   ```swift
+   .target(
+       name: "PodcastAssistantFeature",
+       dependencies: [],
+       resources: [.process("Resources")]
+   )
+   ```
+
+4. **Register bundled fonts** in `ThumbnailViewModel.init()`:
+   ```swift
+   // Add this code to register bundled fonts on app launch
+   let ttfFonts = Bundle.module.urls(forResourcesWithExtension: "ttf", subdirectory: "Fonts") ?? []
+   let otfFonts = Bundle.module.urls(forResourcesWithExtension: "otf", subdirectory: "Fonts") ?? []
+   for fontURL in ttfFonts + otfFonts {
+       registerCustomFont(from: fontURL)
+   }
+   ```
+
+5. **Rebuild the app** to include the bundled fonts
+
+**Note:** 
+- System fonts (Helvetica, Arial, Futura, etc.) are always available without any setup.
+- Unlike iOS, macOS apps don't require `UIAppFonts`/`Fonts provided by application` entries in Info.plist when using runtime font registration via `CTFontManagerRegisterGraphicsFont`.
+- The SPM package resources are automatically included in the app bundle, no additional build settings needed.
 
 ### Modifying Transcript Format
 Edit `TranscriptConverter.swift` to support different timestamp patterns by updating the format detection logic.
