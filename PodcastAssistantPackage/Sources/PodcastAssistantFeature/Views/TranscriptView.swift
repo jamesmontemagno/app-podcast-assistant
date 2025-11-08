@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// View for converting transcript text files to SRT format
 public struct TranscriptView: View {
@@ -119,5 +120,17 @@ public struct TranscriptView: View {
             }
         }
         .frame(minWidth: 800, minHeight: 700)
+        .fileImporter(
+            isPresented: $viewModel.showingImporter,
+            allowedContentTypes: [.plainText, .text],
+            onCompletion: viewModel.handleImportedFile
+        )
+        .fileExporter(
+            isPresented: $viewModel.showingExporter,
+            document: viewModel.srtDocument,
+            contentType: UTType(filenameExtension: "srt") ?? .plainText,
+            defaultFilename: "transcript.srt",
+            onCompletion: viewModel.handleExportCompletion
+        )
     }
 }
