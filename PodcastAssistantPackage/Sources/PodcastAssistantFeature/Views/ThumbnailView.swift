@@ -137,33 +137,10 @@ public struct ThumbnailView: View {
                             .padding(.vertical, 6)
                         }
                         
-                        // Episode Details Section
-                        GroupBox(label: Label("Episode Details", systemImage: "number")) {
-                            VStack(alignment: .leading, spacing: 10) {
-                                                                VStack(alignment: .leading, spacing: 4) {
-                                                                    Text("Font Color")
-                                                                        .font(.subheadline)
-                                                                        .fontWeight(.medium)
-                                                                    ColorPicker("Font Color", selection: $viewModel.fontColor, supportsOpacity: true)
-                                                                        .labelsHidden()
-                                                                }
-
-                                                                VStack(alignment: .leading, spacing: 4) {
-                                                                    Toggle(isOn: $viewModel.outlineEnabled) {
-                                                                        Text("Outline")
-                                                                            .font(.subheadline)
-                                                                            .fontWeight(.medium)
-                                                                    }
-                                                                    .toggleStyle(.switch)
-                                                                    if viewModel.outlineEnabled {
-                                                                        HStack {
-                                                                            Text("Outline Color")
-                                                                                .font(.caption)
-                                                                            ColorPicker("Outline Color", selection: $viewModel.outlineColor, supportsOpacity: true)
-                                                                                .labelsHidden()
-                                                                        }
-                                                                    }
-                                                                }
+                        // Text & Styling Section
+                        GroupBox(label: Label("Text & Styling", systemImage: "textformat")) {
+                            VStack(alignment: .leading, spacing: 12) {
+                                // Episode Number
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("Episode Number")
                                         .font(.subheadline)
@@ -172,75 +149,135 @@ public struct ThumbnailView: View {
                                         .textFieldStyle(.roundedBorder)
                                 }
                                 
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Font")
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                    Picker("Font", selection: $viewModel.selectedFont) {
-                                        ForEach(viewModel.availableFonts, id: \.self) { font in
-                                            Text(font.replacingOccurrences(of: "-Bold", with: ""))
-                                                .tag(font)
-                                        }
-                                    }
-                                    .labelsHidden()
+                                Divider()
+                                
+                                // Typography Section
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Typography")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .textCase(.uppercase)
                                     
-                                    Button(action: viewModel.loadCustomFont) {
-                                        Label("Load Custom Font", systemImage: "plus.circle")
-                                            .font(.caption)
-                                    }
-                                    .buttonStyle(.glass)
-                                    .help("Load a custom .ttf or .otf font file")
-                                }
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack {
-                                        Text("Size")
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Font")
                                             .font(.subheadline)
                                             .fontWeight(.medium)
-                                        Spacer()
-                                        Text("\(Int(viewModel.fontSize))")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    Slider(value: $viewModel.fontSize, in: 24...120, step: 4)
-                                }
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Position")
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                    Picker("Position", selection: $viewModel.episodeNumberPosition) {
-                                        ForEach(ThumbnailGenerator.TextPosition.allCases) { position in
-                                            Text(position.rawValue).tag(position)
+                                        Picker("Font", selection: $viewModel.selectedFont) {
+                                            ForEach(viewModel.availableFonts, id: \.self) { font in
+                                                Text(font.replacingOccurrences(of: "-Bold", with: ""))
+                                                    .tag(font)
+                                            }
                                         }
+                                        .labelsHidden()
+                                        
+                                        Button(action: viewModel.loadCustomFont) {
+                                            Label("Load Custom Font", systemImage: "plus.circle")
+                                                .font(.caption)
+                                        }
+                                        .buttonStyle(.glass)
+                                        .help("Load a custom .ttf or .otf font file")
                                     }
-                                    .labelsHidden()
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack {
+                                            Text("Size")
+                                                .font(.subheadline)
+                                                .fontWeight(.medium)
+                                            Spacer()
+                                            Text("\(Int(viewModel.fontSize))")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        Slider(value: $viewModel.fontSize, in: 24...200, step: 4)
+                                    }
                                 }
                                 
-                                VStack(alignment: .leading, spacing: 4) {
+                                Divider()
+                                
+                                // Colors Section
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Colors")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .textCase(.uppercase)
+                                    
                                     HStack {
-                                        Text("H-Padding")
+                                        Text("Font Color")
                                             .font(.subheadline)
                                             .fontWeight(.medium)
                                         Spacer()
-                                        Text("\(Int(viewModel.horizontalPadding))")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
+                                        ColorPicker("", selection: $viewModel.fontColor, supportsOpacity: false)
+                                            .labelsHidden()
                                     }
-                                    Slider(value: $viewModel.horizontalPadding, in: 0...200, step: 5)
+                                    
+                                    HStack {
+                                        Toggle(isOn: $viewModel.outlineEnabled) {
+                                            Text("Outline")
+                                                .font(.subheadline)
+                                                .fontWeight(.medium)
+                                        }
+                                        .toggleStyle(.switch)
+                                    }
+                                    
+                                    if viewModel.outlineEnabled {
+                                        HStack {
+                                            Text("Outline Color")
+                                                .font(.subheadline)
+                                                .fontWeight(.medium)
+                                            Spacer()
+                                            ColorPicker("", selection: $viewModel.outlineColor, supportsOpacity: false)
+                                                .labelsHidden()
+                                        }
+                                        .padding(.leading, 8)
+                                    }
                                 }
                                 
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack {
-                                        Text("V-Padding")
+                                Divider()
+                                
+                                // Layout Section
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Layout")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .textCase(.uppercase)
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Position")
                                             .font(.subheadline)
                                             .fontWeight(.medium)
-                                        Spacer()
-                                        Text("\(Int(viewModel.verticalPadding))")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
+                                        Picker("Position", selection: $viewModel.episodeNumberPosition) {
+                                            ForEach(ThumbnailGenerator.TextPosition.allCases) { position in
+                                                Text(position.rawValue).tag(position)
+                                            }
+                                        }
+                                        .labelsHidden()
                                     }
-                                    Slider(value: $viewModel.verticalPadding, in: 0...200, step: 5)
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack {
+                                            Text("H-Padding")
+                                                .font(.subheadline)
+                                                .fontWeight(.medium)
+                                            Spacer()
+                                            Text("\(Int(viewModel.horizontalPadding))")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        Slider(value: $viewModel.horizontalPadding, in: 0...200, step: 5)
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack {
+                                            Text("V-Padding")
+                                                .font(.subheadline)
+                                                .fontWeight(.medium)
+                                            Spacer()
+                                            Text("\(Int(viewModel.verticalPadding))")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        Slider(value: $viewModel.verticalPadding, in: 0...200, step: 5)
+                                    }
                                 }
                             }
                             .padding(.vertical, 6)
