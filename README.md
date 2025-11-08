@@ -30,6 +30,15 @@ A SwiftUI macOS application for podcast management with two key features:
 
 ## Getting Started
 
+### Quick Start (macOS)
+
+The easiest way to open the project correctly:
+```bash
+./open-in-xcode.sh
+```
+
+Or manually:
+
 ### Opening the Project
 1. Open `PodcastAssistant.xcworkspace` in Xcode (NOT the .xcodeproj file)
 2. Wait for Swift Package Manager to resolve dependencies
