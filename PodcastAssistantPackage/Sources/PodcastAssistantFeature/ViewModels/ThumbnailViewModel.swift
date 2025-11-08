@@ -35,7 +35,7 @@ public class ThumbnailViewModel: ObservableObject {
     
     private let generator = ThumbnailGenerator()
     private let defaults = UserDefaults.standard
-    private let overlayImageKey = "ThumbnailOverlayImagePath"
+    private let overlayImageBookmarkKey = "ThumbnailOverlayImageBookmark"
     private let customFontsKey = "ThumbnailCustomFonts"
     
     public var availableFonts: [String] {
@@ -76,7 +76,7 @@ public class ThumbnailViewModel: ObservableObject {
             guard let self = self else { return }
             self.overlayImage = image
             if let url = url {
-                self.saveOverlayImagePath(url)
+                self.saveOverlayImageBookmark(url)
             }
             self.successMessage = "Overlay image loaded"
             self.errorMessage = nil
@@ -86,22 +86,50 @@ public class ThumbnailViewModel: ObservableObject {
     /// Removes the overlay image
     public func removeOverlayImage() {
         overlayImage = nil
-        defaults.removeObject(forKey: overlayImageKey)
+        defaults.removeObject(forKey: overlayImageBookmarkKey)
         successMessage = "Overlay removed"
         errorMessage = nil
     }
     
-    /// Loads saved overlay image from UserDefaults
+    /// Loads saved overlay image from UserDefaults using security-scoped bookmark
     private func loadSavedOverlay() {
-        if let path = defaults.string(forKey: overlayImageKey),
-           let image = NSImage(contentsOfFile: path) {
-            overlayImage = image
+        guard let bookmarkData = defaults.data(forKey: overlayImageBookmarkKey) else {
+            return
+        }
+        
+        do {
+            var isStale = false
+            let url = try URL(resolvingBookmarkData: bookmarkData, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale)
+            
+            guard url.startAccessingSecurityScopedResource() else {
+                return
+            }
+            defer {
+                url.stopAccessingSecurityScopedResource()
+            }
+            
+            if let image = NSImage(contentsOf: url) {
+                overlayImage = image
+            }
+            
+            // If bookmark is stale, recreate it
+            if isStale {
+                saveOverlayImageBookmark(url)
+            }
+        } catch {
+            // Bookmark couldn't be resolved, remove it
+            defaults.removeObject(forKey: overlayImageBookmarkKey)
         }
     }
     
-    /// Saves overlay image path to UserDefaults
-    private func saveOverlayImagePath(_ url: URL) {
-        defaults.set(url.path, forKey: overlayImageKey)
+    /// Saves overlay image URL as a security-scoped bookmark to UserDefaults
+    private func saveOverlayImageBookmark(_ url: URL) {
+        do {
+            let bookmarkData = try url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+            defaults.set(bookmarkData, forKey: overlayImageBookmarkKey)
+        } catch {
+            errorMessage = "Failed to save overlay image reference: \(error.localizedDescription)"
+        }
     }
     
     /// Pastes image from clipboard for background
