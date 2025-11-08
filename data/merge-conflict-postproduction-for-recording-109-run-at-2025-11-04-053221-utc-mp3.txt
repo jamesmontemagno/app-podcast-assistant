@@ -1,0 +1,2468 @@
+00:00.29
+James
+Welcome back everyone to Merge Conflict, your weekly developer podcast. I'm one of your hosts James Montemagno. With me, the one, the only Frank Kruger. How's it going, buddy?
+
+00:08.36
+Frank
+I am the other host. Hi, everyone. ah Welcome to the show. it feels like we just recorded, James. It's not too far behind the scenes here, but I think we're recording kind of close together.
+
+00:19.69
+Frank
+But we got more GitHub Octo stuff to talk about. Octo. Octo stuff. That's it.
+
+00:26.98
+James
+octa Octo stuff, yes. And I am currently sipping some Sleepy Time melatonin tea, so let's see how far we last on this puppy.
+
+00:35.58
+Frank
+Oh, I i don't...
+
+00:35.87
+James
+Because someone said let's record at 8.30 p.m. That's my bedtime, bro.
+
+00:40.68
+Frank
+Well, some people have trivia to play on Monday nights. You know, that's just how it goes. And we took first place, not to brag, but, you know, first place in trivia.
+
+00:49.71
+James
+We are the champions. What was the theme tonight?
+
+00:54.29
+Frank
+wasn't a theme, thank goodness, because the previous week it was Halloween, and that was hard.
+
+00:55.36
+James
+Oh.
+
+00:58.29
+Frank
+Like, horror movies, fourth place for that one. I thought I knew my horror movies. Did not know my horror movies, turns out.
+
+01:04.09
+James
+No, it's like Saw, Jason.
+
+01:05.37
+Frank
+Everything sounds like the psycho theme to me. Yeah, and everything you think you think is Saw.
+
+01:10.25
+James
+Yeah, Saw 1, 8, 25. Yeah,
+
+01:12.60
+Frank
+Also, I saw Halloween 2 before I saw Halloween 1, and I just can't keep them straight in my head.
+
+01:18.66
+James
+that, okay. I did a little co-piloting the other day. Heather and I, because then we're actually going to get into the Octoverse. um Okay, so we were talking about Lord of the Rings because we have a friend going to New Zealand and we said, you got to go to Hobbiton.
+
+01:31.76
+Frank
+Yeah. Cool.
+
+01:33.73
+James
+It's fantastic.
+
+01:34.96
+Frank
+Absolutely.
+
+01:35.98
+James
+Okay, i want you to do an analysis really quick. Combine all three movies, Fellowship, Towers, Return.
+
+01:42.63
+Frank
+no
+
+01:43.59
+James
+What's the runtime of all three combined? Standard edition, theatrical.
+
+01:46.18
+Frank
+Oh god. Standard edition, they're all roughly over two hours, right? So seven and a half, eight? Eight-ish?
+
+01:55.33
+James
+Nine hours, 20 minutes. Okay.
+
+01:57.04
+Frank
+My god.
+
+01:58.69
+James
+Okay. Now, I was not introduced to Lauder in the theaters. I was introduced by my roommate who said, you know what we're going to do this Saturday?
+
+02:03.30
+Frank
+Oh.
+
+02:06.95
+James
+ah Lord of the Rings-a-thon.
+
+02:09.14
+Frank
+Wow, that's a commitment. I hope you were young.
+
+02:11.12
+James
+And he said, he said i don't own i don't own the theatrical editions. I don't i own the extended editions.
+
+02:15.91
+Frank
+Oh no. Oh no. Oh no.
+
+02:19.00
+James
+um
+
+02:19.09
+Frank
+Oh no, James.
+
+02:19.47
+James
+Okay.
+
+02:20.08
+Frank
+You did not agree to this.
+
+02:21.34
+James
+So how many...
+
+02:21.78
+Frank
+That's gotta be over 10 hours.
+
+02:22.22
+James
+apps
+
+02:22.90
+Frank
+ten It's gotta be like 11, 10 or 11 if this standard... No, it's probably like 12. It's probably something crazy.
+
+02:30.41
+James
+It's close. It's 11 hours, 22 minutes. So fellowship, three and a half hours, towers, 343 and return of the king, four hours and 11 minutes.
+
+02:33.47
+Frank
+Okay.
+
+02:36.04
+Frank
+Yeah.
+
+02:41.91
+James
+Now that is multiple movies in one, my friend. I had it put together and itinerary. I said, I want snacks. I want breaks. I want foods.
+
+02:48.97
+Frank
+but Yeah.
+
+02:49.56
+James
+Can you do it? And the answer is yes, but it's hard. yeah.
+
+02:53.01
+Frank
+Oof. Wow. Okay. I watched all those movies at the midnight showings on Thursday nights, and that's the way to do it.
+
+02:59.88
+James
+ah
+
+03:00.03
+Frank
+That felt...
+
+03:00.71
+James
+I'm asleep by by but credit, by the but just the the yeah opening on the Shire.
+
+03:01.17
+Frank
+Yeah.
+
+03:04.15
+Frank
+I was younger back then.
+
+03:06.47
+James
+Yes, that's true.
+
+03:07.99
+Frank
+Well, somehow they jammed 10 more endings onto the Return of the King for the director's cut.
+
+03:07.96
+James
+Living off of Red Bulls.
+
+03:12.47
+Frank
+You know, the original 10 weren't good enough. They had to get up to 20. Yeah.
+
+03:16.16
+James
+Yeah, to keep going. OK, let's talk about the Octoverse. Now, if you'll know what the Octoverse is, it's a like like ah not just a survey.
+
+03:19.68
+Frank
+Yeah.
+
+03:24.28
+James
+It's more of like statistics, I would say, of GitHub.
+
+03:27.01
+Frank
+yeah
+
+03:27.12
+James
+So you know Stack Overflow Survey is a survey. Octoverse is not necessarily a survey. It's like stats. And I like stats. I like numbers.
+
+03:35.10
+Frank
+Yeah. i Yeah. I mean, all these companies are collecting numbers on us. It's nice if they share a little with us, at least, you know, doing some averages and some means and some sums, you know, and I'll be honest though, we're we're going to go through a lot of numbers today.
+
+03:43.28
+James
+Yeah.
+
+03:51.90
+Frank
+And some of these numbers are really big and they're a little hard to imagine. So I feel like I need like a corridor crew video of like Ren explaining like, What does 10 billion developers actually look like?
+
+04:02.78
+Frank
+If they were all standing on each other's shoulders, how far to the moon would they Okay.
+
+04:10.34
+James
+ah So we're going to go section by section. There's like six, seven sections. and we'll do our hot takes. Now we're going to skip the opening because it's like a spoiler. It's a TLDR. Listen, I'm not of the TikTok generation.
+
+04:20.75
+James
+I want to go into the the section one header, H2 header over here. Let's call it state of the state of GitHub in a year of record growth.
+
+04:26.07
+Frank
+Okay.
+
+04:30.81
+James
+um so in twenty twenty three GitHub crossed 150 100 million developers after nearly three years of growing from 50 million to 100 million.
+
+04:36.59
+Frank
+Crazy.
+
+04:40.12
+Frank
+crazy
+
+04:44.33
+James
+But the past year alone has rewritten that curve with our latest, app our fastest absolute growth growth today. So in two years, there are now more than 180 million developers on GitHub. So they nearly 2x'd.
+
+04:57.73
+James
+in two years. so They're saying previously it took three years to get 50 million more developers. Now it took two years to get 80 million more developers. That is a lot of developers.
+
+05:09.59
+Frank
+insert Bomer meme here. Developers, developers, developers. Yeah, ah that's that's my first giant number that makes absolutely no sense to me. One developer per second joined GitHub.
+
+05:21.97
+Frank
+Like, what?
+
+05:23.56
+James
+Yeah.
+
+05:24.73
+Frank
+Yeah, global scale. And, you know, um to the, in fairness, roughly 10 million of those are me. um I just, I have a problem with account creation. i like doing CAPTCHAs. But gosh, it's it's impressive. it's It's hard to even shape your head around that.
+
+05:42.29
+Frank
+I'm curious how many of them are vibe coding now. Maybe we'll get to that stat.
+
+05:46.02
+James
+Well, I think the fun fact that we can do really quick. and So 362 hours of content times 60 minutes plus 46 minutes times 60 seconds.
+
+05:58.80
+Frank
+Oh.
+
+05:58.75
+James
+So in the time that we've recorded this podcast, which is 1,305,960 seconds,
+
+06:01.81
+Frank
+oh
+
+06:03.38
+James
+million three hundred and five thousand nine hundred and sixty seconds um That's how many people have joined GitHub. Over a million folks in the time that we've just been doing this podcast. That's a lot of folks in general.
+
+06:19.33
+James
+so um
+
+06:20.05
+Frank
+And that the the other weird number there, because I like the rate ones. The rate ones are interesting. 230 repositories a minute. My God. I don't want to run that server. I'm glad I don't work for them.
+
+06:30.43
+Frank
+Turns out I'm glad I don't work for GitHub.
+
+06:30.81
+James
+It's wild. there There are over 400, nearly 400 million public, just public in open source repositories, which is a plus 72 million year over year. So 72 million new repositories in the last year, which is absolutely bananas. Now, there's some interesting statistics here too. So every minute, 25 developers joined from APAC, 12 from Europe, 6.5 from Africa and the Middle East, six from LATAM, and And it says India alone added over 5 million developers this year, which is crazy.
+
+07:05.05
+James
+We're going to get to more demographics as well. But some interesting stats here that, yeah, more than 36 million developers joined GitHub in a single year, 23% year over year, um which is bananas.
+
+07:15.81
+James
+And nearly 80% of new developers have tried GitHub Copilot in their first year, which is bananas.
+
+07:20.66
+Frank
+Mm-hmm.
+
+07:22.12
+James
+And if we actually go to the the the scroll down section here, We can see that GitHub Copilot free, so just people trying it, went from, i don't know, like zero It goes under the curve, I don't know.
+
+07:37.03
+Frank
+yeah
+
+07:37.17
+James
+um But if if I go from last year, it looks like it was 25 million and 11 to 12 million more developers this year, so 36 million developers um going for it, which is just absolutely bananas, which is crazy.
+
+07:55.66
+Frank
+Yeah, i you know, a lot of that, I think, is also the new IDEs.
+
+07:58.49
+James
+Yeah.
+
+07:59.49
+Frank
+I don't want to give Vibe Coding all the credit, but I mean, the whole the whole heading this is under is it's not just the velocity of new developers. It's the acceleration. It's accelerating.
+
+08:09.69
+Frank
+It's a curve.
+
+08:09.75
+James
+yeah
+
+08:10.49
+Frank
+It's not just like a nice line, which I don't know. how um You know, kind of like being a part of the small group of people, but, you know, the more the merrier. Hi, everyone.
+
+08:19.11
+James
+yeah
+
+08:19.27
+Frank
+I'm not gatekeeping. Welcome.
+
+08:21.16
+James
+Well, you know, 36 compared to 180 million, like there's still a long way to go right now.
+
+08:22.20
+Frank
+yeah
+
+08:25.18
+James
+We talk on the podcast, not everyone's using AI. It's okay. Everyone's starting their journey in different ways. We just talked last week about you now know how you can just delegate work. If you want to do something, got an idea at night, go.
+
+08:32.93
+Frank
+Hmm. Hmm.
+
+08:34.85
+James
+But I think what is what's really interesting about statistics? We just talked like nearly, what was it, 400 million public and open source repositories. What if I told you that actually 82% of the repos on GitHub in the last year actually, and and work, sorry, contributions, I shouldn't say repos, but um private repos actually grew faster, 33% over 19%.
+
+08:54.09
+Frank
+Hmm.
+
+08:59.91
+James
+But actually, contributions to private source repos actually account for 82% of all activity on GitHub.
+
+09:08.47
+Frank
+Yeah, which is, I mean, it makes sense. I think a lot of corporations have um moved over to it at some point. i remember back the day, it was like, oh, if you're a big corporation, you're not going to use this. This is for open source, and it's a social network and all that. But...
+
+09:23.63
+Frank
+I think we've all just kind of admitted we kind of like just hanging out on the GitHub. It's fine. It's fine. I know personally speaking, I have way more private repositories than I do public. And I have a lot of public repositories.
+
+09:35.35
+Frank
+Let's be clear.
+
+09:35.64
+James
+Yeah.
+
+09:35.79
+Frank
+I got a lot. and But man, my privates are crazy.
+
+09:40.16
+James
+Well, think a lot of things changed too when the pricing changed, when like, yeah i think even now you can have like free repos as long as you don't have too many team members and things like that.
+
+09:45.96
+Frank
+Yeah, that was a big deal.
+
+09:49.88
+James
+I mean, um don't even know if I, I mean, I work at Microsoft, so like, i mean, i don't pay anything for GetUp, but ah do you pay, you gotta pay like, mean, I guess you have MVP, so you get like a little, you get something, right?
+
+09:56.98
+Frank
+i pay
+
+10:00.68
+Frank
+Yeah, you know, I'll be so honest, and this is privilege, like, I do have the MVP, and that I'm sure that kicks in, but, like, I pay, because run.NET builds on Mac machines in the CICD, and those take minutes, several minutes, so much so that I've had to put monetary caps on how much ah money I give to GitHub, because I don't want to give them all my money, just most of it.
+
+10:13.58
+James
+That's
+
+10:23.73
+Frank
+ah Yeah, so I'm paying. I get some part of it for free, though, full disclosure. i literally can't tell you how much, but it's nothing compared to how many minutes I use on Macs for the build server that I am paying for.
+
+10:37.32
+James
+that's interesting.
+
+10:37.74
+Frank
+And i we we should say the stats not here, but i I think the numbers kind of speak for themselves. I think it's something like out of the 5 billion contributions to private repos, only about 2 or 3 billion of those are VS Code forks.
+
+10:53.30
+Frank
+Just want to put that out there.
+
+10:54.94
+James
+Accurate, accurate. Exactly. Yeah. Electron apps be everywhere. um Okay. So let's talk about developer activity. um You and i I, think, and I want to relate this stuff to like, actually like in our lives, right? Like I think that we've used AI more in the last year. It's kind of crazy to think about like just.
+
+11:13.12
+James
+This time last year, nearly all of the stuff that we used didn't really exist. Yeah. We had code completions. I think we had some chat integration. i think, uh, I was reading ah blog post that's coming out from Burke. It might be out already on the VS code blog, which is like this time last year.
+
+11:29.05
+James
+They just added edit. So you had ask and then you had edit. You didn't even have agent mode yet, which obviously does.
+
+11:33.11
+Frank
+Okay, yeah. Yeah.
+
+11:34.31
+James
+So, you know, it was just for the first time, like it could actually like ah edit files. we Remember how rough that was in the very beginning. Just to think about where we are now, where we have like a thousand different agents doing stuff, which we talked about.
+
+11:45.27
+James
+but But let's think about actual developer ah developer activity, things that we're doing on GitHub, right? Like issues, pull requests, code pushes.
+
+11:51.05
+Frank
+yeah
+
+11:53.45
+James
+I mean, you can imagine if there's more developers, more repos, everything's up. Right. So like, I think, is it actually relating? Do we see ourselves like this momentum? Right. So issues, uh, closed are up.
+
+12:07.84
+James
+Like there's no percentages here. Damn them what they're not putting percentages here.
+
+12:11.14
+Frank
+It's 25-ish percent-ish.
+
+12:11.98
+James
+25%. Yeah. Do you think you're closing more issues than ever?
+
+12:14.82
+Frank
+I
+
+12:16.77
+James
+i think I am creating.
+
+12:17.27
+Frank
+um i feel like I'm creating more also, though. I wish they had put the opening instead.
+
+12:21.04
+James
+Well, that's up. That's 11%. That's up 11% issues created.
+
+12:23.20
+Frank
+Okay. Oh, OK. um Yeah, you know, that this is the one part where um we talk a lot about AIs, and this is the part where I'm feeling a little bit bad because I do use AIs constantly to help me program.
+
+12:37.79
+Frank
+What I don't use them enough for, though, is to help me close bugs.
+
+12:41.51
+James
+Yep.
+
+12:41.90
+Frank
+And that's that's kind of like, maybe ah that's my 2026 goal is I need to help close some more bugs because I definitely have a lot of open bugs still.
+
+12:53.00
+Frank
+But that's cool. um I mean, just having that number. Yeah. it's It's hard. it's It's hard to say. So for me personally, no.
+
+13:03.51
+Frank
+ah The AI has, I don't know, because it's helping me code, but it's not closing the bugs for me. I don't know. I don't know, James. How about you?
+
+13:12.46
+James
+You got to get that MCPA.
+
+13:12.88
+Frank
+Are you closing more bugs?
+
+13:15.28
+James
+I think, well, I mean, what's interesting here, so we have, this is per month, issues close, 3.4 million to 4.25 million. Pull requests merge, 35 million to 43.2 million, which means there's a lot more PRs being closed than issues close.
+
+13:28.44
+James
+That's like 10X, which is like very developer-y.
+
+13:31.35
+Frank
+Well, for sure.
+
+13:31.60
+James
+You know what I mean? Like you were saying, I'm pushing more. I mean, code pushes went from 65 million to 82.2 million monthly average. So like we are crushing code like astronomically, but not necessarily creating issues for all those things.
+
+13:43.83
+Frank
+yeah
+
+13:47.80
+Frank
+What I like about this too, i'm I'm a little curious if like, you know, like a pull request that I do tend tends to have like 10 commits to it because I'm that disorganized.
+
+13:54.75
+James
+Yeah.
+
+13:56.47
+Frank
+I'm curious how the numbers wrap up that way. So let me repeat the numbers again because I find them interesting. 40 million-ish pull requests merged. 80 million-ish code pushes.
+
+14:08.28
+Frank
+What I love about that is there's still a lot of people out there like me not doing a pull request for every commit and push up there. A lot of us are just ah raw dog and still still committing to main maine and just getting our work done.
+
+14:22.63
+James
+Got to.
+
+14:22.97
+Frank
+ah But ah it's actually an impressive number, i think, that 40 million pull requests. Pull requests? and I think that's probably GitHub's biggest contribution to this open source world is the pull request system.
+
+14:32.33
+James
+There's checks.
+
+14:37.25
+James
+Yeah.
+
+14:37.79
+Frank
+We've had issue systems before. We've obviously had committing before. It's the PRs that are kind of their hotness.
+
+14:44.16
+James
+I think what's fascinating is they like pull requests created, which is 20% more, yeah like nearly 50 million issues created up 11%. So there are more issues being created, but there's two interesting things, which is comments on issues slash PRs, which is essentially flat.
+
+14:54.49
+Frank
+Mm-hmm.
+
+14:59.84
+James
+Although we are creating more.
+
+14:59.96
+Frank
+Mm-hmm.
+
+15:00.60
+James
+So people are still commenting about the same. So we're not commenting more than comments on commits, which is actually down 30%. yeah. so
+
+15:08.18
+Frank
+And I think that's just because everyone's doing PRs now. PRs are just so easy, and we're all adding protection to our main branch. And so we go through PR. Like, even as a single dev, I do PRs. And I sometimes get made fun of in the indie community, like, why are you doing PRs against your own code base? I'm like, i don't know. The UI nice. And it's nice to see the diff. It's just, and don't know. The experience is nice.
+
+15:31.08
+James
+Yeah, I agree. Okay, so two additional things that they point out here in the sort of developer productivity is Jupyter Notebooks and Dockerfile. So now they don't list like all the things. They do have like in-view, in-depth, other things that we can go down, but they are highlighting like the big wins basically in growth.
+
+15:48.82
+James
+And they actually saw Jupyter Notebooks growing by 75% in repos, 1.4 million to 2.4 million.
+
+15:55.13
+Frank
+Crazy.
+
+15:57.88
+James
+But actually the most astonishing thing So our good friend Dockerfiles, they're with us forever, apparently.
+
+16:03.13
+Frank
+yeah
+
+16:03.79
+James
+We can't, yeah, people love the YAML. They're like, just can't get rid of it. They're like 2 million. They had 120% increase year over year of Dockerfiles. I just thought Aspire would be taking over the world, but there's Docker everywhere.
+
+16:16.45
+James
+and well Now it's polyglot, so let's talk about this someday. So yeah, it's wild.
+
+16:19.84
+Frank
+Yeah. I would like to know like what's what's a dev container versus a production Docker file and that kind of stuff.
+
+16:25.32
+James
+Hmm.
+
+16:27.03
+Frank
+And like what's a Kubernetes just spitting out 30 different database Docker files and all that stuff. But it's an impressive number either way. 120% growth on the Docker file.
+
+16:34.72
+James
+Yes.
+
+16:36.89
+Frank
+I feel like a little bit of a hipster here because I'm like, Jupyter Notebooks, like I was super into those things. four years ago. like It's funny, like me personally, i do much less notebooks these days. like I kind of went through my notebook phase a few years ago.
+
+16:54.42
+Frank
+And so I'm feeling like I'm missing out on like the the plunge everyone else is going into. I'm like, wait, these things are cool again? Where were you all five years ago? and um ah I'm a big fan of the notebooks, but like I said, me personally, it's dropped off a bit.
+
+17:10.40
+Frank
+But obviously not for everyone else. Everyone else is
+
+17:15.32
+Frank
+flying around Jupiter, orbiting Jupiter?
+
+17:18.21
+James
+i would I would say like for me, I've experimented more with Jupyter Notebooks because now I can have AI write Jupyter Notebooks for when I'm doing things. But I would say actually more so, ah probably am writing more Docker files.
+
+17:27.67
+Frank
+AI.
+
+17:30.64
+James
+I've done more containerization. I've done a lot more dev container work and things like that, like you're saying. So I would be interested, yeah, if you were to separate out the.dev containers. does that remove a bunch of stuff? Because you can spin up a dev container or like an image and have it load the code space off of a Docker container. So I think that would be very fascinating as well to know if those things are related or not.
+
+17:53.99
+Frank
+yeah I'm curious because like I don't think those are all making it to production so i think a lot of that has to be dev which which actually makes perfect sense because who wants to configure their dev machine these days it's too hard
+
+17:58.46
+James
+Yeah.
+
+18:07.03
+James
+Not me. ah Let's talk about where the world codes in 2025. And according to GitHub, ah do you want to break it down?
+
+18:12.38
+Frank
+I love this part hmm Sure. um But should we just go by the number one C or the number one growth? Because I'm always interested in growth, but we got to to the United States.
+
+18:27.39
+Frank
+We still got a lot of developers using GitHub.
+
+18:29.66
+James
+America,
+
+18:29.91
+Frank
+Go USA.
+
+18:30.55
+James
+America, we did it.
+
+18:30.87
+Frank
+ya America. Okay.
+
+18:32.24
+James
+All right, cool.
+
+18:32.45
+Frank
+But anyway, but we're not the ones growing.
+
+18:32.76
+James
+Next.
+
+18:36.32
+Frank
+We will be. We will be replaced soon. um There are some big growth ones. ah So ah the big big growing, the new users using GitHub um is India.
+
+18:49.91
+Frank
+Fantastic. A lot of um developers from there. It's a huge number, actually, because there are 28 million ah people on dev counts, whatever that means, for the United States.
+
+19:01.33
+Frank
+And India is up to nearly 22 million. So fantastic. Good job, India.
+
+19:05.21
+James
+Yep.
+
+19:06.80
+Frank
+um But they're not the only ones growing. They had a 35% growth. Brazil and Indonesia are hot on their tails in terms of growth, both at around 33%.
+
+19:14.69
+James
+Wow.
+
+19:18.34
+Frank
+That's kind of amazing. Could you imagine like, because like Indonesia, for example, went from about 1 million 4.5 million.
+
+19:27.91
+James
+That's crazy.
+
+19:28.10
+Frank
+that's
+
+19:28.33
+James
+Yeah.
+
+19:28.65
+Frank
+huge ah like That must feel somewhat transformative.
+
+19:30.15
+James
+yeah
+
+19:32.76
+Frank
+that That means like if you had like one or two programmer friends, you probably now have like four programmer friends.
+
+19:39.45
+James
+Yeah. 10.
+
+19:40.59
+James
+Do
+
+19:40.98
+Frank
+It's just got to be, I'm i'm curious, um especially if you're from Indonesia or Brazil, please write in and let us know like, every are all your friends programming now?
+
+19:48.94
+James
+it.
+
+19:50.07
+Frank
+Like what's going on?
+
+19:50.87
+James
+but Brazil, Brazil, for sure.
+
+19:51.39
+Frank
+how How's that growth feel?
+
+19:53.95
+James
+The Brazil developer community awesome. Like ah when I was in Brazil, it was, and that five years That was in 20, 2019.
+
+19:57.95
+Frank
+Okay.
+
+20:00.90
+James
+So it was before this. So this is the growth from 2020 to 2025 and the five year compound on annual growth rate.
+
+20:04.07
+Frank
+no
+
+20:06.95
+James
+But what's really fascinating about this is besides China, which, you know, that's hard to say because it's like, you know, yeah like, you know, the the firewall and like what they have access to and all the other services there, you would imagine they would be like number one um just for the amount of people in the world, just by population.
+
+20:21.51
+Frank
+Yeah. Just by population. Yeah.
+
+20:24.24
+James
+However, they have the the slowest growth on GitHub. and This on GitHub right now of all developers in the world.
+
+20:27.95
+Frank
+Yeah.
+
+20:28.36
+James
+But surprisingly, of the top 10,
+
+20:29.48
+Frank
+There's a bias there. Yeah.
+
+20:32.57
+James
+US, India, China, Brazil, UK, Japan, Germany, Indonesia, Russia, Canada. We have the slowest five year growth rate besides China, actually at 21%, which is fantastical. But of the 10, we are growing the slowest.
+
+20:44.91
+Frank
+yeah which means we will be surpassed by indonesia i got faith in you indonesia you can get yourself up to 22 million programmers no problem
+
+20:45.69
+James
+Besides China. yeah
+
+20:52.28
+James
+yeah Yep. Did 20, 20, 30 survey gonna be wild. mean, it's just gotta be.
+
+20:57.69
+Frank
+it'll be fun to do the retrospective on this episode in 2030 we'll still be here everyone make sure you stay subscribed
+
+21:00.23
+James
+Yeah. But Brazil, my Brazil devs. Awesome. Just big shout out.
+
+21:09.11
+Frank
+Do you think like the coffee shops are just full of people on laptops now?
+
+21:09.99
+James
+Yeah.
+
+21:13.91
+Frank
+I'm i'm curious where everyone's programming. Are they programming at home?
+
+21:16.53
+James
+Well, it, it, it says Indonesia continues to grow as it rises as the Southeast Asia's digital powerhouse that accounts for nearly half of the region's online economy. So Indonesia is just like,
+
+21:25.28
+Frank
+Amazing.
+
+21:26.66
+James
+wild, you know what I mean? And yeah, if you look at it, you know, APAC, so Asia Pacific plus 13 million developers, standout region, Latom 3.2 million, Europe 6.3, Africa, Middle 3.4.
+
+21:29.38
+Frank
+Yeah.
+
+21:40.75
+James
+So it's like they're growing grow steadily. Now, they also have projected. if you scroll down, here's the interesting. We just talked 2020. no Now, yeah, by 2030, it says, yes, there will be over 57 million developers.
+
+21:56.11
+James
+That's the minimum projected growth in India with the U.S.
+
+21:58.30
+Frank
+Yeah.
+
+21:59.28
+James
+coming in at number two at 54.7. And yeah, you know Indonesia up to nearly 10 million, 9 million developers still up there. But you know it's kind of crazy just the growth and you see lot of growth in nigeria and south africa and kenya and even morocco as well and 1.4 million to see that like on the rise so it's pretty crazy
+
+22:21.59
+Frank
+yeah
+
+22:24.29
+Frank
+In general, I don't trust any kind of projection beyond two or three months, but um but just talking about the growth numbers, like that's not going to slow down this year.
+
+22:26.94
+James
+no
+
+22:34.43
+Frank
+You know, it's just not, there's no big hurdles like that coming in the next few years. I don't, you know, AI was the last big revolution. um It's usually five to 10 years between revolutions, usually minimum 10. So I think this growth, maybe we we'll come back in 2030. We'll see how they did on their projections because i still think you can do it, India. You can overtake the US.
+
+22:56.01
+Frank
+Do it.
+
+22:56.13
+James
+could do it quicker, faster. You got it. Uh, let's talk about, let's talk about open source activity 2025.
+
+22:59.92
+Frank
+More devs.
+
+23:03.87
+James
+So this year, nearly 1.12 billion contributions to just public repos up 13% year over year developers crushing it out there.
+
+23:09.39
+Frank
+Crazy.
+
+23:13.22
+James
+March is the, is the single largest month of new open source contributions and get ups history.
+
+23:16.34
+Frank
+Huh.
+
+23:19.22
+James
+Uh, which is awesome.
+
+23:19.85
+Frank
+What happened in March? Was Amazon staying up somehow? So everyone's internet was good.
+
+23:23.77
+James
+It's a great question.
+
+23:25.05
+Frank
+and
+
+23:26.42
+James
+I mean, I still feel like you're kind of in the heart of, you know, you're still in the winter and much of America, but then maybe you're also in the summer, like your spring, you kind of spring spring in, you're getting, you're ready to come in spring, but also fall.
+
+23:32.90
+Frank
+Yeah.
+
+23:37.59
+Frank
+Mm-hmm.
+
+23:38.68
+James
+i don't, I don't know. don't, don't know what's happening in March.
+
+23:39.99
+Frank
+You want to get everything done before summer. you know You're just like, i got to get this done before I go on vacation.
+
+23:42.55
+James
+Yeah.
+
+23:45.04
+Frank
+That's why.
+
+23:46.25
+James
+Yeah. Um,
+
+23:47.30
+Frank
+But um you know anecdotally, like yeah, okay, we all know open source is growing and we all know we're all contributing more. But like I had a real visceral feeling of that even just today.
+
+23:58.26
+Frank
+I'm looking at this library, I'm thinking about using it. The code seems to be good. It's an open source library i never heard of. Obviously, an AI recommended it to me and I was like, oh, you must you're hallucinating. There's no library like that out there.
+
+24:10.37
+Frank
+No, that library exists. Turns out it's really good. It was programmed very well. And like, okay, I guess I don't have to write this thing from scratch. And then the library pointed to another library. I'm like, well, certainly that one has to be garbage. And I looked at that code. I'm like...
+
+24:27.28
+Frank
+you know, that's good code too. i had
+
+24:29.09
+James
+Yeah.
+
+24:29.24
+Frank
+I might actually end up having to use that in the future. And then I'm reading through their readme and they point to another project. All of these projects are deep in my wheelhouse. There are not many people out there who are crazy like me and like to like study graphics algorithms and that kind of stuff, especially when you're coming into like numerical algorithms and getting that stuff tight.
+
+24:50.84
+Frank
+Anyway, the second library referenced a third library i had never heard of. And i'm like, oh, maybe I'll rewrite. No, no, that one's perfect, too. It's got 8 billion contributions, 10 million stars, and I am the last person on the earth to discover it.
+
+25:04.84
+Frank
+And these are things in my wheelhouse. I'm supposed to know all these libraries, but you just can't keep up. It's just amazing how many of these things exist and how much good quality code people are pumping out there and making open source.
+
+25:15.89
+James
+That's awesome. Uh, I mean, that's what GitHub's all about, you know, even though lot of closed source, but also about the open source.
+
+25:22.47
+Frank
+Turned down, yeah.
+
+25:22.82
+James
+Let's talk. Let, so there's a bunch of different fastest growing newest contributors, a bunch of stuff. Let's break it down here. Um, standards MCP did very well, 40,000 stars in eight months.
+
+25:34.79
+James
+It's not actually on their list, but they pointed out there cause MCP everywhere. Fastest growing open source contribute pro open source projects by contributors. ah Six of them AI focused.
+
+25:43.58
+Frank
+ah
+
+25:45.67
+James
+um There's a standout. There's two standouts for me. One, Home Assistant. Shout out to Home Assistant. Open source smart home hub.
+
+25:56.18
+James
+Big fan of the Home Assistant.
+
+25:57.07
+Frank
+Yeah.
+
+25:57.66
+James
+Number 10 on the list. 2300% growth year over year. But VS Code. This is fastest growing. It's 10 years in.
+
+26:06.96
+Frank
+The VS Code. Not even a fork of it.
+
+26:08.68
+James
+The VS Code.
+
+26:09.84
+Frank
+The actual VS Code.
+
+26:10.72
+James
+The VS Code. That wild. I mean, know that there's tons of stuff going into VS Code, right? But it's a 10-year-old project. You'd think like fast is growing.
+
+26:22.03
+James
+mean, there's tons of stuff happening with AI in it, obviously.
+
+26:23.88
+Frank
+Mm-hmm.
+
+26:25.63
+James
+But lot of the ASF wasn't integrated into core until recently. Not all it is even there. So just the main repo.
+
+26:32.94
+Frank
+Yeah.
+
+26:34.97
+James
+Crazy. um Just wild.
+
+26:39.21
+Frank
+We do have to name some of the top ones um because ah there's UV. If you're in the Python world, you know UV has taken over the entire Python world. It is yet another way to install and run Python.
+
+26:48.08
+James
+Yep.
+
+26:51.43
+Frank
+I think you you were running a Python library some months ago and we were laughing about, oh, UV, it's it's it's the current way to run a Python library. Who knows what it'll be next year, but it seems like next year is still going to be UV.
+
+27:03.66
+Frank
+UV looks like it has some legs.
+
+27:03.88
+James
+yeah
+
+27:05.62
+Frank
+And it's going to keep going for at least a couple more years until it gets replaced by something else.
+
+27:05.59
+James
+yeah so
+
+27:10.24
+Frank
+um um I think it's really cool that ah they're one of the fastest growing libraries out there. Nice to see Python represented.
+
+27:19.05
+James
+Yeah. Let's talk about top open source projects by contributors. Um, this one's really fascinating down the list. Um, VLM. So high throughput LLM interface engine.
+
+27:31.05
+James
+It shows up a lot, by the way, VS code number two on there.
+
+27:34.73
+Frank
+and she
+
+27:35.43
+James
+It's Zach. Don't worry. It won't be the last time it shows up.
+
+27:36.63
+Frank
+um
+
+27:37.68
+James
+Yeah.
+
+27:38.01
+Frank
+I want to pause on VLM real quick. um It's kind of cool that they're getting so many contributors because like, i'm sorry, again, playing my hipster card.
+
+27:40.32
+James
+Yeah.
+
+27:47.11
+Frank
+Five years ago, there were not that many people who knew the technical background of how to work on this stuff.
+
+27:51.88
+James
+Mm-hmm.
+
+27:53.50
+Frank
+And it's kind of amazing that a lot of developers have gotten up to speed enough that they can actually start contributing to a project. So just as ah a machine learning guy, that's super cool that people are learning those skills.
+
+28:06.29
+James
+And just wait, there's going to be more ai and machine learning coming your way too.
+
+28:09.94
+Frank
+ah Don't worry.
+
+28:10.01
+James
+So ah number three, Codex.
+
+28:10.78
+Frank
+Don't you worry.
+
+28:14.41
+James
+That's kind of cool from open AI to the terminal itself. Like that's pretty rad. That's open source. Hugging face transformers. and know you're big hugging face fan.
+
+28:21.81
+Frank
+Yeah.
+
+28:22.74
+James
+Go hugging face.
+
+28:23.15
+Frank
+Yeah. Especially the Transformers.
+
+28:24.42
+James
+I'm a big fan of um big fan of this. time Godot, our favorite 2D, 3D game engine.
+
+28:27.67
+Frank
+Godot!
+
+28:29.52
+James
+Number five on the list. Good for Godot.
+
+28:31.60
+Frank
+People love that Godot. That is, yeah.
+
+28:33.55
+James
+It's good stuff.
+
+28:34.37
+Frank
+I still haven't used it. I feel kind of bad.
+
+28:36.42
+James
+yeah me too i need to really get on there's a brand new getting started with godot series by our good friend stacy stacy hafner yeah um
+
+28:41.48
+Frank
+Oh, okay Nice. Home Assistant, your love again. And I have to say, like I'm a little bit new to Home Assistant. I didn't know about it until maybe last year or the year before.
+
+28:52.13
+Frank
+So it's kind of cool to see.
+
+28:52.37
+James
+i think one of our listeners one of our listeners pointed it out i think yeah
+
+28:56.33
+Frank
+yeah so it's it's super cool that it's got legs again. it's always That's always the biggest problem with open source projects. You're like, OK, that's cool, but will be around next year? Yes, this one will be.
+
+29:07.28
+James
+Yep.
+
+29:07.96
+Frank
+Very cool.
+
+29:10.57
+James
+Number seven, Ollama.
+
+29:11.07
+Frank
+More. Yeah. And it's little baby brother, Llama C++. pupa i um i I'm a personal big fan Llama C++. plus plus I think it was very well coded and all that stuff. And I've actually built things around Llama C++. plus plus So Llama, O Llama, Vlem.
+
+29:29.07
+James
+Okay.
+
+29:29.54
+Frank
+They're all cool inference engines.
+
+29:32.80
+James
+Pretty good. We got some more LLM goodness. Verl, which I've never heard of, an LLM deployment and serving framework.
+
+29:37.83
+Frank
+Nope.
+
+29:39.78
+James
+don't know what that is, but it's popular.
+
+29:41.80
+Frank
+Well, you gotta put these things on servers somehow. Must be one of those.
+
+29:45.97
+James
+Volcano engine reinforcement learning for LLM's Verl.
+
+29:49.97
+Frank
+Okay.
+
+29:49.96
+James
+um And then Expo, React Native Toolkit for mobile apps. So Expo, you know mobile apps, that's where we started, where we're at I mean, started before that. But you know good to see some mobile stuff still kicking. Yeah, good good for good on Expo.
+
+30:06.67
+James
+Yeah.
+
+30:06.89
+Frank
+Yeah, i haven't I haven't tried that one, so no opinions, but um i was I was wrestling React the other day. But I know React Native is better than just React.
+
+30:14.44
+James
+yeah
+
+30:18.32
+James
+So that one is the ah top open source projects by contributors. And they also have fastest growing open source projects by contributors. Someone went in and they're like, Hey, co-pilot, give us 20 ways of sorting this data.
+
+30:30.43
+James
+So this one is very similar. So this is the fastest growing open source projects. Oh, no, this is the, what was earlier, right? It was kind of like, yep.
+
+30:37.00
+Frank
+Yeah.
+
+30:38.40
+James
+Okay. Zen, Klein, VLLM, UV, VS code, ragflow, SGLang, continue, comfy UI core. On there, there's another one, which is projects attracting the most first time contributors in 2025. Number one.
+
+30:56.10
+James
+VS code.
+
+30:57.09
+Frank
+Yeah.
+
+30:58.63
+James
+VS code.
+
+30:59.43
+Frank
+What is going Something weird. As a gambler, I'm getting a little suspicious now.
+
+31:05.55
+James
+I don't know, man. The team crushes. um There's another report called first contributions, first contribution, which is i home assistant number three.
+
+31:12.18
+Frank
+Funny.
+
+31:14.85
+James
+That's really cool to see.
+
+31:16.15
+Frank
+Good on them. um And that makes sense because there is not one IoT device that's compatible with everything. So you can tell there's someone who bought a light bulb and they're like, I got to get this thing to work.
+
+31:27.38
+Frank
+You can just feel that that's what's happening here.
+
+31:27.33
+James
+Yeah.
+
+31:30.42
+James
+Then we got bolt.new, which is like a app builder. They got flutter over there, which kind of crazy flutter on there.
+
+31:35.44
+Frank
+Oh, Flutter.
+
+31:37.33
+James
+got a little react, a little flutter going on there. Uh, Zen browser desktop is a dev register. I need to check out VLLM comfy UI and then llama pulling it in, which is kind of bananas.
+
+31:48.68
+James
+I mean, it's just like a lot of, lot of stuff. It's crazy.
+
+31:54.29
+Frank
+Yeah, I'm curious. OK, so these go against a little bit of what I was saying. Like um with the VLM and Olama, you need some skills at machine learning in order to contribute to these projects. So it's actually doubly impressive that they're getting a lot of first time contributors.
+
+32:08.70
+Frank
+um
+
+32:09.00
+James
+Yeah.
+
+32:09.99
+Frank
+I'm curious now, too.
+
+32:12.60
+James
+Yeah, it's crazy. um Top 10 countries by contributors and contributors. So contributors, India, it's kind of like a remix of what we just had India, US, Brazil, Indonesia, Germany, UK, Russia, Japan, France, Canada. Contributions, so little bit different, like how many times you're to doing. UK, India, Brazil, Germany, UK, Korea.
+
+32:33.69
+James
+France, Canada, Japan, and Russia. So India now has the largest population and open source contributor base in the world. This reflects most the country's booming developer population. It's increasing role in OSS adoption.
+
+32:44.73
+James
+The U.S. continues to lead in contributions. Despite having fewer contributors, U.S.-based devs contribute more to open and open source projects. We never stop working, apparently.
+
+32:52.50
+Frank
+Well, I was going to phrase that differently. i was going to say it takes us more tries to get it right than India.
+
+32:58.26
+James
+no. Oh, no.
+
+33:00.01
+Frank
+We have to submit more code in order to get it to work.
+
+33:00.80
+James
+ah
+
+33:03.58
+James
+Oh no.
+
+33:05.76
+Frank
+That's how I read it.
+
+33:05.88
+James
+right. Here's some, here's some sad stats, community health.
+
+33:06.72
+Frank
+Okay.
+
+33:09.46
+James
+So only 63% can you lose only 63%. This is not changing every year of public repos. Have a read me.
+
+33:19.40
+Frank
+See, that's one, yeah, that that one's tough because, you know, you could tell me all day that AIs make writing code easier, but what AIs really do is they make writing a readme easier.
+
+33:30.04
+Frank
+There is absolutely, yeah.
+
+33:30.35
+James
+I challenge GitHub. I challenge GitHub. Go 100% this puppy. Everybody gets a readme. PR that thing.
+
+33:38.79
+Frank
+Yeah, I mean, worst case, you just go into Copile and be like, hey, read all my code and write me a readme. Like, just something, spit it out.
+
+33:44.52
+James
+Yeah. Something. What is this?
+
+33:47.24
+Frank
+Yeah.
+
+33:49.11
+James
+Even worse, contributor guides. 5.5%. No one's out here. Okay.
+
+33:54.64
+Frank
+who's got time for that?
+
+33:56.05
+James
+no one's saturday
+
+33:56.38
+Frank
+There should be a boilerplate.
+
+33:58.57
+James
+Even worse, code of conduct, 2%. two percent It's not there by default.
+
+34:03.28
+Frank
+Yeah.
+
+34:04.49
+James
+like I think the license file and readme's are higher because they're there by default.
+
+34:05.11
+Frank
+Yeah.
+
+34:08.49
+James
+When you set it up, you're just like, let's go.
+
+34:09.80
+Frank
+Mm-hmm.
+
+34:10.36
+James
+You know what i mean?
+
+34:11.94
+Frank
+Yeah, it'd be a lot easier if there were just some standard codes of conduct I can just pick through and be like, OK, that's my favorite code of conduct. I just paste that into every one of my repos.
+
+34:19.28
+James
+Yeah.
+
+34:21.05
+Frank
+Yeah. And I assume these are just for the public ones, because private ones, I don't know.
+
+34:25.95
+James
+Yeah.
+
+34:26.91
+Frank
+Yeah, a little different.
+
+34:27.93
+James
+Yeah. Okay. ah Security.
+
+34:32.17
+Frank
+Oh, no. Let's not talk about that. Can we skip this one, James? We don't we don't need to talk about security.
+
+34:35.47
+James
+but Security.
+
+34:37.67
+Frank
+Security through obscurity. If we don't talk about it, we're secure.
+
+34:41.53
+James
+Okay. So one thing that I talked about in my, how I use background agents every single day, there's this little friend of ours called depend about, uh, you just turn it right in your source code.
+
+34:50.60
+Frank
+Yeah.
+
+34:52.43
+James
+And so we'll scan for all of your repos and look for all of your packages. Uh, good fun fact, nearly 850 million projects, uh, now have depend about configured, which is 140% year over year growth. So good work turn on hitting a.
+
+35:10.28
+James
+Checkbox. i
+
+35:11.47
+Frank
+yeah
+
+35:11.61
+James
+Good work, people.
+
+35:14.05
+Frank
+Well, it's not, yeah, I mean, there's having Dependabot on, but you also have to merge those PRs once in a while. And I'm, honestly, I'm guilty of a lot of this. My static HTML blog keeps getting yelled at me because Dependabot's getting very angry with me. I'm like, but it's static HTML.
+
+35:30.63
+James
+Yeah.
+
+35:31.02
+Frank
+What could possibly be wrong with it?
+
+35:34.11
+James
+It says like here, 26% fewer repos received critical alerts through a combination of increased automation and AI usage. So like things are happening basically. Um, so it seems like it's some positive things coming, although apparently broken access control, which is usually by, um malformed SAML authentication flow, um, uh, code QL, which we talked about last week, uh,
+
+36:01.22
+James
+which does quality stuff, flagged 151,000 repos, almost 200% year over year growth, um, for misconfigured permissions on CICD pipelines. Hey, that stuff's hard.
+
+36:13.53
+James
+Make it, do you know what that sounds like?
+
+36:13.65
+Frank
+I like it.
+
+36:15.49
+James
+Make it easier, make it, make it better, make it more modern.
+
+36:17.35
+Frank
+Yeah, maybe don't use YAML. but Anyway, it's like i still pat myself on the back when I get a CICD working within three commits.
+
+36:19.59
+James
+Yeah.
+
+36:25.16
+Frank
+I'm just like, I'm getting good at this. Used to take me 30.
+
+36:30.80
+James
+I like it.
+
+36:31.25
+Frank
+um
+
+36:31.32
+James
+Yep.
+
+36:32.48
+Frank
+you know It is kind of neat that the, um and I think that they call this out, like, ideally, if dependent bot, if it's being successful, it should kind of go away.
+
+36:43.65
+Frank
+um Because we're all getting notified of the security things, we're all updating our code and all that kind of stuff. So its success story is almost the opposite the the less it's doing over time is almost better with all of us having it installed and all that and the numbers are showing that it's it's it's not showing like dependent has opened ten x the request it did last year because this is the euro security vulnerabilities no it's actually a little bit flat which is nice that means we are actually patching our static html logs so
+
+37:14.72
+James
+That's good. And yeah, there's a bunch of other stuff in here. no one really cares because what we care about is top programming languages of 2025. right. Wow.
+
+37:20.38
+Frank
+Oh, boy!
+
+37:20.36
+James
+This bananas.
+
+37:21.52
+Frank
+No! No! Don't do it! This is the worst part! This is the worst part!
+
+37:25.59
+James
+wow this is
+
+37:27.24
+Frank
+I... I don't like these...
+
+37:28.61
+James
+bananas
+
+37:29.70
+Frank
+Okay, before we even say anything, I don't like these, okay? Because... it's not representative what you're actually using. If you like pull in someone else's code, like I pull in a lot of C code and I have repos that are like, I hand wrote beautiful, perfect little C sharp code, but I imported someone's library that had 8 billion C files and the things like 90% C and 10% C sharp. And I'm just like, no, no, I really did work on the C sharp.
+
+37:58.44
+Frank
+So there's a lot of potential biases for this number. Okay, all caveats down. What are the most popular languages?
+
+38:06.47
+James
+Number one programming language in the world up 20 or no up 66%
+
+38:13.41
+Frank
+Wow. My god.
+
+38:15.53
+James
+year over year contributor gain 1 million new typescript developers.
+
+38:20.06
+Frank
+Wow.
+
+38:22.45
+Frank
+sixty six percent that's a lot 66%. That's a lot.
+
+38:24.42
+James
+That's a lot.
+
+38:24.51
+Frank
+That's actually...
+
+38:24.76
+James
+I've written more TypeScript this year than I ever have in my entire life.
+
+38:29.01
+Frank
+Yeah, and you you know, I can, I would almost say this shows that I'm a tiny bit out of the loop because I felt like TypeScript was becoming less popular, to be honest, because JavaScript has gotten a lot of features from TypeScript or however you want say that, you know.
+
+38:41.55
+James
+Yeah.
+
+38:44.71
+Frank
+You know what I mean. JavaScript has gotten better over the years. And I felt like there was a little bit of a period there where people were being like, I'm just going to run in JavaScript. I don't need types.
+
+38:53.05
+James
+Yeah.
+
+38:53.40
+Frank
+I don't want to deal with the compiler or any of that kind of stuff. So felt like there was almost like a backlash against TypeScript. What I think is actually happening is the AIs are helping everyone. like, oh, okay, fine. I'll put types in my code.
+
+39:04.67
+Frank
+And if you generate the project JSON for me, then, you know, whatever.
+
+39:05.32
+James
+Totally.
+
+39:10.32
+Frank
+Then I'm cool with it. ah So congratulations, TypeScript. It's obviously a wonderful language. um And i'm I'm impressed because I felt like there was a backlash building there. But I guess I'm out of the loop and I didn't understand. And there's 66% more people are using TypeScript than I ever would have guessed.
+
+39:29.40
+James
+crazy. Yeah, including me. That's me. I was ah my my buddy that's a big JavaScript TypeScript fan, Luke. ah We were Vibe Coding at Universe, was there, and he was just like, I never thought in my day I would see Mott's writing TypeScript.
+
+39:42.64
+James
+It's like in their year year of the Lord, 2025, it happened.
+
+39:43.23
+Frank
+Aww.
+
+39:46.63
+James
+and and The one thing you won't see me writing, number two, which was number one, Python. So kicking strong.
+
+39:54.17
+Frank
+Aww.
+
+39:54.39
+James
+Yeah.
+
+39:54.59
+Frank
+Python. what do you mean was number one? You mean like in 2024 it was number one?
+
+39:58.86
+James
+That is correct.
+
+40:00.76
+Frank
+Oh, it lost a spot. That's a little bit sad. Look, TypeScript's a great language, but Python is the best programming language. Now, F-sharp is obviously the best programming language, but Python's right up there.
+
+40:15.15
+Frank
+ah as ah As a pth Python wonk, sad to see TypeScript beat it, but I get it. The web is huge. Long live the web. Python, you you really got to up your web game.
+
+40:24.97
+James
+but da da
+
+40:27.65
+Frank
+You just do.
+
+40:29.74
+James
+There you go. I think so. you know, I think like a lot of like the the React, the Vue, Vite stuff, a lot of the templates are just like default TypeScript, Go, default type, you know, Go basically.
+
+40:37.90
+Frank
+Yeah, that ecosystem.
+
+40:42.40
+Frank
+Yeah.
+
+40:43.61
+James
+And it just kind of runs. That's how I wrote a lot of the stuff. It just works fairly well.
+
+40:47.67
+Frank
+And there's
+
+40:48.05
+James
+And and and I think as a.NET developer that's written a lot of like htm or like you know HTML and XML and Razor code, Like I can read it and parse it. I can run it and I do the stuff. Like it's it's not super complicated. There's a lot of new stuff to learn, obviously. But ah for some of the stuff I'm writing, it's it's quite fun to like learn. Although my my home is in the in the C Sharp down now, which we'll talk about a bit.
+
+41:11.85
+Frank
+Well, yeah, and and and ah not to make everything about AI, but everything is about AI this year. um There's a positive feedback loop happening in the JavaScript TypeScript world that because of the web and because of just everyone's basically giving out their source code to even their private apps, you know, you write a client-based web app, your source code's there.
+
+41:17.82
+James
+Yeah.
+
+41:31.22
+James
+Yeah.
+
+41:31.85
+Frank
+Maybe you obfuscate it, but it's still code. It's still there. Structurally, it's there. And these AIs can figure out what's happening there. um The AIs have had plenty of open source stuff to learn from. The better it gets at generating TypeScript JavaScript, the more people will use it to generate TypeScript JavaScript, which will feed back into that and just positive.
+
+41:49.69
+Frank
+It's a beautiful positive feedback loop, and that's just going to keep escalating.
+
+41:50.40
+James
+Yeah, it really is. Yep. No, it's definitely true. And that's why you see, you know, like JavaScript is still in the third spot. You know, it still has 25% growth.
+
+42:02.17
+James
+So still doing really good. And Java, number four, still ah gross. But you know our little friend C-sharp, number five, still steady and growing faster than Java.
+
+42:09.42
+Frank
+Number five. And?
+
+42:14.59
+Frank
+It is growing faster than Java. I mean, all my biases are coming out. like I'd be like, of course C-sharp's growing faster than Java. But I forget, like, still a lot of Java programmers out there. Hi, Java programmers. If you're a Java programmer, write into the show. Leave a comment.
+
+42:29.17
+Frank
+ah We're sorry. we're We're sorry that we're growing faster than you.
+
+42:32.74
+James
+Yeah. think
+
+42:34.08
+Frank
+It's only by... All the biases I said in the beginning, don't apply. C-sharp, go C-sharp. Number five, way to pull through. I'm just happy it's not or Oh.
+
+42:43.05
+James
+i think
+
+42:43.97
+Frank
+Crazy.
+
+42:44.90
+James
+Oh, I know. Yeah. It's like, so they they also have like usage, like combined usage. So there's like now JavaScript TypeScript combined, they combine so they don't break it out as ah over 4.5 million, Python at 2.75 million, Java at about a million, C Sharp at 800,000 on GitHub.
+
+42:53.99
+Frank
+oh
+
+42:57.89
+Frank
+crazy
+
+43:06.28
+James
+You know, and I think in the C Sharp world, we would see a lot more by the way, but I think a lot of that code might be in our good friend Azure DevOps. So...
+
+43:14.91
+Frank
+Yeah, and it's a lot of private. ah You know, yeah, yeah actually, that they're not being queer.
+
+43:17.82
+James
+lot of private.
+
+43:20.46
+Frank
+This is probably private also, though, now that I think about it, because they're just giving aggregate numbers here, so this should include it.
+
+43:27.65
+James
+That would make sense.
+
+43:28.25
+Frank
+Take it back.
+
+43:28.78
+James
+so It's a little bit, I'm not positive what it is, but it's out there basically, which is fascinating.
+
+43:32.55
+Frank
+Yeah. Yeah.
+
+43:37.78
+James
+So yeah, python dominates us Python dominates AI projects. Typed is greater than loosely typed. Enterprise stacks endure. Java and C-sharp each added over 100K contributors this year, showing steady growth.
+
+43:49.01
+James
+Legacy experiments emerged. Cobalt appeared in our dataset with nearly 3,000 active developers, likely written by organizations, hominists, creating AI-assisted tutorial repositories aimed at modernization modernizing legacy code base.
+
+43:54.12
+Frank
+What?
+
+43:57.84
+Frank
+What?
+
+44:04.51
+James
+I definitely see that. Which is crazy.
+
+44:06.51
+Frank
+Do you? You've seen... i No, you just mean you can... You believe that. you Have you actually seen someone write Cobalt?
+
+44:14.28
+James
+but
+
+44:16.11
+Frank
+What?
+
+44:16.11
+James
+Yeah. Mostly they're they're writing like stuff like onboard to like onboard people to like write and maintain COBOL then also to try to get off of COBOL.
+
+44:17.69
+Frank
+Do tell.
+
+44:23.02
+Frank
+Really?
+
+44:23.86
+James
+Yeah.
+
+44:24.52
+Frank
+okay um
+
+44:25.43
+James
+Yeah.
+
+44:26.07
+Frank
+Wow. Okay. I didn't see that one coming, James.
+
+44:26.82
+James
+Yeah.
+
+44:28.23
+Frank
+I gotta be honest.
+
+44:28.38
+James
+Yep. Yep. um So it's out there. um Okay. Let's run through some numbers here as well. So we have fastest growing languages by percentages. ah Lua up 200% year over year because that's Roblox.
+
+44:41.38
+Frank
+Stop it.
+
+44:42.28
+James
+That's Roblox scripting language.
+
+44:43.40
+Frank
+Oh, that's Lua based. Okay. You got me there.
+
+44:45.51
+James
+Yep.
+
+44:46.30
+Frank
+Okay. Okay.
+
+44:47.38
+James
+Typist, which is a modern latex alternative up 100%. Astro, la attack LaTeX, latex, latex.
+
+44:51.55
+Frank
+LaTeX. Mm-hmm. LaTeX. LaTeX.
+
+44:56.88
+James
+Astro up 78. Blade, never heard of that.
+
+45:05.21
+Frank
+Good job. Nailed it.
+
+45:07.22
+James
+Up 67.
+
+45:07.63
+Frank
+It's PHP.
+
+45:08.11
+James
+TypeScript up 67. Lots of TypeScript. Core stacks for new projects. Nearly 80% of new repositories. This is a big number. okay This is important. These numbers are all really big.
+
+45:17.14
+Frank
+Okay. Yeah.
+
+45:19.22
+James
+80% of new repositories use just six programming languages. 80%. eighty percent
+
+45:25.56
+Frank
+and Okay.
+
+45:27.34
+James
+Python, JavaScript, TypeScript, Java, C++, C sharp.
+
+45:27.72
+Frank
+And
+
+45:31.50
+Frank
+you did it. You put C++ plus plus in. What? Stop it, people. Stop it.
+
+45:34.92
+James
+There is C plus.
+
+45:35.37
+Frank
+There's alternatives to C++. plus plus You don't need to do do yourself, do your friends, do the world a favor and please stop writing C++ plus plus code. If you must, write C code.
+
+45:46.52
+Frank
+But do not write any more C++. Please stop it.
+
+45:48.57
+James
+No. It's out there. Uh, and funny about that. They have the language, uh, most, most commonly used languages and AI tag projects, Python, JavaScript, TypeScript, shell
+
+46:01.51
+Frank
+Oh, God.
+
+46:01.45
+James
+Yup. That's crazy.
+
+46:03.80
+Frank
+You know, I knew a developer, and they would actually write, like, programs in the shells, like Bash specifically, and they actually learned, like, Bash syntax, and they would write scripts.
+
+46:04.01
+James
+yep
+
+46:11.24
+James
+i
+
+46:13.52
+Frank
+And then I'm just like, look, you can write 10-line script.
+
+46:15.24
+James
+that's crazy
+
+46:17.68
+Frank
+It's fine. If it gets to be more than 10 lines, please, for the love of God, switch to Python or something. ah Just stop. Just stop. No Bash scripts over 10 lines, please.
+
+46:27.20
+James
+That's crazy. um All right. The rest of this is all really about AI projects. AI is everywhere. AI, AI, AI, AI. Now, they do have a huge appendix.
+
+46:35.64
+Frank
+Yeah.
+
+46:37.03
+James
+They have a methodology. They have units. One thing that I do like about this, if you scroll way down to the bottom, they actually have like a whole full glossary. have methodology for scope. They have units and entities.
+
+46:45.63
+Frank
+yeah
+
+46:46.80
+James
+They have growth baselines, geography, repository lines. So they have like a really, you know, great way of like diving through, which is like really cool. So if you're a numbers nerd like me, then this is a great blog post for you.
+
+46:59.95
+James
+But any key takeaways? We spent 47 minutes reading a blog post.
+
+47:05.36
+Frank
+Um, my, my biggest, i don't, it's hard to say because like, Forever, programming was pushed as a nice career advancement, let's do this. And then it felt like there was a bit of a backlash. Everyone's like, well, now that AI is out, you don't have to be a programmer anymore.
+
+47:23.25
+Frank
+But I'm glad to see kind of the opposite has come true. Now that AI is out, more people are becoming programmers and doing more programming. It hasn't decreased the number of programmers, it's increased it somehow.
+
+47:36.62
+Frank
+So the invention of the car has increased the number of horses. don't know. Something weird like that has happened.
+
+47:42.28
+James
+Yeah. Yeah.
+
+47:43.13
+Frank
+And i'm honestly, it just makes me happy because i love programming. it's ah It's obviously in the end, it's a tool to get something else done. And we shouldn't overfocus on the programming side of programming.
+
+47:53.84
+Frank
+We should be focused on the problem solving and the solutions and all that stuff.
+
+47:54.15
+James
+you
+
+47:57.93
+Frank
+But it's nice to see that it's ah it's a growing industry, especially in Indonesia, Brazil, and ah India, a little less so in the USA, people. um And that just makes me happy because it's something obviously both of us are passionate about.
+
+48:14.70
+James
+Yeah. And, you know, I think that, ah you know, looking at all the numbers, you know, as a C-sharp developer myself that primarily writes C-sharp code out on the internet, you know, it's great to see it well represented year over year continuously. And I encourage folks to be active in those open source projects. That's how we continue to grow.
+
+48:33.70
+James
+out there. And you know i I do think that there's opportunity um to continue to have C Sharp and.NET be part of the more of the AI story as well.
+
+48:46.26
+Frank
+Yeah.
+
+48:46.40
+James
+There's the new Microsoft Agent Framework. There's a Microsoft Essentials AI. I think if there's more of this out there, that we'll continue to see that grow as well. And I think I see a day that that we very soon take over Java as well because all the numbers indicate that, ah which I think is great.
+
+49:05.82
+James
+you know The thing is like the web is just the web, right? And like the web will always be ginormous.
+
+49:08.81
+Frank
+yeah
+
+49:10.26
+James
+and you know Python and its growth and its trajectory has had amazing momentum. It's not my favorite programming language at all, but it is one of many people. So I think it's really cool, like you said, just to see the growth in the different regions.
+
+49:24.53
+James
+I love that US is still growing a lot, obviously. I'm here. you know um Sometimes the jobs market doesn't feel that way, but it's like there's more developers than ever. you know i think it's cool that just like so many more people are pouring into open source. And GitHub is just...
+
+49:39.11
+James
+one of the places where you can put your source code, right? So these numbers inherently are much smaller than the, you the, the wide, the vast amount of developers in the world. But, uh, I love seeing this, this, this growth and the community around it and just the amount of people contributing.
+
+49:56.15
+James
+And I think, uh, to unique, know, pro, you know, you know projects as well. Like the thing that I think interesting going through is like yeah, there's a lot of AI projects, a lot of AI stuff, but, Also, there's a lot of non-AI projects too that people are really passionate about and continue to really do that.
+
+50:08.93
+Frank
+Sure.
+
+50:11.03
+James
+So we we sometimes get, you know, AI everything, right? But actually there's amazing work being done in like LLM or LLVM stuff, not LLMs.
+
+50:22.76
+Frank
+You can do it. Yeah.
+
+50:25.22
+James
+ah You know what I mean?
+
+50:27.80
+Frank
+Well, I...
+
+50:28.53
+James
+The the compiler thing.
+
+50:30.64
+Frank
+The compiler thing, yeah. And I was going to quote you exactly what the LL stands for, and then I totally forgot.
+
+50:32.01
+James
+Yes.
+
+50:35.96
+Frank
+So everyone will all look that up later. um Yeah, and but there's an obvious bias here because ah AIs are popular this year. So, of course, those are going the popular projects.
+
+50:45.82
+James
+Yeah.
+
+50:47.34
+Frank
+That's why they show up at the top of the list. If I can critique all these numbers those blog posts in one thing, it's all top five lists. um And it's great like it's great to see C Sharp get into the top five.
+
+50:56.53
+James
+yeah
+
+50:58.43
+Frank
+But what you kind of want to see also is like the top 20 list, you know, like so you can kind of catch those smaller projects because ah there's just an AI bias.
+
+51:02.13
+James
+yeah
+
+51:07.29
+Frank
+There's a bias toward the big programming languages. That's it's kind of fun to see the the new languages, that new list. um So while it's super cool they put this out, I wish they would also have a link to kind of the raw data where each list they did here, they went down to maybe 50 positions.
+
+51:20.28
+James
+Yeah.
+
+51:23.51
+James
+yeah
+
+51:25.62
+Frank
+So you can really see because like, You know i I write Swift code from time to time. I'm curious, like, what the growth in the Swift world is, or maybe it's negative, and maybe I'll consider that and think about it.
+
+51:37.77
+Frank
+Probably not. You know, I like the languages for what they are and all that stuff, but it's always curious, and we're not always given, as day-to-day developers, we're not always given this big 30,000-foot view of all this kind of stuff, so it'd be nice to get that.
+
+51:53.62
+Frank
+I think the Stack Overflow survey a little bit better there. I think they make their lists a bit longer, and so you can see the smaller whatever, the ones lower on the list, not just top fives.
+
+51:59.05
+James
+yeah
+
+52:05.66
+James
+I will ah call everyone's attention to a little website I just found called innovationgraph.github.com and specifically programming languages.
+
+52:14.00
+Frank
+so
+
+52:16.15
+James
+I'll put it in the and the links here if I remember to put in the show notes.
+
+52:17.77
+Frank
+Oh boy, oh boy.
+
+52:19.70
+James
+but innovationgraph.github.com. So there is, you can actually say, show me that the top 50. Swift actually did go up, by the way. It was,
+
+52:29.35
+Frank
+Oh, good. Good job, Swift.
+
+52:30.76
+James
+It was 18 and then Q1 went up to 17. So it's, it's a, it was, oh, sorry, it was 18 and then it moved up to 17. So it's moving and shaking. It started at 21. I guess this would be in 2020. So it's over the last five years.
+
+52:44.88
+James
+I think the other report has newer, newer data. Cause this one still has JavaScript and TypeScript kind of coming up. So this one is a few quarters back, but it's cool.
+
+52:50.64
+Frank
+Mm-hmm.
+
+52:52.99
+James
+Like there is data, like data data does exist out there. yeah.
+
+52:57.68
+Frank
+i Yeah, i'm I'm going to yell at them for their terrible presentation. They're using their ugest the ugliest graph I've ever seen on the planet. It's absolutely unreadable.
+
+53:05.59
+James
+crazy.
+
+53:07.62
+Frank
+um But I assume that there's Swift on here, and i I applaud you, James, for being able to find Swift far faster than I am.
+
+53:15.28
+James
+Control F.
+
+53:16.99
+Frank
+Okay.
+
+53:17.11
+James
+So, yeah,
+
+53:21.69
+Frank
+What did we learn today?
+
+53:21.76
+James
+yeah so so ah we learned that, you know, sometimes just got to read a blog to do a podcast. ah But numbers, numbers are fun.
+
+53:32.11
+James
+ah Go check it out.
+
+53:32.60
+Frank
+Yeah. Yeah.
+
+53:33.51
+James
+And I think don't read too far into the numbers. That's what I would say. I remember when the Octoverse, this just dropped. People were like, oh, everything's TypeScript and that's it. But like you said, there's like the cycle that is this happening and we see it there.
+
+53:46.74
+James
+and And it was already popular, you know, and so continues to be popular.
+
+53:50.49
+Frank
+yeah
+
+53:52.49
+James
+And I don't see that slowing down at all. Just like I don't see Python slowing down at all either or C Sharp.
+
+53:58.04
+Frank
+Okay, now that I've actually been able to read this graph, I have to point out ah a couple cute things that I find. Swift finally overtook Objective-C. Wow, that only took forever. Thank you. Thank you, Swift. You finally did it.
+
+54:09.21
+Frank
+And I love that Lua has now surpassed Rust. No shade against Rust, but I hate Rust. So good job, Lua, for surpassing
+
+54:15.38
+James
+Wow. Wow. Spicy. Well, let us know what you think of the Octoverse. If any of these things are standout-ish or something like caught your surprise, go to mergeconflict.fm. There's a contact button. You can just up on Twitter at James Montemagno at Proclarem, that's going to this week's podcast. Until next time, I'm James Montemagno.
+
+54:35.85
+Frank
+And I'm Frank Kruger. Thank you for watching and listening.
+
+54:39.72
+James
+Peace.
+
