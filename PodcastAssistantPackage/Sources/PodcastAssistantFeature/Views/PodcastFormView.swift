@@ -30,6 +30,12 @@ public struct PodcastFormView: View {
     
     // UI state
     @State private var errorMessage: String?
+    @State private var selectedTab: FormTab = .basicInfo
+    
+    private enum FormTab: String, CaseIterable {
+        case basicInfo = "Basic Info"
+        case thumbnailDefaults = "Thumbnail Defaults"
+    }
     
     public init(podcast: Podcast? = nil) {
         self.podcast = podcast
@@ -37,195 +43,41 @@ public struct PodcastFormView: View {
     
     public var body: some View {
         NavigationStack {
-            Form {
-                Section("Basic Information") {
-                    TextField("Podcast Name", text: $name)
-                    TextField("Description (optional)", text: $description, axis: .vertical)
-                        .lineLimit(3...6)
+            VStack(spacing: 0) {
+                // Tab Picker
+                Picker("", selection: $selectedTab) {
+                    ForEach(FormTab.allCases, id: \.self) { tab in
+                        Text(tab.rawValue).tag(tab)
+                    }
                 }
+                .pickerStyle(.segmented)
+                .padding()
                 
-                Section("Artwork") {
-                    if let artworkImage = artworkImage {
-                        HStack {
-                            Image(nsImage: artworkImage)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 100, height: 100)
-                                .cornerRadius(8)
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Current Artwork")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Button("Change Image") {
-                                    selectArtworkImage()
-                                }
-                                .applyLiquidGlassButtonStyle(prominent: false)
-                                Button("Remove") {
-                                    self.artworkImage = nil
-                                }
-                                .applyLiquidGlassButtonStyle(prominent: false)
-                                .foregroundColor(.red)
-                            }
-                        }
-                    } else {
-                        Button("Select Artwork Image") {
-                            selectArtworkImage()
-                        }
-                        .applyLiquidGlassButtonStyle(prominent: false)
-                    }
-                }
+                Divider()
                 
-                Section("Default Thumbnail Settings") {
-                    Text("These settings will be copied to new episodes")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                // Tab Content
+                TabView(selection: $selectedTab) {
+                    basicInfoTab
+                        .tag(FormTab.basicInfo)
                     
-                    // Images
-                    GroupBox("Images") {
-                        VStack(alignment: .leading, spacing: 12) {
-                            if let overlayImage = defaultOverlayImage {
-                                HStack {
-                                    Image(nsImage: overlayImage)
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 80, height: 80)
-                                        .cornerRadius(6)
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Default Overlay")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                        HStack {
-                                            Button("Change") {
-                                                selectOverlayImage()
-                                            }
-                                            .applyLiquidGlassButtonStyle(prominent: false)
-                                            Button("Remove") {
-                                                self.defaultOverlayImage = nil
-                                            }
-                                            .applyLiquidGlassButtonStyle(prominent: false)
-                                            .foregroundColor(.red)
-                                        }
-                                    }
-                                }
-                            } else {
-                                Button("Select Default Overlay (Optional)") {
-                                    selectOverlayImage()
-                                }
-                                .applyLiquidGlassButtonStyle(prominent: false)
-                            }
-                        }
-                    }
-                    
-                    // Canvas Settings
-                    GroupBox("Canvas") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Picker("Resolution", selection: $defaultCanvasResolution) {
-                                ForEach(ThumbnailGenerator.CanvasResolution.allCases) { resolution in
-                                    Text(resolution.rawValue).tag(resolution)
-                                }
-                            }
-                            
-                            if defaultCanvasResolution == .custom {
-                                HStack {
-                                    TextField("Width", text: $defaultCustomWidth)
-                                        .frame(width: 80)
-                                    Text("×")
-                                    TextField("Height", text: $defaultCustomHeight)
-                                        .frame(width: 80)
-                                }
-                            }
-                            
-                            Picker("Background Scaling", selection: $defaultBackgroundScaling) {
-                                ForEach(ThumbnailGenerator.BackgroundScaling.allCases) { scaling in
-                                    Text(scaling.rawValue).tag(scaling)
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Typography
-                    GroupBox("Typography") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Picker("Font", selection: $defaultFontName) {
-                                Text("Helvetica Bold").tag("Helvetica-Bold")
-                                Text("Arial Bold").tag("Arial-BoldMT")
-                                Text("Impact").tag("Impact")
-                                Text("Futura Bold").tag("Futura-Bold")
-                                Text("Menlo Bold").tag("Menlo-Bold")
-                                Text("Avenir Next Bold").tag("AvenirNext-Bold")
-                                Text("Gill Sans Bold").tag("GillSans-Bold")
-                            }
-                            
-                            HStack {
-                                Text("Size: \(Int(defaultFontSize))")
-                                Spacer()
-                                Slider(value: $defaultFontSize, in: 24...200, step: 4)
-                                    .frame(width: 150)
-                            }
-                        }
-                    }
-                    
-                    // Colors
-                    GroupBox("Colors") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text("Font Color")
-                                Spacer()
-                                ColorPicker("", selection: $defaultFontColor, supportsOpacity: false)
-                                    .labelsHidden()
-                            }
-                            
-                            Toggle("Outline", isOn: $defaultOutlineEnabled)
-                            
-                            if defaultOutlineEnabled {
-                                HStack {
-                                    Text("Outline Color")
-                                    Spacer()
-                                    ColorPicker("", selection: $defaultOutlineColor, supportsOpacity: false)
-                                        .labelsHidden()
-                                }
-                                .padding(.leading, 16)
-                            }
-                        }
-                    }
-                    
-                    // Layout
-                    GroupBox("Layout") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Picker("Position", selection: $defaultTextPosition) {
-                                ForEach(ThumbnailGenerator.TextPosition.allCases) { position in
-                                    Text(position.rawValue).tag(position)
-                                }
-                            }
-                            
-                            HStack {
-                                Text("H-Padding: \(Int(defaultHorizontalPadding))")
-                                Spacer()
-                                Slider(value: $defaultHorizontalPadding, in: 0...200, step: 5)
-                                    .frame(width: 150)
-                            }
-                            
-                            HStack {
-                                Text("V-Padding: \(Int(defaultVerticalPadding))")
-                                Spacer()
-                                Slider(value: $defaultVerticalPadding, in: 0...200, step: 5)
-                                    .frame(width: 150)
-                            }
-                        }
-                    }
+                    thumbnailDefaultsTab
+                        .tag(FormTab.thumbnailDefaults)
                 }
+                .tabViewStyle(.automatic)
                 
                 if let errorMessage = errorMessage {
-                    Section {
+                    Divider()
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.red)
                         Text(errorMessage)
                             .foregroundColor(.red)
                             .font(.caption)
                     }
+                    .padding()
+                    .background(Color.red.opacity(0.1))
                 }
             }
-            .formStyle(.grouped)
             .navigationTitle(podcast == nil ? "New Podcast" : "Edit Podcast")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -246,7 +98,219 @@ public struct PodcastFormView: View {
                 loadExistingData()
             }
         }
-        .frame(minWidth: 600, minHeight: 800)
+        .frame(minWidth: 600, idealWidth: 650, minHeight: 600, idealHeight: 650)
+    }
+    
+    // MARK: - Tab Views
+    
+    private var basicInfoTab: some View {
+        Form {
+            Section {
+                TextField("Podcast Name", text: $name)
+                    .textFieldStyle(.roundedBorder)
+                
+                TextField("Description (optional)", text: $description, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(3...6)
+            } header: {
+                Text("Information")
+                    .font(.headline)
+            }
+            
+            Section {
+                if let artworkImage = artworkImage {
+                    HStack(spacing: 16) {
+                        Image(nsImage: artworkImage)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 100, height: 100)
+                            .cornerRadius(8)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Current Artwork")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            HStack(spacing: 8) {
+                                Button("Change") {
+                                    selectArtworkImage()
+                                }
+                                .applyLiquidGlassButtonStyle(prominent: false)
+                                Button("Remove") {
+                                    self.artworkImage = nil
+                                }
+                                .applyLiquidGlassButtonStyle(prominent: false)
+                                .foregroundColor(.red)
+                            }
+                        }
+                    }
+                } else {
+                    Button("Select Artwork Image") {
+                        selectArtworkImage()
+                    }
+                    .applyLiquidGlassButtonStyle(prominent: false)
+                }
+            } header: {
+                Text("Podcast Artwork")
+                    .font(.headline)
+            }
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+    }
+    
+    private var thumbnailDefaultsTab: some View {
+        Form {
+            Section {
+                Text("These settings will be copied to new episodes")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Section {
+                if let overlayImage = defaultOverlayImage {
+                    HStack(spacing: 16) {
+                        Image(nsImage: overlayImage)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 80, height: 80)
+                            .cornerRadius(6)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Default Overlay")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            HStack(spacing: 8) {
+                                Button("Change") {
+                                    selectOverlayImage()
+                                }
+                                .applyLiquidGlassButtonStyle(prominent: false)
+                                Button("Remove") {
+                                    self.defaultOverlayImage = nil
+                                }
+                                .applyLiquidGlassButtonStyle(prominent: false)
+                                .foregroundColor(.red)
+                            }
+                        }
+                    }
+                } else {
+                    Button("Select Default Overlay (Optional)") {
+                        selectOverlayImage()
+                    }
+                    .applyLiquidGlassButtonStyle(prominent: false)
+                }
+            } header: {
+                Text("Images")
+                    .font(.headline)
+            }
+            
+            Section {
+                Picker("Resolution", selection: $defaultCanvasResolution) {
+                    ForEach(ThumbnailGenerator.CanvasResolution.allCases) { resolution in
+                        Text(resolution.rawValue).tag(resolution)
+                    }
+                }
+                
+                if defaultCanvasResolution == .custom {
+                    HStack {
+                        TextField("Width", text: $defaultCustomWidth)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 100)
+                        Text("×")
+                        TextField("Height", text: $defaultCustomHeight)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 100)
+                    }
+                }
+                
+                Picker("Background Scaling", selection: $defaultBackgroundScaling) {
+                    ForEach(ThumbnailGenerator.BackgroundScaling.allCases) { scaling in
+                        Text(scaling.rawValue).tag(scaling)
+                    }
+                }
+            } header: {
+                Text("Canvas")
+                    .font(.headline)
+            }
+            
+            Section {
+                Picker("Font", selection: $defaultFontName) {
+                    Text("Helvetica Bold").tag("Helvetica-Bold")
+                    Text("Arial Bold").tag("Arial-BoldMT")
+                    Text("Impact").tag("Impact")
+                    Text("Futura Bold").tag("Futura-Bold")
+                    Text("Menlo Bold").tag("Menlo-Bold")
+                    Text("Avenir Next Bold").tag("AvenirNext-Bold")
+                    Text("Gill Sans Bold").tag("GillSans-Bold")
+                }
+                
+                HStack {
+                    Text("Size")
+                    Spacer()
+                    Text("\(Int(defaultFontSize))")
+                        .foregroundColor(.secondary)
+                    Slider(value: $defaultFontSize, in: 24...200, step: 4)
+                        .frame(width: 200)
+                }
+            } header: {
+                Text("Typography")
+                    .font(.headline)
+            }
+            
+            Section {
+                HStack {
+                    Text("Font Color")
+                    Spacer()
+                    ColorPicker("", selection: $defaultFontColor, supportsOpacity: false)
+                        .labelsHidden()
+                }
+                
+                Toggle("Outline", isOn: $defaultOutlineEnabled)
+                
+                if defaultOutlineEnabled {
+                    HStack {
+                        Text("Outline Color")
+                        Spacer()
+                        ColorPicker("", selection: $defaultOutlineColor, supportsOpacity: false)
+                            .labelsHidden()
+                    }
+                    .padding(.leading, 16)
+                }
+            } header: {
+                Text("Colors")
+                    .font(.headline)
+            }
+            
+            Section {
+                Picker("Position", selection: $defaultTextPosition) {
+                    ForEach(ThumbnailGenerator.TextPosition.allCases) { position in
+                        Text(position.rawValue).tag(position)
+                    }
+                }
+                
+                HStack {
+                    Text("Horizontal Padding")
+                    Spacer()
+                    Text("\(Int(defaultHorizontalPadding))")
+                        .foregroundColor(.secondary)
+                    Slider(value: $defaultHorizontalPadding, in: 0...200, step: 5)
+                        .frame(width: 200)
+                }
+                
+                HStack {
+                    Text("Vertical Padding")
+                    Spacer()
+                    Text("\(Int(defaultVerticalPadding))")
+                        .foregroundColor(.secondary)
+                    Slider(value: $defaultVerticalPadding, in: 0...200, step: 5)
+                        .frame(width: 200)
+                }
+            } header: {
+                Text("Layout")
+                    .font(.headline)
+            }
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
     }
     
     // MARK: - Data Loading
