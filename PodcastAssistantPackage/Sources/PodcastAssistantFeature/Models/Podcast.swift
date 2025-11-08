@@ -13,6 +13,14 @@ public final class Podcast {
     public var defaultFontSize: Double
     public var defaultTextPositionX: Double
     public var defaultTextPositionY: Double
+    public var defaultHorizontalPadding: Double
+    public var defaultVerticalPadding: Double
+    public var defaultCanvasWidth: Double
+    public var defaultCanvasHeight: Double
+    public var defaultBackgroundScaling: String
+    public var defaultFontColorHex: String? // e.g. "#FFFFFF"
+    public var defaultOutlineEnabled: Bool
+    public var defaultOutlineColorHex: String? // e.g. "#000000"
     public var createdAt: Date
     
     @Relationship(deleteRule: .cascade, inverse: \Episode.podcast)
@@ -28,7 +36,15 @@ public final class Podcast {
         defaultFontName: String? = nil,
         defaultFontSize: Double = 72.0,
         defaultTextPositionX: Double = 0.5,
-        defaultTextPositionY: Double = 0.5
+        defaultTextPositionY: Double = 0.5,
+        defaultHorizontalPadding: Double = 40.0,
+        defaultVerticalPadding: Double = 40.0,
+        defaultCanvasWidth: Double = 1920.0,
+        defaultCanvasHeight: Double = 1080.0,
+        defaultBackgroundScaling: String = "Aspect Fill (Crop)",
+        defaultFontColorHex: String? = "#FFFFFF",
+        defaultOutlineEnabled: Bool = true,
+        defaultOutlineColorHex: String? = "#000000"
     ) {
         self.id = UUID().uuidString
         self.name = name
@@ -39,6 +55,14 @@ public final class Podcast {
         self.defaultFontSize = defaultFontSize
         self.defaultTextPositionX = defaultTextPositionX
         self.defaultTextPositionY = defaultTextPositionY
+        self.defaultHorizontalPadding = defaultHorizontalPadding
+        self.defaultVerticalPadding = defaultVerticalPadding
+        self.defaultCanvasWidth = defaultCanvasWidth
+        self.defaultCanvasHeight = defaultCanvasHeight
+        self.defaultBackgroundScaling = defaultBackgroundScaling
+        self.defaultFontColorHex = defaultFontColorHex
+        self.defaultOutlineEnabled = defaultOutlineEnabled
+        self.defaultOutlineColorHex = defaultOutlineColorHex
         self.createdAt = Date()
     }
 }

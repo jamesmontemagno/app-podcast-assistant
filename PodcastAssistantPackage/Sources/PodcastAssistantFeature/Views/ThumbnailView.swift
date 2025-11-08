@@ -94,9 +94,76 @@ public struct ThumbnailView: View {
                             .padding(.vertical, 6)
                         }
                         
+                        // Canvas Settings Section
+                        GroupBox(label: Label("Canvas", systemImage: "rectangle.dashed")) {
+                            VStack(alignment: .leading, spacing: 10) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Resolution")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                    Picker("Resolution", selection: $viewModel.selectedResolution) {
+                                        ForEach(ThumbnailGenerator.CanvasResolution.allCases) { resolution in
+                                            Text(resolution.rawValue).tag(resolution)
+                                        }
+                                    }
+                                    .labelsHidden()
+                                }
+                                
+                                if viewModel.selectedResolution == .custom {
+                                    HStack(spacing: 8) {
+                                        TextField("Width", text: $viewModel.customWidth)
+                                            .textFieldStyle(.roundedBorder)
+                                            .frame(width: 80)
+                                        Text("×")
+                                            .foregroundStyle(.secondary)
+                                        TextField("Height", text: $viewModel.customHeight)
+                                            .textFieldStyle(.roundedBorder)
+                                            .frame(width: 80)
+                                    }
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Background Scaling")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                    Picker("Scaling", selection: $viewModel.backgroundScaling) {
+                                        ForEach(ThumbnailGenerator.BackgroundScaling.allCases) { scaling in
+                                            Text(scaling.rawValue).tag(scaling)
+                                        }
+                                    }
+                                    .labelsHidden()
+                                }
+                            }
+                            .padding(.vertical, 6)
+                        }
+                        
                         // Episode Details Section
                         GroupBox(label: Label("Episode Details", systemImage: "number")) {
                             VStack(alignment: .leading, spacing: 10) {
+                                                                VStack(alignment: .leading, spacing: 4) {
+                                                                    Text("Font Color")
+                                                                        .font(.subheadline)
+                                                                        .fontWeight(.medium)
+                                                                    ColorPicker("Font Color", selection: $viewModel.fontColor, supportsOpacity: true)
+                                                                        .labelsHidden()
+                                                                }
+
+                                                                VStack(alignment: .leading, spacing: 4) {
+                                                                    Toggle(isOn: $viewModel.outlineEnabled) {
+                                                                        Text("Outline")
+                                                                            .font(.subheadline)
+                                                                            .fontWeight(.medium)
+                                                                    }
+                                                                    .toggleStyle(.switch)
+                                                                    if viewModel.outlineEnabled {
+                                                                        HStack {
+                                                                            Text("Outline Color")
+                                                                                .font(.caption)
+                                                                            ColorPicker("Outline Color", selection: $viewModel.outlineColor, supportsOpacity: true)
+                                                                                .labelsHidden()
+                                                                        }
+                                                                    }
+                                                                }
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("Episode Number")
                                         .font(.subheadline)

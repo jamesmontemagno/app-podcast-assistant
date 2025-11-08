@@ -7,6 +7,27 @@ import SwiftData
 /// Binds directly to SwiftData Episode model
 @MainActor
 public class ThumbnailViewModel: ObservableObject {
+        @Published public var fontColor: Color = .white {
+            didSet {
+                episode.fontColorHex = fontColor.toHexString()
+                saveContext()
+                generateThumbnail()
+            }
+        }
+        @Published public var outlineEnabled: Bool = true {
+            didSet {
+                episode.outlineEnabled = outlineEnabled
+                saveContext()
+                generateThumbnail()
+            }
+        }
+        @Published public var outlineColor: Color = .black {
+            didSet {
+                episode.outlineColorHex = outlineColor.toHexString()
+                saveContext()
+                generateThumbnail()
+            }
+        }
     @Published public var episodeNumber: String = "" {
         didSet { generateThumbnail() }
     }
@@ -33,10 +54,54 @@ public class ThumbnailViewModel: ObservableObject {
         }
     }
     @Published public var horizontalPadding: Double = 40 {
-        didSet { generateThumbnail() }
+        didSet {
+            episode.horizontalPadding = horizontalPadding
+            saveContext()
+            generateThumbnail()
+        }
     }
     @Published public var verticalPadding: Double = 40 {
-        didSet { generateThumbnail() }
+        didSet {
+            episode.verticalPadding = verticalPadding
+            saveContext()
+            generateThumbnail()
+        }
+    }
+    @Published public var selectedResolution: ThumbnailGenerator.CanvasResolution = .hd1080 {
+        didSet {
+            if selectedResolution != .custom {
+                let size = selectedResolution.size
+                episode.canvasWidth = size.width
+                episode.canvasHeight = size.height
+                saveContext()
+                generateThumbnail()
+            }
+        }
+    }
+    @Published public var customWidth: String = "1920" {
+        didSet {
+            if selectedResolution == .custom, let width = Double(customWidth) {
+                episode.canvasWidth = width
+                saveContext()
+                generateThumbnail()
+            }
+        }
+    }
+    @Published public var customHeight: String = "1080" {
+        didSet {
+            if selectedResolution == .custom, let height = Double(customHeight) {
+                episode.canvasHeight = height
+                saveContext()
+                generateThumbnail()
+            }
+        }
+    }
+    @Published public var backgroundScaling: ThumbnailGenerator.BackgroundScaling = .aspectFill {
+        didSet {
+            episode.backgroundScaling = backgroundScaling.rawValue
+            saveContext()
+            generateThumbnail()
+        }
     }
     @Published public var generatedThumbnail: NSImage?
     @Published public var errorMessage: String?
@@ -106,6 +171,14 @@ public class ThumbnailViewModel: ObservableObject {
     }
     
     public init(episode: Episode, context: ModelContext) {
+                // Font color
+                if let hex = episode.fontColorHex, let color = Color(hex: hex) {
+                    self.fontColor = color
+                }
+                self.outlineEnabled = episode.outlineEnabled
+                if let hex = episode.outlineColorHex, let color = Color(hex: hex) {
+                    self.outlineColor = color
+                }
         self.episode = episode
         self.context = context
         
@@ -123,6 +196,31 @@ public class ThumbnailViewModel: ObservableObject {
             x: episode.textPositionX,
             y: episode.textPositionY
         )
+        
+        // Initialize padding from episode
+        self.horizontalPadding = episode.horizontalPadding
+        self.verticalPadding = episode.verticalPadding
+        
+        // Initialize canvas size from episode
+        let canvasSize = NSSize(width: episode.canvasWidth, height: episode.canvasHeight)
+        if canvasSize == ThumbnailGenerator.CanvasResolution.hd1080.size {
+            self.selectedResolution = .hd1080
+        } else if canvasSize == ThumbnailGenerator.CanvasResolution.hd720.size {
+            self.selectedResolution = .hd720
+        } else if canvasSize == ThumbnailGenerator.CanvasResolution.uhd4k.size {
+            self.selectedResolution = .uhd4k
+        } else if canvasSize == ThumbnailGenerator.CanvasResolution.square1080.size {
+            self.selectedResolution = .square1080
+        } else {
+            self.selectedResolution = .custom
+            self.customWidth = "\(Int(episode.canvasWidth))"
+            self.customHeight = "\(Int(episode.canvasHeight))"
+        }
+        
+        // Initialize background scaling from episode
+        self.backgroundScaling = ThumbnailGenerator.BackgroundScaling.allCases.first {
+            $0.rawValue == episode.backgroundScaling
+        } ?? .aspectFill
         
         // Generate initial thumbnail if background exists
         Task { @MainActor in
@@ -307,6 +405,18 @@ public class ThumbnailViewModel: ObservableObject {
         
         errorMessage = nil
         
+        // Determine canvas size
+        let canvasSize: NSSize
+        if selectedResolution == .custom {
+            if let width = Double(customWidth), let height = Double(customHeight) {
+                canvasSize = NSSize(width: width, height: height)
+            } else {
+                canvasSize = ThumbnailGenerator.CanvasResolution.hd1080.size
+            }
+        } else {
+            canvasSize = selectedResolution.size
+        }
+        
         if let thumbnail = generator.generateThumbnail(
             backgroundImage: background,
             overlayImage: overlayImage,
@@ -315,7 +425,12 @@ public class ThumbnailViewModel: ObservableObject {
             fontSize: CGFloat(fontSize),
             position: episodeNumberPosition,
             horizontalPadding: CGFloat(horizontalPadding),
-            verticalPadding: CGFloat(verticalPadding)
+            verticalPadding: CGFloat(verticalPadding),
+            canvasSize: canvasSize,
+            backgroundScaling: backgroundScaling,
+            fontColor: NSColor(fontColor),
+            outlineEnabled: outlineEnabled,
+            outlineColor: NSColor(outlineColor)
         ) {
             generatedThumbnail = thumbnail
             
