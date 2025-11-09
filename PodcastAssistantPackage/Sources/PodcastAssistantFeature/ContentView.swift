@@ -263,6 +263,7 @@ public struct ContentView: View {
                     selectedTab: $selectedDetailTab,
                     showingEpisodeDetailEdit: $showingEpisodeDetailEdit
                 )
+                .id(episode.id) // Force view recreation when episode changes
                 .sheet(isPresented: $showingEpisodeDetailEdit) {
                     if let selectedEpisode = selectedEpisode {
                         EpisodeDetailEditView(episode: selectedEpisode)
@@ -316,6 +317,10 @@ public struct ContentView: View {
                 // Clear episode selection when podcast changes
                 selectedEpisode = nil
             }
+        }
+        .onChange(of: selectedEpisode) { _, _ in
+            // Reset to details tab when episode changes
+            selectedDetailTab = .details
         }
     }
     
