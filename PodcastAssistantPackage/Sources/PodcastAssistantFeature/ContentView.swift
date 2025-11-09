@@ -17,6 +17,7 @@ public struct ContentView: View {
     @State private var editingEpisode: Episode?
     @State private var showingEpisodeDetailEdit = false
     @State private var selectedDetailTab: DetailTab = .details
+    @State private var showingSettings = false
     
     @AppStorage("lastSelectedPodcastID") private var lastSelectedPodcastID: String = ""
     
@@ -37,6 +38,16 @@ public struct ContentView: View {
                         Text("Podcast")
                             .font(.headline)
                         Spacer()
+                        
+                        Button {
+                            showingSettings = true
+                        } label: {
+                            Label("Settings", systemImage: "gear")
+                                .labelStyle(.iconOnly)
+                        }
+                        .buttonStyle(.glass)
+                        .help("App settings")
+                        
                         Button {
                             showingPodcastForm = true
                         } label: {
@@ -183,8 +194,12 @@ public struct ContentView: View {
             }
         }
         .frame(minWidth: 800, minHeight: 700)
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+        }
         .onAppear {
             restoreLastSelectedPodcast()
+            registerImportedFonts()
         }
         .onChange(of: selectedPodcastID) { _, newPodcastID in
             if let id = newPodcastID {
@@ -209,6 +224,15 @@ public struct ContentView: View {
         
         // Fallback to first podcast
         selectedPodcastID = podcasts.first?.id
+    }
+    
+    private func registerImportedFonts() {
+        let fontManager = FontManager()
+        do {
+            try fontManager.registerImportedFonts()
+        } catch {
+            print("Error registering imported fonts: \(error)")
+        }
     }
     
     // MARK: - Delete Actions
