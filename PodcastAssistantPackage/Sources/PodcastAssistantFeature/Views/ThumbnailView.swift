@@ -380,7 +380,17 @@ public struct ThumbnailView: View {
                     Divider()
                     
                     // Preview content
-                    if let thumbnail = viewModel.generatedThumbnail {
+                    if viewModel.isLoading {
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.5)
+                            
+                            Text("Generating thumbnail...")
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color(NSColor.textBackgroundColor).opacity(0.3))
+                    } else if let thumbnail = viewModel.generatedThumbnail {
                         ScrollView([.horizontal, .vertical]) {
                             Image(nsImage: thumbnail)
                                 .resizable()
@@ -438,6 +448,10 @@ public struct ThumbnailView: View {
                 .buttonStyle(.glass)
                 .help("Clear all")
             }
+        }
+        .onAppear {
+            // Trigger initial generation with delay when view appears
+            viewModel.performInitialGeneration()
         }
     }
 }
