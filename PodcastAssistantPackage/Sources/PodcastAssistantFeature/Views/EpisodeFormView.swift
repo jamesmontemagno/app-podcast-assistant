@@ -33,7 +33,7 @@ public struct EpisodeFormView: View {
                     HStack {
                         Text("Episode Number")
                         Spacer()
-                        TextField("Number", value: $episodeNumber, format: .number)
+                        TextField("", value: $episodeNumber, format: .number)
                             .frame(width: 80)
                             .textFieldStyle(.roundedBorder)
                         Stepper("", value: $episodeNumber, in: 1...9999)
