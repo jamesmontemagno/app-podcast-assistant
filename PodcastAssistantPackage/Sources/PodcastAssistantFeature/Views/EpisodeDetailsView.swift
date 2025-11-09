@@ -223,6 +223,10 @@ public struct EpisodeDetailsView: View {
                 }
                 
                 ToolbarItem(placement: .primaryAction) {
+                    Spacer()
+                }
+                
+                ToolbarItem(placement: .primaryAction) {
                     Button(action: saveChanges) {
                         Label("Save Changes", systemImage: "checkmark.circle.fill")
                     }

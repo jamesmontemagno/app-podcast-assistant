@@ -143,6 +143,10 @@ public struct TranscriptView: View {
             }
             
             ToolbarItem(placement: .primaryAction) {
+                Spacer()
+            }
+            
+            ToolbarItem(placement: .primaryAction) {
                 Button(action: viewModel.convertToSRT) {
                     Label("Convert", systemImage: "arrow.triangle.2.circlepath")
                 }
@@ -150,6 +154,10 @@ public struct TranscriptView: View {
                 .applyLiquidGlassButtonStyle(prominent: false)
                 .disabled(viewModel.inputText.isEmpty || viewModel.isProcessing)
                 .help("Convert transcript to SRT format")
+            }
+            
+            ToolbarItem(placement: .primaryAction) {
+                Spacer()
             }
             
             ToolbarItem(placement: .primaryAction) {
@@ -165,6 +173,10 @@ public struct TranscriptView: View {
             // Translation export button (macOS 14+)
             if #available(macOS 14.0, *) {
                 ToolbarItem(placement: .primaryAction) {
+                    Spacer()
+                }
+                
+                ToolbarItem(placement: .primaryAction) {
                     Button(action: viewModel.exportTranslated) {
                         Label("Translate", systemImage: "character.book.closed")
                     }
@@ -172,7 +184,11 @@ public struct TranscriptView: View {
                     .applyLiquidGlassButtonStyle(prominent: false)
                     .disabled(viewModel.outputSRT.isEmpty)
                     .help("Export translated SRT file")
-                }
+                    }
+            }
+            
+            ToolbarItem(placement: .primaryAction) {
+                Spacer()
             }
             
             ToolbarItem(placement: .primaryAction) {

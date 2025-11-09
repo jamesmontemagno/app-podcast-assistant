@@ -457,6 +457,10 @@ public struct ThumbnailView: View {
             }
             
             ToolbarItem(placement: .primaryAction) {
+                Spacer()
+            }
+            
+            ToolbarItem(placement: .primaryAction) {
                 Button(action: viewModel.exportThumbnail) {
                     Label("Export", systemImage: "arrow.up.doc")
                 }
@@ -464,6 +468,10 @@ public struct ThumbnailView: View {
                 .buttonStyle(.glass)
                 .disabled(viewModel.generatedThumbnail == nil)
                 .help("Export thumbnail")
+            }
+            
+            ToolbarItem(placement: .primaryAction) {
+                Spacer()
             }
             
             ToolbarItem(placement: .primaryAction) {
