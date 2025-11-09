@@ -1,12 +1,12 @@
 import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
+import SwiftData
 
 /// ViewModel for transcript conversion functionality
+/// Binds directly to SwiftData Episode model
 @MainActor
 public class TranscriptViewModel: ObservableObject {
-    @Published public var inputText: String = ""
-    @Published public var outputSRT: String = ""
     @Published public var isProcessing: Bool = false
     @Published public var errorMessage: String?
     @Published public var successMessage: String?
@@ -15,11 +15,46 @@ public class TranscriptViewModel: ObservableObject {
     
     private let converter = TranscriptConverter()
     
-    public init() {}
+    // SwiftData episode
+    public let episode: Episode
+    private let context: ModelContext
+    
+    // Computed properties that read/write to Core Data
+    public var inputText: String {
+        get { episode.transcriptInputText ?? "" }
+        set {
+            episode.transcriptInputText = newValue.isEmpty ? nil : newValue
+            saveContext()
+        }
+    }
+    
+    public var outputSRT: String {
+        get { episode.srtOutputText ?? "" }
+        set {
+            episode.srtOutputText = newValue.isEmpty ? nil : newValue
+            saveContext()
+        }
+    }
+    
+    public init(episode: Episode, context: ModelContext) {
+        self.episode = episode
+        self.context = context
+    }
     
     /// Returns an SRTDocument for the current output
     public var srtDocument: SRTDocument {
         SRTDocument(text: outputSRT)
+    }
+    
+    /// Save the SwiftData context
+    private func saveContext() {
+        if context.hasChanges {
+            do {
+                try context.save()
+            } catch {
+                print("Error saving context: \(error)")
+            }
+        }
     }
     
     /// Triggers the file importer
@@ -42,7 +77,9 @@ public class TranscriptViewModel: ObservableObject {
             
             do {
                 let content = try String(contentsOf: url, encoding: .utf8)
-                inputText = content
+                episode.transcriptInputText = content
+                saveContext()
+                objectWillChange.send()
                 errorMessage = nil
                 successMessage = "File loaded successfully"
             } catch {
@@ -67,7 +104,9 @@ public class TranscriptViewModel: ObservableObject {
         Task { @MainActor in
             do {
                 let srt = try converter.convertToSRT(from: inputText)
-                self.outputSRT = srt
+                self.episode.srtOutputText = srt
+                self.saveContext()
+                self.objectWillChange.send()
                 self.successMessage = "Conversion successful!"
                 self.isProcessing = false
             } catch {
@@ -99,8 +138,10 @@ public class TranscriptViewModel: ObservableObject {
     
     /// Clears all fields
     public func clear() {
-        inputText = ""
-        outputSRT = ""
+        episode.transcriptInputText = nil
+        episode.srtOutputText = nil
+        saveContext()
+        objectWillChange.send()
         errorMessage = nil
         successMessage = nil
     }

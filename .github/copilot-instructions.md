@@ -2,7 +2,7 @@
 
 ## Project Architecture
 
-This is a macOS SwiftUI app using a **workspace + SPM package architecture** for clean separation:
+This is a macOS SwiftUI app using a **workspace + SPM package architecture** with **SwiftData persistence** for clean separation:
 
 - **App Shell**: `PodcastAssistant/` - Minimal app lifecycle code (App entry point only)
 - **Feature Code**: `PodcastAssistantPackage/Sources/PodcastAssistantFeature/` - **ALL business logic, services, views, and models live here**
@@ -11,10 +11,10 @@ This is a macOS SwiftUI app using a **workspace + SPM package architecture** for
 ### Critical File Organization Pattern
 ```
 PodcastAssistantPackage/Sources/PodcastAssistantFeature/
-├── Models/          # Data structures (TranscriptEntry)
-├── Services/        # Pure business logic (TranscriptConverter, ThumbnailGenerator)
-├── ViewModels/      # @MainActor ObservableObject classes with @Published properties
-└── Views/           # SwiftUI views (side-by-side layout pattern)
+├── Models/          # SwiftData models (Podcast, Episode), legacy models
+├── Services/        # Pure business logic (TranscriptConverter, ThumbnailGenerator, PersistenceController, ImageUtilities)
+├── ViewModels/      # @MainActor ObservableObject classes with SwiftData bindings
+└── Views/           # SwiftUI views (master-detail navigation pattern)
 ```
 
 ## Public API Pattern (Critical!)
@@ -62,7 +62,70 @@ xcodebuild -workspace PodcastAssistant.xcworkspace -scheme PodcastAssistant -con
 
 ## Key Conventions
 
-### 1. File Dialogs Pattern (NSOpenPanel/NSSavePanel)
+### 1. SwiftData Pattern
+All podcast and episode data persists to SwiftData (local-only storage, CloudKit-ready):
+```swift
+// PersistenceController is singleton - access via shared instance
+let persistenceController = PersistenceController.shared
+
+// Inject model container into app
+ContentView()
+    .modelContainer(persistenceController.container)
+
+// ViewModels accept Episode + ModelContext dependencies
+public class TranscriptViewModel: ObservableObject {
+    public let episode: Episode
+    private let context: ModelContext
+    
+    public init(episode: Episode, context: ModelContext) {
+        self.episode = episode
+        self.context = context
+    }
+    
+    // Computed properties read/write to SwiftData models
+    public var inputText: String {
+        get { episode.transcriptInputText ?? "" }
+        set {
+            episode.transcriptInputText = newValue.isEmpty ? nil : newValue
+            saveContext()
+        }
+    }
+}
+```
+
+### 2. Image Storage Pattern
+Images are stored as Data blobs in SwiftData (auto-processed before storage):
+```swift
+// Automatic resize to 1024x1024 + JPEG 0.8 compression
+if let image = selectedImage {
+    podcast.artworkData = ImageUtilities.processImageForStorage(image)
+}
+
+// Retrieval
+if let data = episode.thumbnailBackgroundData {
+    let image = ImageUtilities.loadImage(from: data)
+}
+```
+
+### 3. Master-Detail Navigation Pattern
+Three-column NavigationSplitView replaces old tab-based UI:
+```swift
+NavigationSplitView {
+    // Sidebar: Podcast list with @Query
+} content: {
+    // Middle: Episode list for selected podcast
+} detail: {
+    // Detail pane: TranscriptView/ThumbnailView for selected episode
+}
+```
+
+Views now require episode parameter:
+```swift
+TranscriptView(episode: selectedEpisode)
+ThumbnailView(episode: selectedEpisode)
+```
+
+### 4. File Dialogs Pattern (NSOpenPanel/NSSavePanel)
 All file operations use macOS native panels with proper UTType handling:
 ```swift
 let panel = NSSavePanel()
@@ -80,17 +143,25 @@ panel.begin { response in
 ```
 
 ### 2. ViewModel Pattern
-ViewModels use `@MainActor` and handle async operations with `Task { @MainActor in ... }`:
+ViewModels use `@MainActor` and handle async operations with `Task { @MainActor in ... }`.
+**ViewModels are now SwiftData-backed** - they accept Episode + ModelContext dependencies:
 ```swift
 @MainActor
 public class TranscriptViewModel: ObservableObject {
-    @Published public var inputText: String = ""
+    public let episode: Episode
+    private let context: ModelContext
+    
+    public init(episode: Episode, context: ModelContext) {
+        self.episode = episode
+        self.context = context
+    }
     
     public func importFile() {
         let panel = NSOpenPanel()
         panel.begin { [weak self] response in
             Task { @MainActor in  // ← Always wrap UI updates
-                self?.inputText = content
+                self?.episode.transcriptInputText = content
+                self?.saveContext()
             }
         }
     }
@@ -140,6 +211,40 @@ Views use HStack with independent ScrollViews (see `TranscriptView.swift`):
 
 ## Project Context
 
-Built with XcodeBuildMCP scaffolding tool. Two main features:
-1. **Transcript Converter**: Zencastr/generic formats → YouTube SRT (with speaker names, timestamp calculation)
-2. **Thumbnail Generator**: Background + overlay + episode number → PNG/JPEG (AppKit-based rendering)
+Built with XcodeBuildMCP scaffolding tool. Core features:
+1. **Multi-Podcast Management**: Create/manage multiple podcasts with metadata, artwork, and default settings
+2. **Transcript Converter**: Zencastr/generic formats → YouTube SRT (with speaker names, timestamp calculation)
+3. **Thumbnail Generator**: Background + overlay + episode number → PNG/JPEG (AppKit-based rendering)
+4. **SwiftData Persistence**: Local storage (CloudKit-ready for future iCloud sync)
+5. **Master-Detail Navigation**: Three-column layout (Podcasts → Episodes → Detail)
+
+## SwiftData Schema
+
+**Models:**
+- `Podcast` - @Model with podcast metadata, artwork, default thumbnail settings
+  - `@Relationship(deleteRule: .cascade, inverse: \Episode.podcast)` for episodes
+  - `id: String` with `@Attribute(.unique)` (CloudKit-compatible)
+- `Episode` - @Model with episode title, number, transcript text, thumbnail images, settings
+  - Many-to-one relationship with `Podcast`
+  - Custom `init(podcast:)` automatically copies defaults from parent
+
+**Image Storage:**
+- All images stored as Data properties in SwiftData models
+- Auto-processed: resize to 1024x1024 max + JPEG 0.8 compression
+- SwiftData handles large binary data automatically
+
+**Data Flow:**
+```
+User Action → ViewModel → SwiftData Model → Context Save → UI Update (automatic)
+```
+
+**CloudKit Sync:**
+- Currently disabled (local-only storage)
+- CloudKit-ready schema - see `PersistenceController.swift` for enabling instructions
+- Container ID ready: `iCloud.com.refractored.PodcastAssistant`
+
+## Documentation
+
+See `/docs` folder for comprehensive guides:
+- `ARCHITECTURE.md` - System architecture, navigation flow, component details
+- `CORE_DATA.md` - SwiftData implementation (renamed from Core Data), CloudKit sync, best practices

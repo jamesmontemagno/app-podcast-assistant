@@ -1,33 +1,107 @@
 import Foundation
 import SwiftUI
 import AppKit
+import SwiftData
 
 /// ViewModel for thumbnail generation functionality
+/// Binds directly to SwiftData Episode model
 @MainActor
 public class ThumbnailViewModel: ObservableObject {
-    @Published public var backgroundImage: NSImage? {
-        didSet { generateThumbnail() }
-    }
-    @Published public var overlayImage: NSImage? {
-        didSet { generateThumbnail() }
-    }
+        @Published public var fontColor: Color = .white {
+            didSet {
+                episode.fontColorHex = fontColor.toHexString()
+                saveContext()
+                generateThumbnail()
+            }
+        }
+        @Published public var outlineEnabled: Bool = true {
+            didSet {
+                episode.outlineEnabled = outlineEnabled
+                saveContext()
+                generateThumbnail()
+            }
+        }
+        @Published public var outlineColor: Color = .black {
+            didSet {
+                episode.outlineColorHex = outlineColor.toHexString()
+                saveContext()
+                generateThumbnail()
+            }
+        }
     @Published public var episodeNumber: String = "" {
         didSet { generateThumbnail() }
     }
     @Published public var selectedFont: String = "Helvetica-Bold" {
-        didSet { generateThumbnail() }
+        didSet { 
+            episode.fontName = selectedFont
+            saveContext()
+            generateThumbnail()
+        }
     }
     @Published public var fontSize: Double = 72 {
-        didSet { generateThumbnail() }
+        didSet { 
+            episode.fontSize = fontSize
+            saveContext()
+            generateThumbnail()
+        }
     }
     @Published public var episodeNumberPosition: ThumbnailGenerator.TextPosition = .topRight {
-        didSet { generateThumbnail() }
+        didSet { 
+            episode.textPositionX = episodeNumberPosition.relativePosition.x
+            episode.textPositionY = episodeNumberPosition.relativePosition.y
+            saveContext()
+            generateThumbnail()
+        }
     }
     @Published public var horizontalPadding: Double = 40 {
-        didSet { generateThumbnail() }
+        didSet {
+            episode.horizontalPadding = horizontalPadding
+            saveContext()
+            generateThumbnail()
+        }
     }
     @Published public var verticalPadding: Double = 40 {
-        didSet { generateThumbnail() }
+        didSet {
+            episode.verticalPadding = verticalPadding
+            saveContext()
+            generateThumbnail()
+        }
+    }
+    @Published public var selectedResolution: ThumbnailGenerator.CanvasResolution = .hd1080 {
+        didSet {
+            if selectedResolution != .custom {
+                let size = selectedResolution.size
+                episode.canvasWidth = size.width
+                episode.canvasHeight = size.height
+                saveContext()
+                generateThumbnail()
+            }
+        }
+    }
+    @Published public var customWidth: String = "1920" {
+        didSet {
+            if selectedResolution == .custom, let width = Double(customWidth) {
+                episode.canvasWidth = width
+                saveContext()
+                generateThumbnail()
+            }
+        }
+    }
+    @Published public var customHeight: String = "1080" {
+        didSet {
+            if selectedResolution == .custom, let height = Double(customHeight) {
+                episode.canvasHeight = height
+                saveContext()
+                generateThumbnail()
+            }
+        }
+    }
+    @Published public var backgroundScaling: ThumbnailGenerator.BackgroundScaling = .aspectFill {
+        didSet {
+            episode.backgroundScaling = backgroundScaling.rawValue
+            saveContext()
+            generateThumbnail()
+        }
     }
     @Published public var generatedThumbnail: NSImage?
     @Published public var errorMessage: String?
@@ -35,8 +109,47 @@ public class ThumbnailViewModel: ObservableObject {
     
     private let generator = ThumbnailGenerator()
     private let defaults = UserDefaults.standard
-    private let overlayImageBookmarkKey = "ThumbnailOverlayImageBookmark"
     private let customFontsKey = "ThumbnailCustomFonts"
+    
+    // SwiftData episode
+    public let episode: Episode
+    private let context: ModelContext
+    
+    // Computed properties for images from Core Data
+    public var backgroundImage: NSImage? {
+        get {
+            guard let data = episode.thumbnailBackgroundData else { return nil }
+            return ImageUtilities.loadImage(from: data)
+        }
+        set {
+            if let image = newValue {
+                episode.thumbnailBackgroundData = ImageUtilities.processImageForStorage(image)
+            } else {
+                episode.thumbnailBackgroundData = nil
+            }
+            saveContext()
+            objectWillChange.send()
+            generateThumbnail()
+        }
+    }
+    
+    public var overlayImage: NSImage? {
+        get {
+            guard let data = episode.thumbnailOverlayData else { return nil }
+            return ImageUtilities.loadImage(from: data)
+        }
+        set {
+            if let image = newValue {
+                // Preserve transparency for overlay images (save as PNG instead of JPEG)
+                episode.thumbnailOverlayData = ImageUtilities.processImageForStorage(image, preserveTransparency: true)
+            } else {
+                episode.thumbnailOverlayData = nil
+            }
+            saveContext()
+            objectWillChange.send()
+            generateThumbnail()
+        }
+    }
     
     public var availableFonts: [String] {
         var fonts = [
@@ -57,13 +170,78 @@ public class ThumbnailViewModel: ObservableObject {
         return fonts
     }
     
-    public init() {
-        loadSavedOverlay()
+    public init(episode: Episode, context: ModelContext) {
+                // Font color
+                if let hex = episode.fontColorHex, let color = Color(hex: hex) {
+                    self.fontColor = color
+                }
+                self.outlineEnabled = episode.outlineEnabled
+                if let hex = episode.outlineColorHex, let color = Color(hex: hex) {
+                    self.outlineColor = color
+                }
+        self.episode = episode
+        self.context = context
+        
+        // Initialize episodeNumber from episode
+        self.episodeNumber = "\(episode.episodeNumber)"
+        
+        // Initialize font settings from episode
+        if let fontName = episode.fontName {
+            self.selectedFont = fontName
+        }
+        self.fontSize = episode.fontSize
+        
+        // Initialize position from episode
+        self.episodeNumberPosition = ThumbnailGenerator.TextPosition.fromRelativePosition(
+            x: episode.textPositionX,
+            y: episode.textPositionY
+        )
+        
+        // Initialize padding from episode
+        self.horizontalPadding = episode.horizontalPadding
+        self.verticalPadding = episode.verticalPadding
+        
+        // Initialize canvas size from episode
+        let canvasSize = NSSize(width: episode.canvasWidth, height: episode.canvasHeight)
+        if canvasSize == ThumbnailGenerator.CanvasResolution.hd1080.size {
+            self.selectedResolution = .hd1080
+        } else if canvasSize == ThumbnailGenerator.CanvasResolution.hd720.size {
+            self.selectedResolution = .hd720
+        } else if canvasSize == ThumbnailGenerator.CanvasResolution.uhd4k.size {
+            self.selectedResolution = .uhd4k
+        } else if canvasSize == ThumbnailGenerator.CanvasResolution.square1080.size {
+            self.selectedResolution = .square1080
+        } else {
+            self.selectedResolution = .custom
+            self.customWidth = "\(Int(episode.canvasWidth))"
+            self.customHeight = "\(Int(episode.canvasHeight))"
+        }
+        
+        // Initialize background scaling from episode
+        self.backgroundScaling = ThumbnailGenerator.BackgroundScaling.allCases.first {
+            $0.rawValue == episode.backgroundScaling
+        } ?? .aspectFill
+        
+        // Generate initial thumbnail if background exists
+        Task { @MainActor in
+            self.generateThumbnail()
+        }
+    }
+    
+    /// Save the SwiftData context
+    private func saveContext() {
+        if context.hasChanges {
+            do {
+                try context.save()
+            } catch {
+                print("Error saving context: \(error)")
+            }
+        }
     }
     
     /// Imports a background image
     public func importBackgroundImage() {
-        selectImage(saveToOverlay: false) { [weak self] image, _ in
+        selectImage { [weak self] image in
             self?.backgroundImage = image
             self?.successMessage = "Background image loaded"
             self?.errorMessage = nil
@@ -72,64 +250,18 @@ public class ThumbnailViewModel: ObservableObject {
     
     /// Imports an overlay image
     public func importOverlayImage() {
-        selectImage(saveToOverlay: true) { [weak self] image, url in
-            guard let self = self else { return }
-            self.overlayImage = image
-            if let url = url {
-                self.saveOverlayImageBookmark(url)
-            }
-            self.successMessage = "Overlay image loaded"
-            self.errorMessage = nil
+        selectImage { [weak self] image in
+            self?.overlayImage = image
+            self?.successMessage = "Overlay image loaded"
+            self?.errorMessage = nil
         }
     }
     
     /// Removes the overlay image
     public func removeOverlayImage() {
         overlayImage = nil
-        defaults.removeObject(forKey: overlayImageBookmarkKey)
         successMessage = "Overlay removed"
         errorMessage = nil
-    }
-    
-    /// Loads saved overlay image from UserDefaults using security-scoped bookmark
-    private func loadSavedOverlay() {
-        guard let bookmarkData = defaults.data(forKey: overlayImageBookmarkKey) else {
-            return
-        }
-        
-        do {
-            var isStale = false
-            let url = try URL(resolvingBookmarkData: bookmarkData, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale)
-            
-            guard url.startAccessingSecurityScopedResource() else {
-                return
-            }
-            defer {
-                url.stopAccessingSecurityScopedResource()
-            }
-            
-            if let image = NSImage(contentsOf: url) {
-                overlayImage = image
-            }
-            
-            // If bookmark is stale, recreate it
-            if isStale {
-                saveOverlayImageBookmark(url)
-            }
-        } catch {
-            // Bookmark couldn't be resolved, remove it
-            defaults.removeObject(forKey: overlayImageBookmarkKey)
-        }
-    }
-    
-    /// Saves overlay image URL as a security-scoped bookmark to UserDefaults
-    private func saveOverlayImageBookmark(_ url: URL) {
-        do {
-            let bookmarkData = try url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
-            defaults.set(bookmarkData, forKey: overlayImageBookmarkKey)
-        } catch {
-            errorMessage = "Failed to save overlay image reference: \(error.localizedDescription)"
-        }
     }
     
     /// Pastes image from clipboard for background
@@ -232,7 +364,7 @@ public class ThumbnailViewModel: ObservableObject {
     }
     
     /// Generic image selection helper
-    private func selectImage(saveToOverlay: Bool, completion: @escaping (NSImage?, URL?) -> Void) {
+    private func selectImage(completion: @escaping (NSImage?) -> Void) {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
@@ -246,7 +378,7 @@ public class ThumbnailViewModel: ObservableObject {
                     // Start accessing security-scoped resource
                     guard url.startAccessingSecurityScopedResource() else {
                         self.errorMessage = "Failed to access file: Permission denied"
-                        completion(nil, nil)
+                        completion(nil)
                         return
                     }
                     defer {
@@ -254,10 +386,10 @@ public class ThumbnailViewModel: ObservableObject {
                     }
                     
                     if let image = NSImage(contentsOf: url) {
-                        completion(image, saveToOverlay ? url : nil)
+                        completion(image)
                     } else {
                         self.errorMessage = "Failed to load image"
-                        completion(nil, nil)
+                        completion(nil)
                     }
                 }
             }
@@ -267,12 +399,23 @@ public class ThumbnailViewModel: ObservableObject {
     /// Generates the thumbnail
     public func generateThumbnail() {
         guard let background = backgroundImage else {
-            errorMessage = "Please select a background image"
+            generatedThumbnail = nil
             return
         }
         
         errorMessage = nil
-        successMessage = nil
+        
+        // Determine canvas size
+        let canvasSize: NSSize
+        if selectedResolution == .custom {
+            if let width = Double(customWidth), let height = Double(customHeight) {
+                canvasSize = NSSize(width: width, height: height)
+            } else {
+                canvasSize = ThumbnailGenerator.CanvasResolution.hd1080.size
+            }
+        } else {
+            canvasSize = selectedResolution.size
+        }
         
         if let thumbnail = generator.generateThumbnail(
             backgroundImage: background,
@@ -282,11 +425,23 @@ public class ThumbnailViewModel: ObservableObject {
             fontSize: CGFloat(fontSize),
             position: episodeNumberPosition,
             horizontalPadding: CGFloat(horizontalPadding),
-            verticalPadding: CGFloat(verticalPadding)
+            verticalPadding: CGFloat(verticalPadding),
+            canvasSize: canvasSize,
+            backgroundScaling: backgroundScaling,
+            fontColor: NSColor(fontColor),
+            outlineEnabled: outlineEnabled,
+            outlineColor: NSColor(outlineColor)
         ) {
             generatedThumbnail = thumbnail
+            
+            // Save the generated thumbnail to Core Data (preserve transparency if overlay is used)
+            let hasTransparency = overlayImage != nil
+            episode.thumbnailOutputData = ImageUtilities.processImageForStorage(thumbnail, preserveTransparency: hasTransparency)
+            saveContext()
+            
             successMessage = "Thumbnail generated successfully!"
         } else {
+            generatedThumbnail = nil
             errorMessage = "Failed to generate thumbnail"
         }
     }
@@ -302,6 +457,7 @@ public class ThumbnailViewModel: ObservableObject {
         panel.allowedContentTypes = [.png, .jpeg]
         panel.nameFieldStringValue = "podcast-thumbnail-ep\(episodeNumber).png"
         panel.message = "Save thumbnail"
+        panel.canCreateDirectories = true
         
         panel.begin { [weak self] response in
             guard let self = self else { return }
@@ -323,11 +479,13 @@ public class ThumbnailViewModel: ObservableObject {
     
     /// Clears all fields
     public func clear() {
-        backgroundImage = nil
-        overlayImage = nil
-        episodeNumber = ""
+        episode.thumbnailBackgroundData = nil
+        episode.thumbnailOverlayData = nil
+        episode.thumbnailOutputData = nil
+        saveContext()
         generatedThumbnail = nil
         errorMessage = nil
         successMessage = nil
+        objectWillChange.send()
     }
 }
