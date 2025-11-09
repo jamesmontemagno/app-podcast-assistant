@@ -10,66 +10,105 @@ public class ThumbnailViewModel: ObservableObject {
     @Published public var fontColor: Color = .white {
         didSet {
             markDirty()
+            if appSettings?.autoUpdateThumbnail == true {
+                scheduleDebouncedGeneration()
+            }
         }
     }
     @Published public var outlineEnabled: Bool = true {
         didSet {
             markDirty()
+            if appSettings?.autoUpdateThumbnail == true {
+                scheduleDebouncedGeneration()
+            }
         }
     }
     @Published public var outlineColor: Color = .black {
         didSet {
             markDirty()
+            if appSettings?.autoUpdateThumbnail == true {
+                scheduleDebouncedGeneration()
+            }
         }
     }
     @Published public var episodeNumber: String = "" {
         didSet {
             markDirty()
+            if appSettings?.autoUpdateThumbnail == true {
+                scheduleDebouncedGeneration()
+            }
         }
     }
     @Published public var selectedFont: String = "Helvetica-Bold" {
         didSet {
             markDirty()
+            if appSettings?.autoUpdateThumbnail == true {
+                scheduleDebouncedGeneration()
+            }
         }
     }
     @Published public var fontSize: Double = 72 {
         didSet {
             markDirty()
+            if appSettings?.autoUpdateThumbnail == true {
+                scheduleDebouncedGeneration()
+            }
         }
     }
     @Published public var episodeNumberPosition: ThumbnailGenerator.TextPosition = .topRight {
         didSet {
             markDirty()
+            if appSettings?.autoUpdateThumbnail == true {
+                scheduleDebouncedGeneration()
+            }
         }
     }
     @Published public var horizontalPadding: Double = 40 {
         didSet {
             markDirty()
+            if appSettings?.autoUpdateThumbnail == true {
+                scheduleDebouncedGeneration()
+            }
         }
     }
     @Published public var verticalPadding: Double = 40 {
         didSet {
             markDirty()
+            if appSettings?.autoUpdateThumbnail == true {
+                scheduleDebouncedGeneration()
+            }
         }
     }
     @Published public var selectedResolution: ThumbnailGenerator.CanvasResolution = .hd1080 {
         didSet {
             markDirty()
+            if appSettings?.autoUpdateThumbnail == true {
+                scheduleDebouncedGeneration()
+            }
         }
     }
     @Published public var customWidth: String = "1920" {
         didSet {
             markDirty()
+            if appSettings?.autoUpdateThumbnail == true {
+                scheduleDebouncedGeneration()
+            }
         }
     }
     @Published public var customHeight: String = "1080" {
         didSet {
             markDirty()
+            if appSettings?.autoUpdateThumbnail == true {
+                scheduleDebouncedGeneration()
+            }
         }
     }
     @Published public var backgroundScaling: ThumbnailGenerator.BackgroundScaling = .aspectFill {
         didSet {
             markDirty()
+            if appSettings?.autoUpdateThumbnail == true {
+                scheduleDebouncedGeneration()
+            }
         }
     }
     @Published public var generatedThumbnail: NSImage?
@@ -229,8 +268,8 @@ public class ThumbnailViewModel: ObservableObject {
         
         // Create a new task that waits before generating
         debounceTask = Task { @MainActor [weak self] in
-            // Wait for 800ms - if another change happens, this task gets cancelled
-            try? await Task.sleep(nanoseconds: 800_000_000)
+            // Wait for 150ms - if another change happens, this task gets cancelled
+            try? await Task.sleep(nanoseconds: 150_000_000)
 
             // Check if we were cancelled
             guard !Task.isCancelled else { return }

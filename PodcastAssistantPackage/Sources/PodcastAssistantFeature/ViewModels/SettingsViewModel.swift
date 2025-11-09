@@ -11,6 +11,11 @@ public class SettingsViewModel: ObservableObject {
     
     @Published public var importedFonts: [String] = []
     @Published public var selectedTheme: AppTheme = .system
+    @Published public var autoUpdateThumbnail: Bool = false {
+        didSet {
+            saveSettings()
+        }
+    }
     @Published public var errorMessage: String?
     @Published public var successMessage: String?
     
@@ -49,6 +54,7 @@ public class SettingsViewModel: ObservableObject {
                 settings = existingSettings
                 importedFonts = existingSettings.importedFonts
                 selectedTheme = existingSettings.appTheme
+                autoUpdateThumbnail = existingSettings.autoUpdateThumbnail
             } else {
                 // Create new settings
                 let newSettings = AppSettings()
@@ -57,6 +63,7 @@ public class SettingsViewModel: ObservableObject {
                 settings = newSettings
                 importedFonts = []
                 selectedTheme = .system
+                autoUpdateThumbnail = false
             }
         } catch {
             print("Error loading settings: \(error)")
@@ -66,6 +73,7 @@ public class SettingsViewModel: ObservableObject {
             settings = newSettings
             importedFonts = []
             selectedTheme = .system
+            autoUpdateThumbnail = false
         }
     }
     
@@ -74,6 +82,7 @@ public class SettingsViewModel: ObservableObject {
         
         settings.importedFonts = importedFonts
         settings.appTheme = selectedTheme
+        settings.autoUpdateThumbnail = autoUpdateThumbnail
         settings.updatedAt = Date()
         
         do {

@@ -18,6 +18,7 @@ public final class AppSettings {
     @Attribute(.unique) public var id: String
     public var importedFonts: [String] // Array of imported font names
     public var theme: String // Stored as String for SwiftData compatibility
+    public var autoUpdateThumbnail: Bool // Auto-regenerate thumbnail on value changes
     public var createdAt: Date
     public var updatedAt: Date
     
@@ -35,6 +36,7 @@ public final class AppSettings {
         self.id = "app-settings" // Singleton pattern - only one settings instance
         self.importedFonts = []
         self.theme = AppTheme.system.rawValue
+        self.autoUpdateThumbnail = true // Default to manual regeneration for better performance
         self.createdAt = Date()
         self.updatedAt = Date()
     }

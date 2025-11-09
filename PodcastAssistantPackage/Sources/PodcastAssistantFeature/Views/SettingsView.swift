@@ -84,6 +84,24 @@ private struct GeneralSettingsTab: View {
                     .foregroundStyle(.secondary)
             }
             
+            Section {
+                Toggle(isOn: $viewModel.autoUpdateThumbnail) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Auto-update Thumbnails")
+                            .font(.body)
+                        Text("Automatically regenerate thumbnails when settings change")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
+            } header: {
+                Text("Thumbnail Behavior")
+            } footer: {
+                Text("When disabled, thumbnails only update when you press the Generate button")
+                    .font(.caption)
+            }
+            
             // Placeholder for future general settings
             Section {
                 LabeledContent("App Name") {
