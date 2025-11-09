@@ -234,21 +234,70 @@ private struct TranslationLanguageSheet: View {
                 Text("Target Language")
                     .font(.headline)
                 
-                Picker("Language", selection: $viewModel.selectedLanguage) {
-                    Text("Select a language...").tag(nil as TranslationService.SupportedLanguage?)
-                    
-                    ForEach(TranslationService.SupportedLanguage.allCases) { language in
-                        Text(language.displayName).tag(language as TranslationService.SupportedLanguage?)
+                if viewModel.availableLanguages.isEmpty {
+                    ProgressView("Loading languages...")
+                        .frame(maxWidth: .infinity)
+                } else {
+                    Picker("Language", selection: $viewModel.selectedLanguage) {
+                        Text("Select a language...").tag(nil as AvailableLanguage?)
+                        
+                        ForEach(viewModel.availableLanguages) { language in
+                            HStack {
+                                Text(language.localizedName)
+                                if !language.isInstalled {
+                                    Text("(Download required)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .tag(language as AvailableLanguage?)
+                        }
                     }
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: .infinity)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let language = viewModel.selectedLanguage, !language.isInstalled {
+                            Text("Download the translation packs for both your source language (usually English) and \(language.localizedName) in System Settings > General > Language & Region > Translation Languages. Restart Podcast Assistant after installing.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Text("Tip: Keep both the source language and your selected target language downloaded. If you add new packs, restart Podcast Assistant so they appear here.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .pickerStyle(.menu)
-                .frame(maxWidth: .infinity)
             }
             .padding(.horizontal)
             
             if viewModel.isProcessing {
-                ProgressView("Translating...")
-                    .padding()
+                VStack(spacing: 12) {
+                    if let progress = viewModel.translationProgress {
+                        ProgressView(value: Double(progress.completedEntries), total: Double(progress.totalEntries))
+                            .frame(maxWidth: .infinity)
+                        Text("Translating entry \(progress.currentEntry) of \(progress.totalEntries)")
+                            .font(.subheadline)
+                        if !progress.timecode.isEmpty {
+                            Text("Timecode: \(progress.timecode)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        if !progress.preview.isEmpty {
+                            Text("\"\\(progress.preview)\"")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    } else {
+                        ProgressView("Preparing translation...")
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .padding(.vertical, 16)
+                .padding(.horizontal)
             }
             
             Divider()
@@ -256,6 +305,7 @@ private struct TranslationLanguageSheet: View {
             // Action buttons
             HStack(spacing: 12) {
                 Button("Cancel") {
+                    viewModel.translationProgress = nil
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
@@ -266,7 +316,11 @@ private struct TranslationLanguageSheet: View {
                     viewModel.translateAndExport()
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(viewModel.selectedLanguage == nil || viewModel.isProcessing)
+                .disabled(
+                    viewModel.selectedLanguage == nil ||
+                    viewModel.isProcessing ||
+                    (viewModel.selectedLanguage?.isInstalled == false)
+                )
             }
             .padding(.horizontal)
             .padding(.bottom)

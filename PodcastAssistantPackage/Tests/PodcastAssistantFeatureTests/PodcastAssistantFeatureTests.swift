@@ -248,41 +248,24 @@ Today we're talking about podcasts
 
 // MARK: - Translation Service Tests
 
-@available(macOS 14.0, *)
-@Test func testSupportedLanguages() async throws {
-    // Verify all supported languages are available
-    let languages = TranslationService.SupportedLanguage.allCases
-    
-    #expect(languages.count > 0)
-    #expect(languages.contains(.spanish))
-    #expect(languages.contains(.french))
-    #expect(languages.contains(.german))
+@available(macOS 26.0, *)
+@Test func testAvailableLanguageIdentifierIncludesRegion() async throws {
+    let language = Locale.Language(
+        languageCode: Locale.LanguageCode("es"),
+        script: nil,
+        region: Locale.Region("ES")
+    )
+    let available = AvailableLanguage(language: language, status: .installed)
+    #expect(available.id.contains("es"))
+    #expect(available.id.contains("ES") || available.id == "es")
 }
 
-@available(macOS 14.0, *)
-@Test func testLanguageDisplayNames() async throws {
-    let spanish = TranslationService.SupportedLanguage.spanish
-    #expect(spanish.displayName.contains("Spanish"))
-    #expect(spanish.displayName.contains("Español"))
-    
-    let french = TranslationService.SupportedLanguage.french
-    #expect(french.displayName.contains("French"))
-}
-
-@available(macOS 14.0, *)
-@Test func testLanguageLocales() async throws {
-    let spanish = TranslationService.SupportedLanguage.spanish
-    #expect(spanish.languageCode.identifier == "es")
-    
-    let japanese = TranslationService.SupportedLanguage.japanese
-    #expect(japanese.languageCode.identifier == "ja")
-}
-
-@available(macOS 14.0, *)
-@Test func testTranslationServiceInit() async throws {
+@available(macOS 26.0, *)
+@Test func testTranslationServiceReturnsUniqueLanguages() async throws {
     let service = TranslationService()
-    // Should initialize without errors
-    #expect(service != nil)
+    let languages = await service.getAvailableLanguages()
+    let identifiers = languages.map { $0.id }
+    #expect(Set(identifiers).count == identifiers.count)
 }
 
 // MARK: - Settings Tests

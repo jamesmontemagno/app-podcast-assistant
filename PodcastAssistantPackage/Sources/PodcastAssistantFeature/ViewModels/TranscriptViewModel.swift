@@ -14,8 +14,10 @@ public class TranscriptViewModel: ObservableObject {
     @Published public var showingExporter: Bool = false
     @Published public var showingImporter: Bool = false
     @Published public var showingTranslationSheet: Bool = false
-    @Published public var selectedLanguage: TranslationService.SupportedLanguage?
+    @Published public var selectedLanguage: AvailableLanguage?
+    @Published public var availableLanguages: [AvailableLanguage] = []
     @Published public var showingErrorAlert: Bool = false
+    @Published public var translationProgress: TranslationProgressUpdate?
     
     private let converter = TranscriptConverter()
     private let translationService: TranslationService?
@@ -45,11 +47,33 @@ public class TranscriptViewModel: ObservableObject {
         self.episode = episode
         self.context = context
         
-        // Initialize translation service if available (macOS 14+)
-        if #available(macOS 14.0, *) {
+        // Initialize translation service (macOS 26+)
+        if #available(macOS 26.0, *) {
             self.translationService = TranslationService()
+            // Load available languages
+            Task { @MainActor in
+                await loadAvailableLanguages()
+            }
         } else {
             self.translationService = nil
+        }
+    }
+    
+    /// Loads available translation languages from the system
+    @available(macOS 26.0, *)
+    private func loadAvailableLanguages() async {
+        guard let service = translationService else { return }
+        let languages = await service.getAvailableLanguages()
+        await MainActor.run {
+            availableLanguages = languages
+            let installedCount = languages.filter { $0.isInstalled }.count
+            print("🌐 Loaded \(languages.count) available languages (\(installedCount) installed)")
+            if self.selectedLanguage == nil {
+                self.selectedLanguage = languages.first(where: { $0.isInstalled })
+            } else if let selected = self.selectedLanguage,
+                      let updated = languages.first(where: { $0.id == selected.id }) {
+                self.selectedLanguage = updated
+            }
         }
     }
     
@@ -145,7 +169,7 @@ public class TranscriptViewModel: ObservableObject {
         }
         
         guard translationService != nil else {
-            errorMessage = "Translation requires macOS 14 or later"
+            errorMessage = "Translation requires macOS 26 or later"
             return
         }
         
@@ -160,7 +184,16 @@ public class TranscriptViewModel: ObservableObject {
             return
         }
         
+        guard language.isInstalled else {
+            errorMessage = "Download the translation packs for both your source language (usually English) and \(language.localizedName) in System Settings > General > Language & Region > Translation Languages, then restart Podcast Assistant and try again."
+            showingErrorAlert = true
+            return
+        }
+
+        print("🚀 Starting translation export for \(language.localizedName)")
+        
         guard let service = translationService else {
+            print("❌ Translation service not available")
             errorMessage = "Translation service not available"
             showingErrorAlert = true
             return
@@ -169,16 +202,26 @@ public class TranscriptViewModel: ObservableObject {
         isProcessing = true
         errorMessage = nil
         successMessage = nil
+        translationProgress = nil
         
         Task { @MainActor in
             do {
-                let translatedSRT = try await service.translateSRT(self.outputSRT, to: language)
+                print("📄 Output SRT length: \(self.outputSRT.count) characters")
+                let translatedSRT = try await service.translateSRT(
+                    self.outputSRT,
+                    to: language
+                ) { [weak self] update in
+                    guard let self else { return }
+                    self.translationProgress = update
+                }
+                print("✅ Translation completed, length: \(translatedSRT.count) characters")
                 
                 // Save to temporary location for export
                 let tempURL = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("translated_\(language.rawValue).srt")
+                    .appendingPathComponent("translated_\(language.id).srt")
                 
                 try translatedSRT.write(to: tempURL, atomically: true, encoding: .utf8)
+                print("💾 Saved to temp: \(tempURL.path)")
                 
                 // Open save panel
                 let panel = NSSavePanel()
@@ -187,7 +230,7 @@ public class TranscriptViewModel: ObservableObject {
                 } else {
                     panel.allowedContentTypes = [.plainText]
                 }
-                panel.nameFieldStringValue = "transcript_\(language.rawValue).srt"
+                panel.nameFieldStringValue = "transcript_\(language.id).srt"
                 panel.canCreateDirectories = true
                 
                 panel.begin { response in
@@ -195,19 +238,29 @@ public class TranscriptViewModel: ObservableObject {
                         if response == .OK, let url = panel.url {
                             do {
                                 try translatedSRT.write(to: url, atomically: true, encoding: .utf8)
+                                print("✅ Saved to: \(url.path)")
                                 self.successMessage = "Translated SRT saved to \(url.lastPathComponent)"
                                 self.showingTranslationSheet = false
                             } catch {
+                                print("❌ Save error: \(error)")
                                 self.errorMessage = "Failed to save file: \(error.localizedDescription)"
                                 self.showingErrorAlert = true
                             }
+                        } else {
+                            if response == .cancel {
+                                print("ℹ️ User cancelled translated export save panel")
+                            }
                         }
+                        self.translationProgress = nil
                         self.isProcessing = false
                     }
                 }
             } catch {
+                print("❌ Translation error: \(error)")
+                print("   Error type: \(type(of: error))")
                 self.errorMessage = error.localizedDescription
                 self.showingErrorAlert = true
+                self.translationProgress = nil
                 self.isProcessing = false
             }
         }
