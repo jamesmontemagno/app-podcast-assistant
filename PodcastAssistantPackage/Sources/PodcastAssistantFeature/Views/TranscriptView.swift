@@ -133,7 +133,8 @@ public struct TranscriptView: View {
             onCompletion: viewModel.handleExportCompletion
         )
         .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .automatic) {
+                // Import and processing actions
                 Button(action: viewModel.importFile) {
                     Label("Import", systemImage: "doc.badge.plus")
                 }
@@ -156,7 +157,10 @@ public struct TranscriptView: View {
                 .applyLiquidGlassButtonStyle(prominent: true)
                 .disabled(viewModel.outputSRT.isEmpty)
                 .help("Export SRT file")
-                
+            }
+            
+            ToolbarItemGroup(placement: .automatic) {
+                // Destructive action
                 Button(action: viewModel.clear) {
                     Label("Clear", systemImage: "trash")
                 }

@@ -16,7 +16,7 @@ public struct ContentView: View {
     @State private var editingPodcast: Podcast?
     @State private var editingEpisode: Episode?
     @State private var showingEpisodeDetailEdit = false
-    @State private var selectedDetailTab: DetailTab = .transcript
+    @State private var selectedDetailTab: DetailTab = .details
     
     @AppStorage("lastSelectedPodcastID") private var lastSelectedPodcastID: String = ""
     
@@ -182,7 +182,7 @@ public struct ContentView: View {
                 )
             }
         }
-        .frame(minWidth: 1000, minHeight: 700)
+        .frame(minWidth: 800, minHeight: 700)
         .onAppear {
             restoreLastSelectedPodcast()
         }
@@ -367,6 +367,24 @@ private struct EpisodeDetailView: View {
                     
                     VStack(spacing: 1) {
                         Button {
+                            selectedTab = .details
+                        } label: {
+                            HStack {
+                                Image(systemName: "info.circle")
+                                Text("Details")
+                                Spacer()
+                                if selectedTab == .details {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                            .padding()
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .background(selectedTab == .details ? Color.accentColor.opacity(0.1) : Color.clear)
+                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
+                        
+                        Button {
                             selectedTab = .transcript
                         } label: {
                             HStack {
@@ -424,12 +442,14 @@ private struct EpisodeDetailView: View {
                 
                 Spacer()
             }
-            .frame(width: 300)
+            .frame(width: 220)
             .background(Color(NSColor.controlBackgroundColor))
             
             // Right side: Selected content view
             Group {
                 switch selectedTab {
+                case .details:
+                    EpisodeDetailsView(episode: episode)
                 case .transcript:
                     TranscriptView(episode: episode)
                 case .thumbnail:
@@ -438,7 +458,7 @@ private struct EpisodeDetailView: View {
                     AIIdeasView(episode: episode)
                 }
             }
-            .frame(minWidth: 600)
+            .frame(minWidth: 400, idealWidth: 800, maxWidth: .infinity)
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -457,6 +477,7 @@ private struct EpisodeDetailView: View {
 
 /// Enum for detail pane tabs
 private enum DetailTab: Hashable {
+    case details
     case transcript
     case thumbnail
     case aiIdeas

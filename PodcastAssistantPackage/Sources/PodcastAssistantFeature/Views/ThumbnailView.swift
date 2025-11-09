@@ -410,7 +410,8 @@ public struct ThumbnailView: View {
             }
         }
         .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .automatic) {
+                // Generation and export actions
                 Button(action: viewModel.generateThumbnail) {
                     Label("Generate", systemImage: "wand.and.stars")
                 }
@@ -426,7 +427,10 @@ public struct ThumbnailView: View {
                 .buttonStyle(.glassProminent)
                 .disabled(viewModel.generatedThumbnail == nil)
                 .help("Export thumbnail")
-                
+            }
+            
+            ToolbarItemGroup(placement: .automatic) {
+                // Destructive action
                 Button(action: viewModel.clear) {
                     Label("Clear", systemImage: "trash")
                 }
