@@ -65,7 +65,8 @@ public final class PersistenceController {
     
     private static let schema = Schema([
         Podcast.self,
-        Episode.self
+        Episode.self,
+        AppSettings.self
     ])
     
     // MARK: - Initialization

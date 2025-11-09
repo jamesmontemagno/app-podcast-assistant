@@ -12,6 +12,11 @@ struct PodcastAssistantApp: App {
             ContentView()
                 .modelContainer(persistenceController.container)
         }
+        
+        Settings {
+            SettingsView()
+                .modelContainer(persistenceController.container)
+        }
     }
 }
 
