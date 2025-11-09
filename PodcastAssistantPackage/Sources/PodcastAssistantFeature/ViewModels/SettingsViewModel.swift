@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import SwiftData
 import AppKit
+import UniformTypeIdentifiers
 
 /// ViewModel for managing app settings
 @MainActor

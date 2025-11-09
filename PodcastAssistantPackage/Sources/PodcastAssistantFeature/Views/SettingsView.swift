@@ -4,17 +4,25 @@ import SwiftData
 /// Settings view for app-wide configuration
 public struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
-    
-    @State private var viewModel: SettingsViewModel?
     
     public init() {
     }
     
     public var body: some View {
-        // Initialize view model with environment modelContext on first render
-        let actualViewModel = viewModel ?? SettingsViewModel(modelContext: modelContext)
-        
+        SettingsContentView(modelContext: modelContext)
+    }
+}
+
+/// Internal content view that properly manages the view model
+private struct SettingsContentView: View {
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var viewModel: SettingsViewModel
+    
+    init(modelContext: ModelContext) {
+        _viewModel = StateObject(wrappedValue: SettingsViewModel(modelContext: modelContext))
+    }
+    
+    var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
@@ -84,7 +92,7 @@ public struct SettingsView: View {
                             
                             // Import button
                             Button {
-                                actualViewModel.importFont()
+                                viewModel.importFont()
                             } label: {
                                 HStack {
                                     Image(systemName: "plus.circle.fill")
@@ -96,7 +104,7 @@ public struct SettingsView: View {
                             .buttonStyle(.borderedProminent)
                             
                             // Imported fonts list
-                            if actualViewModel.importedFonts.isEmpty {
+                            if viewModel.importedFonts.isEmpty {
                                 VStack(spacing: 8) {
                                     Image(systemName: "textformat")
                                         .font(.largeTitle)
@@ -109,19 +117,19 @@ public struct SettingsView: View {
                                 .padding(.vertical, 32)
                             } else {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("Imported Fonts (\(actualViewModel.importedFonts.count))")
+                                    Text("Imported Fonts (\(viewModel.importedFonts.count))")
                                         .font(.subheadline)
                                         .fontWeight(.semibold)
                                         .foregroundStyle(.secondary)
                                     
                                     Divider()
                                     
-                                    ForEach(actualViewModel.importedFonts, id: \.self) { fontName in
+                                    ForEach(viewModel.importedFonts, id: \.self) { fontName in
                                         FontRow(
                                             fontName: fontName,
-                                            displayName: actualViewModel.getDisplayName(for: fontName),
+                                            displayName: viewModel.getDisplayName(for: fontName),
                                             onDelete: {
-                                                actualViewModel.removeFont(fontName)
+                                                viewModel.removeFont(fontName)
                                             }
                                         )
                                     }
@@ -129,7 +137,7 @@ public struct SettingsView: View {
                             }
                             
                             // Messages
-                            if let error = actualViewModel.errorMessage {
+                            if let error = viewModel.errorMessage {
                                 HStack {
                                     Image(systemName: "exclamationmark.triangle.fill")
                                         .foregroundStyle(.red)
@@ -137,7 +145,7 @@ public struct SettingsView: View {
                                         .font(.caption)
                                     Spacer()
                                     Button {
-                                        actualViewModel.clearError()
+                                        viewModel.clearError()
                                     } label: {
                                         Image(systemName: "xmark.circle.fill")
                                             .foregroundStyle(.secondary)
@@ -149,7 +157,7 @@ public struct SettingsView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
                             }
                             
-                            if let success = actualViewModel.successMessage {
+                            if let success = viewModel.successMessage {
                                 HStack {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundStyle(.green)
@@ -180,12 +188,6 @@ public struct SettingsView: View {
             }
         }
         .frame(minWidth: 500, minHeight: 600)
-        // Initialize the view model when it appears
-        .onAppear {
-            if viewModel == nil {
-                viewModel = actualViewModel
-            }
-        }
     }
 }
 
