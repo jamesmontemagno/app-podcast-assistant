@@ -12,6 +12,7 @@ public struct EpisodeDetailEditView: View {
     // Form fields
     @State private var title: String = ""
     @State private var episodeNumber: Int = 1
+    @State private var description: String = ""
     
     // UI state
     @State private var errorMessage: String?
@@ -35,6 +36,16 @@ public struct EpisodeDetailEditView: View {
                         Stepper("", value: $episodeNumber, in: 1...9999)
                             .labelsHidden()
                     }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Description")
+                            .font(.subheadline)
+                        TextEditor(text: $description)
+                            .font(.body)
+                            .frame(minHeight: 100, maxHeight: 200)
+                            .border(Color.gray.opacity(0.2), width: 1)
+                    }
+                    .padding(.vertical, 4)
                 }
                 
                 if let errorMessage = errorMessage {
@@ -66,7 +77,7 @@ public struct EpisodeDetailEditView: View {
                 loadExistingData()
             }
         }
-        .frame(minWidth: 400, minHeight: 300)
+        .frame(minWidth: 400, minHeight: 400)
     }
     
     // MARK: - Data Loading
@@ -74,6 +85,7 @@ public struct EpisodeDetailEditView: View {
     private func loadExistingData() {
         title = episode.title
         episodeNumber = Int(episode.episodeNumber)
+        description = episode.episodeDescription ?? ""
     }
     
     // MARK: - Save
@@ -87,6 +99,9 @@ public struct EpisodeDetailEditView: View {
         
         episode.title = trimmedTitle
         episode.episodeNumber = Int32(episodeNumber)
+        
+        let trimmedDescription = description.trimmingCharacters(in: .whitespaces)
+        episode.episodeDescription = trimmedDescription.isEmpty ? nil : trimmedDescription
         
         do {
             try modelContext.save()
