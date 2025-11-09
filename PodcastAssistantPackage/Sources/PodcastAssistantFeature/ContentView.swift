@@ -19,6 +19,8 @@ public struct ContentView: View {
     @State private var showingEpisodeDetailEdit = false
     @State private var selectedDetailTab: DetailTab = .details
     @State private var showingSettings = false
+    @State private var episodeSearchText = ""
+    @State private var episodeSortOption: EpisodeSortOption = .numberAscending
     
     @AppStorage("lastSelectedPodcastID") private var lastSelectedPodcastID: String = ""
     
@@ -122,30 +124,86 @@ public struct ContentView: View {
                         
                         Divider()
                         
+                        // Search and Sort
+                        VStack(spacing: 8) {
+                            TextField("Search episodes...", text: $episodeSearchText)
+                                .textFieldStyle(.roundedBorder)
+                            
+                            HStack {
+                                Text("Sort by:")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                
+                                Picker("Sort", selection: $episodeSortOption) {
+                                    Text("Number ↑").tag(EpisodeSortOption.numberAscending)
+                                    Text("Number ↓").tag(EpisodeSortOption.numberDescending)
+                                    Text("Title A-Z").tag(EpisodeSortOption.titleAscending)
+                                    Text("Title Z-A").tag(EpisodeSortOption.titleDescending)
+                                    Text("Newest").tag(EpisodeSortOption.dateDescending)
+                                    Text("Oldest").tag(EpisodeSortOption.dateAscending)
+                                }
+                                .pickerStyle(.menu)
+                                .labelsHidden()
+                                
+                                Spacer()
+                                
+                                if !episodeSearchText.isEmpty {
+                                    Button {
+                                        episodeSearchText = ""
+                                    } label: {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Clear search")
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 8)
+                        .background(Color(NSColor.controlBackgroundColor))
+                        
+                        Divider()
+                        
                         if podcast.episodes.isEmpty {
                             VStack {
-                                Spacer()
                                 ContentUnavailableView(
                                     "No Episodes",
                                     systemImage: "waveform.slash",
                                     description: Text("Create an episode for this podcast")
                                 )
+                                .frame(maxHeight: 300)
                                 Spacer()
                             }
-                            .frame(maxHeight: .infinity)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                         } else {
-                            List(selection: $selectedEpisode) {
-                                ForEach(podcast.episodes.sorted(by: { $0.createdAt < $1.createdAt })) { episode in
-                                    EpisodeRow(episode: episode)
-                                        .tag(episode)
-                                        .contextMenu {
-                                            Button("Edit") {
-                                                editingEpisode = episode
+                            let filteredEpisodes = filterAndSortEpisodes(podcast.episodes)
+                            
+                            if filteredEpisodes.isEmpty {
+                                VStack {
+                                    ContentUnavailableView(
+                                        "No Matching Episodes",
+                                        systemImage: "magnifyingglass",
+                                        description: Text("Try adjusting your search")
+                                    )
+                                    .frame(maxHeight: 300)
+                                    Spacer()
+                                }
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                            } else {
+                                List(selection: $selectedEpisode) {
+                                    ForEach(filteredEpisodes) { episode in
+                                        EpisodeRow(episode: episode)
+                                            .tag(episode)
+                                            .contextMenu {
+                                                Button("Edit") {
+                                                    editingEpisode = episode
+                                                }
+                                                Button("Delete", role: .destructive) {
+                                                    deleteEpisode(episode)
+                                                }
                                             }
-                                            Button("Delete", role: .destructive) {
-                                                deleteEpisode(episode)
-                                            }
-                                        }
+                                    }
                                 }
                             }
                         }
@@ -159,15 +217,15 @@ public struct ContentView: View {
                     }
                 } else {
                     VStack {
-                        Spacer()
                         ContentUnavailableView(
                             "Select a Podcast",
                             systemImage: "mic.slash",
                             description: Text("Choose a podcast from the dropdown above")
                         )
+                        .frame(maxHeight: 300)
                         Spacer()
                     }
-                    .frame(maxHeight: .infinity)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 }
                 
                 // Settings button at bottom
@@ -278,6 +336,37 @@ public struct ContentView: View {
             }
         } catch {
             print("Error loading theme preference: \(error)")
+        }
+    }
+    
+    // MARK: - Episode Filtering and Sorting
+    
+    private func filterAndSortEpisodes(_ episodes: [Episode]) -> [Episode] {
+        var filtered = episodes
+        
+        // Apply search filter
+        if !episodeSearchText.isEmpty {
+            filtered = filtered.filter { episode in
+                episode.title.localizedCaseInsensitiveContains(episodeSearchText)
+            }
+        }
+        
+        // Apply sorting
+        return filtered.sorted { episode1, episode2 in
+            switch episodeSortOption {
+            case .numberAscending:
+                return episode1.episodeNumber < episode2.episodeNumber
+            case .numberDescending:
+                return episode1.episodeNumber > episode2.episodeNumber
+            case .titleAscending:
+                return episode1.title.localizedCaseInsensitiveCompare(episode2.title) == .orderedAscending
+            case .titleDescending:
+                return episode1.title.localizedCaseInsensitiveCompare(episode2.title) == .orderedDescending
+            case .dateAscending:
+                return episode1.createdAt < episode2.createdAt
+            case .dateDescending:
+                return episode1.createdAt > episode2.createdAt
+            }
         }
     }
     
@@ -543,6 +632,16 @@ private struct EpisodeDetailView: View {
             }
         }
     }
+}
+
+/// Sort options for episode list
+private enum EpisodeSortOption: String, Hashable {
+    case numberAscending
+    case numberDescending
+    case titleAscending
+    case titleDescending
+    case dateAscending
+    case dateDescending
 }
 
 /// Enum for detail pane tabs
