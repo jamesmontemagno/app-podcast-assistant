@@ -72,28 +72,30 @@ public class FontManager {
             throw FontError.invalidFontFile
         }
         
-        // Check if font is already registered
-        if isFontRegistered(postScriptName) {
-            throw FontError.fontAlreadyImported
-        }
-        
         // Copy font file to app's fonts directory
         let fontsDir = try fontsDirectory
         let destinationURL = fontsDir.appendingPathComponent(fontURL.lastPathComponent)
         
-        // Remove existing file if present
+        // Check if the exact same font file is already in our fonts directory
         if fileManager.fileExists(atPath: destinationURL.path) {
-            try fileManager.removeItem(at: destinationURL)
+            // Font file already exists in our directory
+            // Still return the PostScript name so caller can check if it's in their list
+            return postScriptName
         }
         
         try fileManager.copyItem(at: fontURL, to: destinationURL)
         
-        // Register the font
+        // Register the font (if it's already registered globally, this will fail but that's OK)
         var error: Unmanaged<CFError>?
-        guard CTFontManagerRegisterFontsForURL(destinationURL as CFURL, .process, &error) else {
-            // Clean up the copied file
-            try? fileManager.removeItem(at: destinationURL)
-            throw FontError.fontRegistrationFailed
+        if !CTFontManagerRegisterFontsForURL(destinationURL as CFURL, .process, &error) {
+            // Font registration failed - might already be registered or invalid
+            // Check if it's actually usable as a font
+            if NSFont(name: postScriptName, size: 12) == nil {
+                // Font is not usable, clean up and throw error
+                try? fileManager.removeItem(at: destinationURL)
+                throw FontError.fontRegistrationFailed
+            }
+            // Font is usable (probably already registered), continue
         }
         
         return postScriptName

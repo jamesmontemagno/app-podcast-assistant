@@ -7,6 +7,7 @@ public struct ThumbnailView: View {
     let episode: Episode
     @StateObject private var viewModel: ThumbnailViewModel
     @State private var previewZoom: CGFloat = 1.0
+    @State private var fitToWindow: Bool = true
     
     public init(episode: Episode) {
         self.episode = episode
@@ -332,35 +333,48 @@ public struct ThumbnailView: View {
                             // Zoom controls
                             HStack(spacing: 8) {
                                 Button {
-                                    previewZoom = max(0.25, previewZoom - 0.25)
+                                    fitToWindow.toggle()
+                                    if fitToWindow {
+                                        previewZoom = 1.0
+                                    }
                                 } label: {
-                                    Image(systemName: "minus.magnifyingglass")
+                                    Image(systemName: fitToWindow ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                                 }
                                 .buttonStyle(.borderless)
-                                .disabled(previewZoom <= 0.25)
-                                .help("Zoom out")
+                                .help(fitToWindow ? "Manual zoom" : "Fit to window")
                                 
-                                Text("\(Int(previewZoom * 100))%")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .frame(minWidth: 40)
-                                
-                                Button {
-                                    previewZoom = min(4.0, previewZoom + 0.25)
-                                } label: {
-                                    Image(systemName: "plus.magnifyingglass")
+                                if !fitToWindow {
+                                    Button {
+                                        previewZoom = max(0.25, previewZoom - 0.25)
+                                    } label: {
+                                        Image(systemName: "minus.magnifyingglass")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .disabled(previewZoom <= 0.25)
+                                    .help("Zoom out")
+                                    
+                                    Text("\(Int(previewZoom * 100))%")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .frame(minWidth: 40)
+                                    
+                                    Button {
+                                        previewZoom = min(4.0, previewZoom + 0.25)
+                                    } label: {
+                                        Image(systemName: "plus.magnifyingglass")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .disabled(previewZoom >= 4.0)
+                                    .help("Zoom in")
+                                    
+                                    Button {
+                                        previewZoom = 1.0
+                                    } label: {
+                                        Image(systemName: "arrow.counterclockwise")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .help("Reset zoom")
                                 }
-                                .buttonStyle(.borderless)
-                                .disabled(previewZoom >= 4.0)
-                                .help("Zoom in")
-                                
-                                Button {
-                                    previewZoom = 1.0
-                                } label: {
-                                    Image(systemName: "arrow.counterclockwise")
-                                }
-                                .buttonStyle(.borderless)
-                                .help("Reset zoom")
                             }
                             
                             Text("•")
@@ -391,14 +405,26 @@ public struct ThumbnailView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(Color(NSColor.textBackgroundColor).opacity(0.3))
                     } else if let thumbnail = viewModel.generatedThumbnail {
-                        ScrollView([.horizontal, .vertical]) {
-                            Image(nsImage: thumbnail)
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .scaleEffect(previewZoom)
-                                .padding()
+                        if fitToWindow {
+                            // Fit to window mode - fills available space
+                            GeometryReader { geometry in
+                                Image(nsImage: thumbnail)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: geometry.size.width, height: geometry.size.height)
+                            }
+                            .background(Color.black.opacity(0.05))
+                        } else {
+                            // Manual zoom mode - scrollable with zoom control
+                            ScrollView([.horizontal, .vertical]) {
+                                Image(nsImage: thumbnail)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .scaleEffect(previewZoom)
+                                    .padding()
+                            }
+                            .background(Color.black.opacity(0.05))
                         }
-                        .background(Color.black.opacity(0.05))
                     } else {
                         VStack(spacing: 16) {
                             Image(systemName: "photo.on.rectangle.angled")

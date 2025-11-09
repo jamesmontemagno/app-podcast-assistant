@@ -15,6 +15,7 @@ public struct EpisodeFormView: View {
     // Form fields
     @State private var title: String = ""
     @State private var episodeNumber: Int = 1
+    @State private var publishDate: Date = Date()
     
     // UI state
     @State private var errorMessage: String?
@@ -39,6 +40,8 @@ public struct EpisodeFormView: View {
                         Stepper("", value: $episodeNumber, in: 1...9999)
                             .labelsHidden()
                     }
+                    
+                    DatePicker("Publish Date", selection: $publishDate, displayedComponents: [.date])
                 }
                 
                 Section {
@@ -96,6 +99,7 @@ public struct EpisodeFormView: View {
         if let episode = episode {
             title = episode.title
             episodeNumber = Int(episode.episodeNumber)
+            publishDate = episode.publishDate
         } else {
             // Suggest next episode number
             let existingEpisodes = podcast.episodes
@@ -129,6 +133,7 @@ public struct EpisodeFormView: View {
         
         episodeToSave.title = trimmedTitle
         episodeToSave.episodeNumber = Int32(episodeNumber)
+        episodeToSave.publishDate = publishDate
         
         do {
             try modelContext.save()

@@ -7,6 +7,14 @@ struct PodcastAssistantApp: App {
     // Initialize SwiftData persistence
     let persistenceController = PersistenceController.shared
     
+    init() {
+        // Register all imported fonts on app launch
+        Task { @MainActor in
+            let fontManager = FontManager()
+            try? fontManager.registerImportedFonts()
+        }
+    }
+    
     var body: some Scene {
         WindowGroup {
             ContentView()

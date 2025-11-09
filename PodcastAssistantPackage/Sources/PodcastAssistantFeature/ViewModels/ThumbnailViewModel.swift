@@ -113,13 +113,13 @@ public class ThumbnailViewModel: ObservableObject {
     @Published public var overlayImage: NSImage? = nil
     
     private let generator = ThumbnailGenerator()
-    private let defaults = UserDefaults.standard
-    private let customFontsKey = "ThumbnailCustomFonts"
+    private let fontManager: FontManager
     private var hasLoadedImages = false
     
     // SwiftData episode
     public let episode: Episode
     private let context: ModelContext
+    private var appSettings: AppSettings?
     
     public var availableFonts: [String] {
         var fonts = [
@@ -132,15 +132,15 @@ public class ThumbnailViewModel: ObservableObject {
             "GillSans-Bold"
         ]
         
-        // Add custom fonts
-        if let customFonts = defaults.stringArray(forKey: customFontsKey) {
-            fonts.append(contentsOf: customFonts)
+        // Add imported fonts from AppSettings
+        if let settings = appSettings {
+            fonts.append(contentsOf: settings.importedFonts)
         }
         
-        return fonts
+        return fonts.sorted()
     }
     
-    public init(episode: Episode, context: ModelContext) {
+    public init(episode: Episode, context: ModelContext, fontManager: FontManager = FontManager()) {
                 // Font color
                 if let hex = episode.fontColorHex, let color = Color(hex: hex) {
                     self.fontColor = color
@@ -151,6 +151,10 @@ public class ThumbnailViewModel: ObservableObject {
                 }
         self.episode = episode
         self.context = context
+        self.fontManager = fontManager
+        
+        // Load AppSettings
+        loadSettings()
         
         // Initialize episodeNumber from episode
         self.episodeNumber = "\(episode.episodeNumber)"
@@ -336,7 +340,32 @@ public class ThumbnailViewModel: ObservableObject {
         }
     }
     
-    /// Registers a custom font and saves it
+    /// Load or create AppSettings
+    private func loadSettings() {
+        let descriptor = FetchDescriptor<AppSettings>()
+        
+        do {
+            let allSettings = try context.fetch(descriptor)
+            
+            if let existingSettings = allSettings.first {
+                appSettings = existingSettings
+            } else {
+                // Create new settings
+                let newSettings = AppSettings()
+                context.insert(newSettings)
+                try context.save()
+                appSettings = newSettings
+            }
+        } catch {
+            print("Error loading settings: \(error)")
+            // Create fallback settings
+            let newSettings = AppSettings()
+            context.insert(newSettings)
+            appSettings = newSettings
+        }
+    }
+    
+    /// Registers a custom font and saves it to global AppSettings
     private func registerCustomFont(from url: URL) {
         // Start accessing security-scoped resource
         guard url.startAccessingSecurityScopedResource() else {
@@ -347,37 +376,29 @@ public class ThumbnailViewModel: ObservableObject {
             url.stopAccessingSecurityScopedResource()
         }
         
-        guard let fontDataProvider = CGDataProvider(url: url as CFURL),
-              let font = CGFont(fontDataProvider),
-              let fontName = font.postScriptName as String? else {
-            errorMessage = "Failed to load font file"
-            return
-        }
-        
-        var error: Unmanaged<CFError>?
-        if !CTFontManagerRegisterGraphicsFont(font, &error) {
-            if let error = error?.takeRetainedValue() {
-                let errorDescription = CFErrorCopyDescription(error) as String
-                // Font might already be registered, which is fine
-                if !errorDescription.contains("already registered") {
-                    self.errorMessage = "Failed to register font: \(errorDescription)"
-                    return
-                }
+        do {
+            let fontName = try fontManager.importFont(from: url)
+            
+            // Add to AppSettings imported fonts list if not already present
+            guard let settings = appSettings else {
+                errorMessage = "Settings not available"
+                return
             }
-        }
-        
-        // Save font name to UserDefaults
-        var customFonts = defaults.stringArray(forKey: customFontsKey) ?? []
-        if !customFonts.contains(fontName) {
-            customFonts.append(fontName)
-            defaults.set(customFonts, forKey: customFontsKey)
+            
+            if !settings.importedFonts.contains(fontName) {
+                settings.importedFonts.append(fontName)
+                settings.importedFonts.sort()
+                settings.updatedAt = Date()
+                try context.save()
+            }
+            
+            let displayName = fontManager.getDisplayName(for: fontName)
             selectedFont = fontName
-            successMessage = "Custom font '\(fontName)' loaded successfully"
+            successMessage = "Font '\(displayName)' loaded and added to global fonts"
             errorMessage = nil
-            objectWillChange.send()
-        } else {
-            selectedFont = fontName
-            successMessage = "Font already available"
+            objectWillChange.send() // Refresh available fonts list
+        } catch {
+            errorMessage = "Failed to load font: \(error.localizedDescription)"
         }
     }
     

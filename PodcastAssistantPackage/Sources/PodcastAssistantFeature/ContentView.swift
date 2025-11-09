@@ -363,9 +363,9 @@ public struct ContentView: View {
             case .titleDescending:
                 return episode1.title.localizedCaseInsensitiveCompare(episode2.title) == .orderedDescending
             case .dateAscending:
-                return episode1.createdAt < episode2.createdAt
+                return episode1.publishDate < episode2.publishDate
             case .dateDescending:
-                return episode1.createdAt > episode2.createdAt
+                return episode1.publishDate > episode2.publishDate
             }
         }
     }
@@ -448,7 +448,7 @@ private struct EpisodeDetailView: View {
     @Binding var showingEpisodeDetailEdit: Bool
     
     var body: some View {
-        HSplitView {
+        HStack(spacing: 0) {
             // Left side: Episode details and section selector
             VStack(alignment: .leading, spacing: 0) {
                 // Episode information
@@ -484,34 +484,6 @@ private struct EpisodeDetailView: View {
                             }
                         }
                     }
-                    
-                    Divider()
-                        .padding(.vertical, 8)
-                    
-                    // Status indicators
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Image(systemName: episode.transcriptInputText != nil ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(episode.transcriptInputText != nil ? .green : .secondary)
-                            Text("Transcript")
-                            Spacer()
-                        }
-                        
-                        HStack {
-                            Image(systemName: episode.thumbnailOutputData != nil ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(episode.thumbnailOutputData != nil ? .blue : .secondary)
-                            Text("Thumbnail")
-                            Spacer()
-                        }
-                        
-                        HStack {
-                            Image(systemName: episode.episodeDescription != nil ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(episode.episodeDescription != nil ? .purple : .secondary)
-                            Text("AI Ideas")
-                            Spacer()
-                        }
-                    }
-                    .font(.subheadline)
                 }
                 .padding()
                 
@@ -547,7 +519,8 @@ private struct EpisodeDetailView: View {
                             selectedTab = .transcript
                         } label: {
                             HStack {
-                                Image(systemName: "doc.text")
+                                Image(systemName: episode.transcriptInputText != nil ? "checkmark.circle.fill" : "doc.text")
+                                    .foregroundStyle(episode.transcriptInputText != nil ? .green : .primary)
                                 Text("Transcript")
                                 Spacer()
                                 if selectedTab == .transcript {
@@ -565,7 +538,8 @@ private struct EpisodeDetailView: View {
                             selectedTab = .thumbnail
                         } label: {
                             HStack {
-                                Image(systemName: "photo")
+                                Image(systemName: episode.thumbnailOutputData != nil ? "checkmark.circle.fill" : "photo")
+                                    .foregroundStyle(episode.thumbnailOutputData != nil ? .blue : .primary)
                                 Text("Thumbnail")
                                 Spacer()
                                 if selectedTab == .thumbnail {
@@ -583,7 +557,8 @@ private struct EpisodeDetailView: View {
                             selectedTab = .aiIdeas
                         } label: {
                             HStack {
-                                Image(systemName: "sparkles")
+                                Image(systemName: episode.episodeDescription != nil ? "checkmark.circle.fill" : "sparkles")
+                                    .foregroundStyle(episode.episodeDescription != nil ? .purple : .primary)
                                 Text("AI Ideas")
                                 Spacer()
                                 if selectedTab == .aiIdeas {
@@ -601,8 +576,10 @@ private struct EpisodeDetailView: View {
                 
                 Spacer()
             }
-            .frame(width: 220)
+            .frame(minWidth: 220, idealWidth: 220, maxWidth: 220)
             .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
             
             // Right side: Selected content view
             Group {
@@ -617,7 +594,7 @@ private struct EpisodeDetailView: View {
                     AIIdeasView(episode: episode)
                 }
             }
-            .frame(minWidth: 400, idealWidth: 800, maxWidth: .infinity)
+            .frame(minWidth: 500, idealWidth: 800, maxWidth: .infinity)
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

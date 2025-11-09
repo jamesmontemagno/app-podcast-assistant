@@ -142,12 +142,17 @@ public class SettingsViewModel: ObservableObject {
         do {
             let fontName = try fontManager.importFont(from: url)
             
-            // Add to imported fonts list if not already present
-            if !importedFonts.contains(fontName) {
-                importedFonts.append(fontName)
-                importedFonts.sort()
-                saveSettings()
+            // Check if this font is already in our imported fonts list
+            if importedFonts.contains(fontName) {
+                let displayName = fontManager.getDisplayName(for: fontName)
+                errorMessage = "Font '\(displayName)' is already imported"
+                return
             }
+            
+            // Add to imported fonts list
+            importedFonts.append(fontName)
+            importedFonts.sort()
+            saveSettings()
             
             let displayName = fontManager.getDisplayName(for: fontName)
             successMessage = "Successfully imported '\(displayName)'"
@@ -161,8 +166,6 @@ public class SettingsViewModel: ObservableObject {
                     }
                 }
             }
-        } catch FontManager.FontError.fontAlreadyImported {
-            errorMessage = "This font has already been imported"
         } catch {
             errorMessage = "Failed to import font: \(error.localizedDescription)"
         }

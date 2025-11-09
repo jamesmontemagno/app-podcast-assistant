@@ -26,6 +26,7 @@ public final class Episode {
     public var outlineEnabled: Bool
     public var outlineColorHex: String? // e.g. "#000000"
     public var createdAt: Date
+    public var publishDate: Date
     
     public var podcast: Podcast?
     
@@ -45,6 +46,7 @@ public final class Episode {
         self.title = title
         self.episodeNumber = episodeNumber
         self.createdAt = Date()
+        self.publishDate = Date()
         self.podcast = podcast
         
         // Copy defaults from parent podcast if available
