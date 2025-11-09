@@ -15,6 +15,7 @@ public class TranscriptViewModel: ObservableObject {
     @Published public var showingImporter: Bool = false
     @Published public var showingTranslationSheet: Bool = false
     @Published public var selectedLanguage: TranslationService.SupportedLanguage?
+    @Published public var showingErrorAlert: Bool = false
     
     private let converter = TranscriptConverter()
     private let translationService: TranslationService?
@@ -155,11 +156,13 @@ public class TranscriptViewModel: ObservableObject {
     public func translateAndExport() {
         guard let language = selectedLanguage else {
             errorMessage = "Please select a language"
+            showingErrorAlert = true
             return
         }
         
         guard let service = translationService else {
             errorMessage = "Translation service not available"
+            showingErrorAlert = true
             return
         }
         
@@ -196,13 +199,15 @@ public class TranscriptViewModel: ObservableObject {
                                 self.showingTranslationSheet = false
                             } catch {
                                 self.errorMessage = "Failed to save file: \(error.localizedDescription)"
+                                self.showingErrorAlert = true
                             }
                         }
                         self.isProcessing = false
                     }
                 }
             } catch {
-                self.errorMessage = "Translation failed: \(error.localizedDescription)"
+                self.errorMessage = error.localizedDescription
+                self.showingErrorAlert = true
                 self.isProcessing = false
             }
         }

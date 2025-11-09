@@ -7,6 +7,31 @@ public class TranslationService {
     
     public init() {}
     
+    /// Checks if a language pack is available for translation
+    /// - Parameter language: The target language to check
+    /// - Returns: Availability status with download guidance if needed
+    public func checkLanguageAvailability(
+        for language: SupportedLanguage
+    ) async -> LanguagePackStatus {
+        let sourceLanguage = Locale.Language(languageCode: Locale.LanguageCode("en"))
+        let targetLang = Locale.Language(languageCode: language.languageCode)
+        
+        // Create LanguageAvailability instance to check status
+        let availability = Translation.LanguageAvailability()
+        let status = await availability.status(from: sourceLanguage, to: targetLang)
+        
+        switch status {
+        case .installed:
+            return .installed
+        case .supported:
+            return .needsDownload
+        case .unsupported:
+            return .unsupported
+        @unknown default:
+            return .unsupported
+        }
+    }
+    
     /// Common YouTube-supported languages
     public enum SupportedLanguage: String, CaseIterable, Identifiable {
         case spanish = "es"
@@ -56,6 +81,18 @@ public class TranslationService {
         _ srtContent: String,
         to targetLanguage: SupportedLanguage
     ) async throws -> String {
+        // Check language availability first
+        let availability = await checkLanguageAvailability(for: targetLanguage)
+        
+        switch availability {
+        case .installed:
+            break // Proceed with translation
+        case .needsDownload:
+            throw TranslationError.languagePackNotInstalled(targetLanguage.displayName)
+        case .unsupported:
+            throw TranslationError.unsupportedLanguage
+        }
+        
         // Parse SRT into entries
         let entries = try parseSRT(srtContent)
         
@@ -83,24 +120,15 @@ public class TranslationService {
         _ text: String,
         to targetLanguage: SupportedLanguage
     ) async throws -> String {
-        // Create translation session configuration
-        let configuration = TranslationSession.Configuration(
-            target: Locale.Language(languageCode: targetLanguage.languageCode)
-        )
+        // Create translation session with source (English) and target language
+        let sourceLanguage = Locale.Language(languageCode: Locale.LanguageCode("en"))
+        let targetLang = Locale.Language(languageCode: targetLanguage.languageCode)
         
-        let session = TranslationSession(configuration: configuration)
+        let session = TranslationSession(installedSource: sourceLanguage, target: targetLang)
         
         do {
-            // Prepare translation request
-            let request = TranslationSession.Request(
-                sourceText: text
-            )
-            
-            // Perform translation
-            let response = try await session.translate(request)
-            
-            // Invalidate session when done
-            session.invalidate()
+            // Perform translation (translate method returns TranslationSession.Response)
+            let response = try await session.translate(text)
             
             return response.targetText
         } catch {
@@ -156,6 +184,7 @@ public class TranslationService {
         case invalidSRTFormat
         case translationFailed(String)
         case unsupportedLanguage
+        case languagePackNotInstalled(String)
         
         public var errorDescription: String? {
             switch self {
@@ -165,7 +194,24 @@ public class TranslationService {
                 return "Translation failed: \(details)"
             case .unsupportedLanguage:
                 return "The selected language is not supported."
+            case .languagePackNotInstalled(let languageName):
+                return """
+                Language pack for \(languageName) is not installed.
+                
+                To download:
+                1. Open System Settings
+                2. Go to General > Language & Region
+                3. Click Translation Languages
+                4. Download the language pack for \(languageName)
+                """
             }
         }
+    }
+    
+    /// Language availability status
+    public enum LanguagePackStatus {
+        case installed
+        case needsDownload
+        case unsupported
     }
 }

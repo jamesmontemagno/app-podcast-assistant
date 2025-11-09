@@ -8,6 +8,8 @@ This is a macOS SwiftUI app using a **workspace + SPM package architecture** wit
 - **Feature Code**: `PodcastAssistantPackage/Sources/PodcastAssistantFeature/` - **ALL business logic, services, views, and models live here**
 - **Always open**: `PodcastAssistant.xcworkspace` (never the .xcodeproj file)
 
+This app targets the latest macOS SDK and uses SwiftData for local data storage (CloudKit-ready). macOS 26 apis are preferred.
+
 ### Critical File Organization Pattern
 ```
 PodcastAssistantPackage/Sources/PodcastAssistantFeature/
@@ -243,8 +245,10 @@ User Action → ViewModel → SwiftData Model → Context Save → UI Update (au
 - CloudKit-ready schema - see `PersistenceController.swift` for enabling instructions
 - Container ID ready: `iCloud.com.refractored.PodcastAssistant`
 
-## Documentation
+## App Documentation
 
-See `/docs` folder for comprehensive guides:
-- `ARCHITECTURE.md` - System architecture, navigation flow, component details
-- `CORE_DATA.md` - SwiftData implementation (renamed from Core Data), CloudKit sync, best practices
+See `/docs` folder for comprehensive guides and add them there and update them as well if needed.
+
+## Apple API Documentation
+
+Always refer to official Apple documentation for APIs used. We have the apple-docs-mcp server to search. Else, fetch from apple docs and try to get the latest information and only videos relvant to the latest WWDCs and SDKs.

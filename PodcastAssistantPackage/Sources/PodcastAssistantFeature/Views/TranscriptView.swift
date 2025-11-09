@@ -183,6 +183,24 @@ public struct TranscriptView: View {
         .sheet(isPresented: $viewModel.showingTranslationSheet) {
             TranslationLanguageSheet(viewModel: viewModel)
         }
+        .alert("Error", isPresented: $viewModel.showingErrorAlert) {
+            Button("OK") {
+                viewModel.showingErrorAlert = false
+            }
+            if let error = viewModel.errorMessage,
+               error.contains("Language pack") {
+                Button("Open System Settings") {
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.general") {
+                        NSWorkspace.shared.open(url)
+                    }
+                    viewModel.showingErrorAlert = false
+                }
+            }
+        } message: {
+            if let error = viewModel.errorMessage {
+                Text(error)
+            }
+        }
     }
 }
 
