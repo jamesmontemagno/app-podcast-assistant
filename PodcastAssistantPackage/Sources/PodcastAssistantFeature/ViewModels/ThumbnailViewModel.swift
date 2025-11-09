@@ -108,49 +108,18 @@ public class ThumbnailViewModel: ObservableObject {
     @Published public var successMessage: String?
     @Published public var isLoading: Bool = false
     
+    // Cached images - loaded lazily to prevent blocking on init
+    @Published public var backgroundImage: NSImage? = nil
+    @Published public var overlayImage: NSImage? = nil
+    
     private let generator = ThumbnailGenerator()
     private let defaults = UserDefaults.standard
     private let customFontsKey = "ThumbnailCustomFonts"
+    private var hasLoadedImages = false
     
     // SwiftData episode
     public let episode: Episode
     private let context: ModelContext
-    
-    // Computed properties for images from Core Data
-    public var backgroundImage: NSImage? {
-        get {
-            guard let data = episode.thumbnailBackgroundData else { return nil }
-            return ImageUtilities.loadImage(from: data)
-        }
-        set {
-            if let image = newValue {
-                episode.thumbnailBackgroundData = ImageUtilities.processImageForStorage(image)
-            } else {
-                episode.thumbnailBackgroundData = nil
-            }
-            saveContext()
-            objectWillChange.send()
-            generateThumbnail()
-        }
-    }
-    
-    public var overlayImage: NSImage? {
-        get {
-            guard let data = episode.thumbnailOverlayData else { return nil }
-            return ImageUtilities.loadImage(from: data)
-        }
-        set {
-            if let image = newValue {
-                // Preserve transparency for overlay images (save as PNG instead of JPEG)
-                episode.thumbnailOverlayData = ImageUtilities.processImageForStorage(image, preserveTransparency: true)
-            } else {
-                episode.thumbnailOverlayData = nil
-            }
-            saveContext()
-            objectWillChange.send()
-            generateThumbnail()
-        }
-    }
     
     public var availableFonts: [String] {
         var fonts = [
@@ -224,9 +193,32 @@ public class ThumbnailViewModel: ObservableObject {
         } ?? .aspectFill
     }
     
+    /// Loads images from SwiftData asynchronously (called once on view appear)
+    private func loadImagesIfNeeded() async {
+        guard !hasLoadedImages else { return }
+        hasLoadedImages = true
+        
+        // Load images off main thread to prevent UI blocking
+        let bgData = episode.thumbnailBackgroundData
+        let overlayData = episode.thumbnailOverlayData
+        
+        await Task.detached {
+            let bgImage = bgData.flatMap { ImageUtilities.loadImage(from: $0) }
+            let ovImage = overlayData.flatMap { ImageUtilities.loadImage(from: $0) }
+            
+            await MainActor.run {
+                self.backgroundImage = bgImage
+                self.overlayImage = ovImage
+            }
+        }.value
+    }
+    
     /// Performs initial thumbnail generation with a delay to allow UI to settle
     public func performInitialGeneration() {
         Task { @MainActor in
+            // Load images from SwiftData first (off main thread)
+            await loadImagesIfNeeded()
+            
             // Give the UI time to load and render
             try? await Task.sleep(nanoseconds: 300_000_000) // 300ms delay
             self.generateThumbnail()
@@ -247,34 +239,52 @@ public class ThumbnailViewModel: ObservableObject {
     /// Imports a background image
     public func importBackgroundImage() {
         selectImage { [weak self] image in
-            self?.backgroundImage = image
-            self?.successMessage = "Background image loaded"
-            self?.errorMessage = nil
+            guard let self = self else { return }
+            self.backgroundImage = image
+            if let image = image {
+                self.episode.thumbnailBackgroundData = ImageUtilities.processImageForStorage(image)
+                self.saveContext()
+            }
+            self.successMessage = "Background image loaded"
+            self.errorMessage = nil
+            self.generateThumbnail()
         }
     }
     
     /// Imports an overlay image
     public func importOverlayImage() {
         selectImage { [weak self] image in
-            self?.overlayImage = image
-            self?.successMessage = "Overlay image loaded"
-            self?.errorMessage = nil
+            guard let self = self else { return }
+            self.overlayImage = image
+            if let image = image {
+                self.episode.thumbnailOverlayData = ImageUtilities.processImageForStorage(image, preserveTransparency: true)
+                self.saveContext()
+            }
+            self.successMessage = "Overlay image loaded"
+            self.errorMessage = nil
+            self.generateThumbnail()
         }
     }
     
     /// Removes the overlay image
     public func removeOverlayImage() {
         overlayImage = nil
+        episode.thumbnailOverlayData = nil
+        saveContext()
         successMessage = "Overlay removed"
         errorMessage = nil
+        generateThumbnail()
     }
     
     /// Pastes image from clipboard for background
     public func pasteBackgroundFromClipboard() {
         if let image = getImageFromClipboard() {
             backgroundImage = image
+            episode.thumbnailBackgroundData = ImageUtilities.processImageForStorage(image)
+            saveContext()
             successMessage = "Background pasted from clipboard"
             errorMessage = nil
+            generateThumbnail()
         } else {
             errorMessage = "No image found in clipboard"
         }
@@ -284,8 +294,11 @@ public class ThumbnailViewModel: ObservableObject {
     public func pasteOverlayFromClipboard() {
         if let image = getImageFromClipboard() {
             overlayImage = image
+            episode.thumbnailOverlayData = ImageUtilities.processImageForStorage(image, preserveTransparency: true)
+            saveContext()
             successMessage = "Overlay pasted from clipboard"
             errorMessage = nil
+            generateThumbnail()
         } else {
             errorMessage = "No image found in clipboard"
         }
@@ -488,13 +501,14 @@ public class ThumbnailViewModel: ObservableObject {
     
     /// Clears all fields
     public func clear() {
+        backgroundImage = nil
+        overlayImage = nil
+        generatedThumbnail = nil
         episode.thumbnailBackgroundData = nil
         episode.thumbnailOverlayData = nil
         episode.thumbnailOutputData = nil
         saveContext()
-        generatedThumbnail = nil
         errorMessage = nil
         successMessage = nil
-        objectWillChange.send()
     }
 }
