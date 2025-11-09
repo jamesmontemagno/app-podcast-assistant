@@ -446,8 +446,7 @@ public struct ThumbnailView: View {
             }
         }
         .toolbar {
-            ToolbarItemGroup(placement: .automatic) {
-                // Generation action
+            ToolbarItem {
                 Button(action: viewModel.generateThumbnail) {
                     Label("Generate", systemImage: "wand.and.stars")
                 }
@@ -457,8 +456,7 @@ public struct ThumbnailView: View {
                 .help("Generate thumbnail")
             }
             
-            ToolbarItemGroup(placement: .automatic) {
-                // Export action
+            ToolbarItem {
                 Button(action: viewModel.exportThumbnail) {
                     Label("Export", systemImage: "arrow.up.doc")
                 }
@@ -468,8 +466,7 @@ public struct ThumbnailView: View {
                 .help("Export thumbnail")
             }
             
-            ToolbarItemGroup(placement: .automatic) {
-                // Destructive action
+            ToolbarItem {
                 Button(action: viewModel.clear) {
                     Label("Clear", systemImage: "trash")
                 }

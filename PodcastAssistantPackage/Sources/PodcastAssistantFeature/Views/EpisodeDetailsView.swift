@@ -212,15 +212,17 @@ public struct EpisodeDetailsView: View {
             .padding()
         }
         .toolbar {
-            ToolbarItemGroup(placement: .automatic) {
-                if hasUnsavedChanges {
+            if hasUnsavedChanges {
+                ToolbarItem {
                     Button(action: revertChanges) {
                         Label("Revert", systemImage: "arrow.uturn.backward.circle")
                     }
                     .labelStyle(.iconOnly)
                     .buttonStyle(.glass)
                     .help("Discard changes")
-                    
+                }
+                
+                ToolbarItem {
                     Button(action: saveChanges) {
                         Label("Save Changes", systemImage: "checkmark.circle.fill")
                     }

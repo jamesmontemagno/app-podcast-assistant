@@ -4,17 +4,7 @@
   },
   "groups" : [
     {
-      "layers" : [
-        {
-          "blend-mode" : "normal",
-          "fill" : "none",
-          "glass" : true,
-          "hidden" : false,
-          "image-name" : "appicon-transparent-1024.png",
-          "name" : "appicon-transparent-1024",
-          "opacity" : 0.9
-        }
-      ],
+      "layers" : [],
       "shadow" : {
         "kind" : "neutral",
         "opacity" : 0.5

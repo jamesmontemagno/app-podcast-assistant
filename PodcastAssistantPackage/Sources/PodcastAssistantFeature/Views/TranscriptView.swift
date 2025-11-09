@@ -133,8 +133,7 @@ public struct TranscriptView: View {
             onCompletion: viewModel.handleExportCompletion
         )
         .toolbar {
-            ToolbarItemGroup(placement: .automatic) {
-                // File import
+            ToolbarItem {
                 Button(action: viewModel.importFile) {
                     Label("Import", systemImage: "arrow.down.doc")
                 }
@@ -143,8 +142,7 @@ public struct TranscriptView: View {
                 .help("Import transcript file")
             }
             
-            ToolbarItemGroup(placement: .automatic) {
-                // Processing actions
+            ToolbarItem {
                 Button(action: viewModel.convertToSRT) {
                     Label("Convert", systemImage: "arrow.triangle.2.circlepath")
                 }
@@ -154,8 +152,7 @@ public struct TranscriptView: View {
                 .help("Convert transcript to SRT format")
             }
             
-            ToolbarItemGroup(placement: .automatic) {
-                // Export actions
+            ToolbarItem {
                 Button(action: viewModel.exportSRT) {
                     Label("Export", systemImage: "arrow.up.doc")
                 }
@@ -163,9 +160,11 @@ public struct TranscriptView: View {
                 .applyLiquidGlassButtonStyle(prominent: false)
                 .disabled(viewModel.outputSRT.isEmpty)
                 .help("Export SRT file")
-                
-                // Translation export button (macOS 14+)
-                if #available(macOS 14.0, *) {
+            }
+            
+            // Translation export button (macOS 14+)
+            if #available(macOS 14.0, *) {
+                ToolbarItem {
                     Button(action: viewModel.exportTranslated) {
                         Label("Translate", systemImage: "character.book.closed")
                     }
@@ -176,8 +175,7 @@ public struct TranscriptView: View {
                 }
             }
             
-            ToolbarItemGroup(placement: .automatic) {
-                // Destructive action
+            ToolbarItem {
                 Button(action: viewModel.clear) {
                     Label("Clear", systemImage: "trash")
                 }
