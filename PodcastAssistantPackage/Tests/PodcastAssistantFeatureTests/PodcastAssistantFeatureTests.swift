@@ -305,3 +305,53 @@ Today we're talking about podcasts
     #expect(!displayName.isEmpty)
 }
 
+@Test func testAppThemeEnum() async throws {
+    // Test all theme cases
+    #expect(AppTheme.system.rawValue == "System")
+    #expect(AppTheme.light.rawValue == "Light")
+    #expect(AppTheme.dark.rawValue == "Dark")
+    
+    // Test all cases are present
+    #expect(AppTheme.allCases.count == 3)
+    
+    // Test display names
+    #expect(AppTheme.system.displayName == "System")
+    #expect(AppTheme.light.displayName == "Light")
+    #expect(AppTheme.dark.displayName == "Dark")
+}
+
+@Test func testAppSettingsThemeManagement() async throws {
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try ModelContainer(
+        for: AppSettings.self,
+        configurations: config
+    )
+    let context = ModelContext(container)
+    
+    let settings = AppSettings()
+    context.insert(settings)
+    
+    // Default theme should be system
+    #expect(settings.appTheme == .system)
+    #expect(settings.theme == "System")
+    
+    // Change to light theme
+    settings.appTheme = .light
+    try context.save()
+    #expect(settings.appTheme == .light)
+    #expect(settings.theme == "Light")
+    
+    // Change to dark theme
+    settings.appTheme = .dark
+    try context.save()
+    #expect(settings.appTheme == .dark)
+    #expect(settings.theme == "Dark")
+    
+    // Back to system
+    settings.appTheme = .system
+    try context.save()
+    #expect(settings.appTheme == .system)
+    #expect(settings.theme == "System")
+}
+
+

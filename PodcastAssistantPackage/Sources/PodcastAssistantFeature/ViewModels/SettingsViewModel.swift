@@ -10,6 +10,7 @@ public class SettingsViewModel: ObservableObject {
     // MARK: - Published Properties
     
     @Published public var importedFonts: [String] = []
+    @Published public var selectedTheme: AppTheme = .system
     @Published public var errorMessage: String?
     @Published public var successMessage: String?
     
@@ -47,6 +48,7 @@ public class SettingsViewModel: ObservableObject {
             if let existingSettings = allSettings.first {
                 settings = existingSettings
                 importedFonts = existingSettings.importedFonts
+                selectedTheme = existingSettings.appTheme
             } else {
                 // Create new settings
                 let newSettings = AppSettings()
@@ -54,6 +56,7 @@ public class SettingsViewModel: ObservableObject {
                 try modelContext.save()
                 settings = newSettings
                 importedFonts = []
+                selectedTheme = .system
             }
         } catch {
             print("Error loading settings: \(error)")
@@ -62,6 +65,7 @@ public class SettingsViewModel: ObservableObject {
             modelContext.insert(newSettings)
             settings = newSettings
             importedFonts = []
+            selectedTheme = .system
         }
     }
     
@@ -69,6 +73,7 @@ public class SettingsViewModel: ObservableObject {
         guard let settings = settings else { return }
         
         settings.importedFonts = importedFonts
+        settings.appTheme = selectedTheme
         settings.updatedAt = Date()
         
         do {
@@ -77,6 +82,32 @@ public class SettingsViewModel: ObservableObject {
             print("Error saving settings: \(error)")
             errorMessage = "Failed to save settings: \(error.localizedDescription)"
         }
+    }
+    
+    // MARK: - Theme Management
+    
+    /// Update the app theme
+    public func updateTheme(_ theme: AppTheme) {
+        selectedTheme = theme
+        saveSettings()
+        applyTheme(theme)
+    }
+    
+    /// Apply the theme to the app appearance
+    private func applyTheme(_ theme: AppTheme) {
+        switch theme {
+        case .system:
+            NSApp.appearance = nil
+        case .light:
+            NSApp.appearance = NSAppearance(named: .aqua)
+        case .dark:
+            NSApp.appearance = NSAppearance(named: .darkAqua)
+        }
+    }
+    
+    /// Apply the current theme (called on app launch)
+    public func applyCurrentTheme() {
+        applyTheme(selectedTheme)
     }
     
     // MARK: - Font Management

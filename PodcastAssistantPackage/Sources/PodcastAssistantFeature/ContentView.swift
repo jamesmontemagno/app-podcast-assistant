@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import AppKit
 
 /// Main navigation view with two-column layout: Sidebar (podcast selector + episodes) → Episode detail
 public struct ContentView: View {
@@ -200,6 +201,7 @@ public struct ContentView: View {
         .onAppear {
             restoreLastSelectedPodcast()
             registerImportedFonts()
+            applyStoredTheme()
         }
         .onChange(of: selectedPodcastID) { _, newPodcastID in
             if let id = newPodcastID {
@@ -232,6 +234,26 @@ public struct ContentView: View {
             try fontManager.registerImportedFonts()
         } catch {
             print("Error registering imported fonts: \(error)")
+        }
+    }
+    
+    private func applyStoredTheme() {
+        let descriptor = FetchDescriptor<AppSettings>()
+        do {
+            let allSettings = try modelContext.fetch(descriptor)
+            if let settings = allSettings.first {
+                let theme = settings.appTheme
+                switch theme {
+                case .system:
+                    NSApp.appearance = nil
+                case .light:
+                    NSApp.appearance = NSAppearance(named: .aqua)
+                case .dark:
+                    NSApp.appearance = NSAppearance(named: .darkAqua)
+                }
+            }
+        } catch {
+            print("Error loading theme preference: \(error)")
         }
     }
     

@@ -75,6 +75,59 @@ private struct SettingsContentView: View {
                             .font(.headline)
                     }
                     
+                    // MARK: - Appearance Section
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 16) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Choose how the app looks")
+                                    .font(.body)
+                                    .foregroundStyle(.secondary)
+                            }
+                            
+                            Divider()
+                            
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Theme")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                
+                                Picker("Theme", selection: Binding(
+                                    get: { viewModel.selectedTheme },
+                                    set: { viewModel.updateTheme($0) }
+                                )) {
+                                    ForEach(AppTheme.allCases, id: \.self) { theme in
+                                        HStack {
+                                            switch theme {
+                                            case .system:
+                                                Image(systemName: "circle.lefthalf.filled")
+                                            case .light:
+                                                Image(systemName: "sun.max.fill")
+                                            case .dark:
+                                                Image(systemName: "moon.fill")
+                                            }
+                                            Text(theme.displayName)
+                                        }
+                                        .tag(theme)
+                                    }
+                                }
+                                .pickerStyle(.segmented)
+                                
+                                HStack(spacing: 8) {
+                                    Image(systemName: "info.circle")
+                                        .foregroundStyle(.secondary)
+                                        .font(.caption)
+                                    Text("The theme change will apply immediately")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .padding()
+                    } label: {
+                        Label("Appearance", systemImage: "paintbrush")
+                            .font(.headline)
+                    }
+                    
                     // MARK: - Font Management Section
                     GroupBox {
                         VStack(alignment: .leading, spacing: 16) {
@@ -188,6 +241,10 @@ private struct SettingsContentView: View {
             }
         }
         .frame(minWidth: 500, minHeight: 600)
+        .onAppear {
+            // Apply the current theme when settings view appears
+            viewModel.applyCurrentTheme()
+        }
     }
 }
 
