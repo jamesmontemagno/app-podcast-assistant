@@ -10,6 +10,7 @@ public struct ContentView: View {
     private var podcasts: [Podcast]
     
     @State private var selectedPodcastID: String?
+    @State private var selectedPodcast: Podcast?
     @State private var selectedEpisode: Episode?
     @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var showingPodcastForm = false
@@ -21,19 +22,112 @@ public struct ContentView: View {
     @State private var showingSettings = false
     @State private var episodeSearchText = ""
     @State private var episodeSortOption: EpisodeSortOption = .numberAscending
+    @State private var filteredEpisodes: [Episode] = []
     
     @AppStorage("lastSelectedPodcastID") private var lastSelectedPodcastID: String = ""
-    
-    private var selectedPodcast: Podcast? {
-        guard let id = selectedPodcastID else { return nil }
-        return podcasts.first { $0.id == id }
-    }
     
     public init() {}
     
     public var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            // MARK: - Sidebar: Podcast Selector + Episode List
+            sidebarContent
+        } detail: {
+            detailContent
+        }
+        .frame(minWidth: 800, minHeight: 700)
+        .focusedSceneValue(\.selectedEpisode, selectedEpisode)
+        .focusedSceneValue(\.podcastActions, PodcastActions(
+            createPodcast: { showingPodcastForm = true }
+        ))
+        .focusedSceneValue(\.episodeActions, EpisodeActions(
+            createEpisode: { 
+                if selectedPodcast != nil {
+                    showingEpisodeForm = true
+                }
+            },
+            editEpisode: { 
+                if selectedEpisode != nil {
+                    showingEpisodeDetailEdit = true
+                }
+            },
+            deleteEpisode: { 
+                if let episode = selectedEpisode {
+                    deleteEpisode(episode)
+                }
+            },
+            showDetails: { selectedDetailTab = .details },
+            showTranscript: { selectedDetailTab = .transcript },
+            showThumbnail: { selectedDetailTab = .thumbnail },
+            showAIIdeas: { selectedDetailTab = .aiIdeas }
+        ))
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+        }
+        .sheet(isPresented: $showingEpisodeDetailEdit) {
+            if let selectedEpisode = selectedEpisode {
+                EpisodeDetailEditView(episode: selectedEpisode)
+            }
+        }
+        .onAppear {
+            restoreLastSelectedPodcast()
+            registerImportedFonts()
+            applyStoredTheme()
+        }
+        .onChange(of: selectedPodcastID) { _, newPodcastID in
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                selectedPodcast = podcasts.first { $0.id == newPodcastID }
+                if let id = newPodcastID {
+                    lastSelectedPodcastID = id
+                }
+                // Clear episode selection when podcast changes
+                selectedEpisode = nil
+                updateFilteredEpisodes()
+            }
+        }
+        .onChange(of: selectedEpisode) { _, _ in
+            // Reset to details tab when episode changes
+            selectedDetailTab = .details
+        }
+        .onChange(of: episodeSearchText) { _, _ in
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                updateFilteredEpisodes()
+            }
+        }
+        .onChange(of: episodeSortOption) { _, _ in
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                updateFilteredEpisodes()
+            }
+        }
+        .onChange(of: selectedPodcast?.episodes) { _, _ in
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                updateFilteredEpisodes()
+            }
+        }
+        .onChange(of: podcasts) { _, _ in
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                // Update selected podcast if it still exists
+                if let currentID = selectedPodcastID {
+                    selectedPodcast = podcasts.first { $0.id == currentID }
+                }
+                updateFilteredEpisodes()
+            }
+        }
+    }
+    
+    // MARK: - View Components
+    
+    @ViewBuilder
+    private var sidebarContent: some View {
             VStack(spacing: 0) {
                 // Podcast selector and management
                 VStack(spacing: 12) {
@@ -62,17 +156,7 @@ public struct ContentView: View {
                             Picker("Select Podcast", selection: $selectedPodcastID) {
                                 Text("Select a podcast...").tag(nil as String?)
                                 ForEach(podcasts) { podcast in
-                                    HStack {
-                                        if let artworkData = podcast.artworkData,
-                                           let image = ImageUtilities.loadImage(from: artworkData) {
-                                            Image(nsImage: image)
-                                                .resizable()
-                                                .frame(width: 20, height: 20)
-                                                .clipShape(RoundedRectangle(cornerRadius: 4))
-                                        }
-                                        Text(podcast.name)
-                                    }
-                                    .tag(podcast.id as String?)
+                                    Text(podcast.name).tag(podcast.id as String?)
                                 }
                             }
                             .labelsHidden()
@@ -177,8 +261,6 @@ public struct ContentView: View {
                             }
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                         } else {
-                            let filteredEpisodes = filterAndSortEpisodes(podcast.episodes)
-                            
                             if filteredEpisodes.isEmpty {
                                 VStack {
                                     ContentUnavailableView(
@@ -205,16 +287,12 @@ public struct ContentView: View {
                                             }
                                     }
                                 }
+                                .animation(nil, value: filteredEpisodes)
+                                .id("episode-list-\(selectedPodcast?.id ?? "")")
                             }
                         }
                     }
                     .frame(maxHeight: .infinity)
-                    .sheet(isPresented: $showingEpisodeForm) {
-                        EpisodeFormView(podcast: podcast)
-                    }
-                    .sheet(item: $editingEpisode) { episode in
-                        EpisodeFormView(podcast: podcast, episode: episode)
-                    }
                 } else {
                     VStack {
                         ContentUnavailableView(
@@ -229,6 +307,8 @@ public struct ContentView: View {
                 }
                 
                 // Settings button at bottom
+                Spacer()
+                
                 VStack(spacing: 0) {
                     Divider()
                     
@@ -255,72 +335,35 @@ public struct ContentView: View {
             .sheet(item: $editingPodcast) { podcast in
                 PodcastFormView(podcast: podcast)
             }
-        } detail: {
-            // MARK: - Detail Pane: Episode Detail
-            if let episode = selectedEpisode {
-                EpisodeDetailView(
-                    episode: episode,
-                    selectedTab: $selectedDetailTab,
-                    showingEpisodeDetailEdit: $showingEpisodeDetailEdit
-                )
-                .id(episode.id) // Force view recreation when episode changes
-                .sheet(isPresented: $showingEpisodeDetailEdit) {
-                    if let selectedEpisode = selectedEpisode {
-                        EpisodeDetailEditView(episode: selectedEpisode)
-                    }
+            .sheet(isPresented: $showingEpisodeForm) {
+                if let podcast = selectedPodcast {
+                    EpisodeFormView(podcast: podcast)
                 }
-            } else {
-                ContentUnavailableView(
-                    "Select an Episode",
-                    systemImage: "waveform",
-                    description: Text("Choose an episode from the sidebar to view its details")
-                )
             }
-        }
-        .frame(minWidth: 800, minHeight: 700)
-        .focusedSceneValue(\.selectedEpisode, selectedEpisode)
-        .focusedSceneValue(\.podcastActions, PodcastActions(
-            createPodcast: { showingPodcastForm = true }
-        ))
-        .focusedSceneValue(\.episodeActions, EpisodeActions(
-            createEpisode: { 
-                if selectedPodcast != nil {
-                    showingEpisodeForm = true
+            .sheet(item: $editingEpisode) { episode in
+                if let podcast = selectedPodcast {
+                    EpisodeFormView(podcast: podcast, episode: episode)
                 }
-            },
-            editEpisode: { 
-                if selectedEpisode != nil {
-                    showingEpisodeDetailEdit = true
-                }
-            },
-            deleteEpisode: { 
-                if let episode = selectedEpisode {
-                    deleteEpisode(episode)
-                }
-            },
-            showDetails: { selectedDetailTab = .details },
-            showTranscript: { selectedDetailTab = .transcript },
-            showThumbnail: { selectedDetailTab = .thumbnail },
-            showAIIdeas: { selectedDetailTab = .aiIdeas }
-        ))
-        .sheet(isPresented: $showingSettings) {
-            SettingsView()
-        }
-        .onAppear {
-            restoreLastSelectedPodcast()
-            registerImportedFonts()
-            applyStoredTheme()
-        }
-        .onChange(of: selectedPodcastID) { _, newPodcastID in
-            if let id = newPodcastID {
-                lastSelectedPodcastID = id
-                // Clear episode selection when podcast changes
-                selectedEpisode = nil
             }
-        }
-        .onChange(of: selectedEpisode) { _, _ in
-            // Reset to details tab when episode changes
-            selectedDetailTab = .details
+    }
+    
+
+    
+    @ViewBuilder
+    private var detailContent: some View {
+        if let episode = selectedEpisode {
+            EpisodeDetailView(
+                episode: episode,
+                selectedTab: $selectedDetailTab,
+                showingEpisodeDetailEdit: $showingEpisodeDetailEdit
+            )
+            .id(episode.id) // Force view recreation when episode changes
+        } else {
+            ContentUnavailableView(
+                "Select an Episode",
+                systemImage: "waveform",
+                description: Text("Choose an episode from the sidebar to view its details")
+            )
         }
     }
     
@@ -333,11 +376,21 @@ public struct ContentView: View {
         if !lastSelectedPodcastID.isEmpty,
            podcasts.contains(where: { $0.id == lastSelectedPodcastID }) {
             selectedPodcastID = lastSelectedPodcastID
+            selectedPodcast = podcasts.first { $0.id == lastSelectedPodcastID }
+        } else {
+            // Fallback to first podcast
+            selectedPodcastID = podcasts.first?.id
+            selectedPodcast = podcasts.first
+        }
+        updateFilteredEpisodes()
+    }
+    
+    private func updateFilteredEpisodes() {
+        guard let episodes = selectedPodcast?.episodes else {
+            filteredEpisodes = []
             return
         }
-        
-        // Fallback to first podcast
-        selectedPodcastID = podcasts.first?.id
+        filteredEpisodes = filterAndSortEpisodes(episodes)
     }
     
     private func registerImportedFonts() {
@@ -410,7 +463,9 @@ public struct ContentView: View {
             // Clear selection if deleted podcast was selected
             if selectedPodcastID == podcast.id {
                 selectedPodcastID = nil
+                selectedPodcast = nil
                 selectedEpisode = nil
+                filteredEpisodes = []
             }
         } catch {
             print("Error deleting podcast: \(error)")
