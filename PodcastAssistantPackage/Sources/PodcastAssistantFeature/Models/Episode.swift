@@ -7,6 +7,7 @@ public final class Episode {
     @Attribute(.unique) public var id: String
     public var title: String
     public var episodeNumber: Int32
+    public var episodeDescription: String?
     public var transcriptInputText: String?
     public var srtOutputText: String?
     public var thumbnailBackgroundData: Data?

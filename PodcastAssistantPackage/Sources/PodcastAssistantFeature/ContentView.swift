@@ -344,6 +344,13 @@ private struct EpisodeDetailView: View {
                             Text("Thumbnail")
                             Spacer()
                         }
+                        
+                        HStack {
+                            Image(systemName: episode.episodeDescription != nil ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(episode.episodeDescription != nil ? .purple : .secondary)
+                            Text("AI Ideas")
+                            Spacer()
+                        }
                     }
                     .font(.subheadline)
                 }
@@ -394,6 +401,24 @@ private struct EpisodeDetailView: View {
                         .buttonStyle(.plain)
                         .background(selectedTab == .thumbnail ? Color.accentColor.opacity(0.1) : Color.clear)
                         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
+                        
+                        Button {
+                            selectedTab = .aiIdeas
+                        } label: {
+                            HStack {
+                                Image(systemName: "sparkles")
+                                Text("AI Ideas")
+                                Spacer()
+                                if selectedTab == .aiIdeas {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                            .padding()
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .background(selectedTab == .aiIdeas ? Color.accentColor.opacity(0.1) : Color.clear)
+                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
                     }
                 }
                 
@@ -409,6 +434,8 @@ private struct EpisodeDetailView: View {
                     TranscriptView(episode: episode)
                 case .thumbnail:
                     ThumbnailView(episode: episode)
+                case .aiIdeas:
+                    AIIdeasView(episode: episode)
                 }
             }
             .frame(minWidth: 600)
@@ -432,4 +459,5 @@ private struct EpisodeDetailView: View {
 private enum DetailTab: Hashable {
     case transcript
     case thumbnail
+    case aiIdeas
 }
