@@ -158,8 +158,8 @@ public struct TranscriptView: View {
                 .disabled(viewModel.outputSRT.isEmpty)
                 .help("Export SRT file")
                 
-                // Translation export button (macOS 12+)
-                if #available(macOS 12.0, *) {
+                // Translation export button (macOS 14+)
+                if #available(macOS 14.0, *) {
                     Button(action: viewModel.exportTranslated) {
                         Label("Translate", systemImage: "globe")
                     }
@@ -187,7 +187,7 @@ public struct TranscriptView: View {
 }
 
 /// Sheet view for selecting translation language
-@available(macOS 12.0, *)
+@available(macOS 14.0, *)
 private struct TranslationLanguageSheet: View {
     @ObservedObject var viewModel: TranscriptViewModel
     @Environment(\.dismiss) private var dismiss

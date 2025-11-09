@@ -18,7 +18,7 @@ A SwiftUI macOS application for comprehensive podcast production management with
 - Import text transcript files per episode
 - Automatically detect and convert multiple timestamp formats to SRT
 - Export ready-to-upload SRT files for YouTube
-- **Multi-language translation** - Export SRT in 12+ languages (Spanish, French, German, Japanese, etc.) using macOS Translation API
+- **Multi-language translation** - Export SRT in 12+ languages (Spanish, French, German, Japanese, etc.) using macOS Translation API (macOS 14+)
 - Speaker name preservation (Zencastr format)
 - Intelligent timestamp calculation
 - Episode-scoped storage (auto-saved to Core Data)
@@ -161,7 +161,7 @@ I am the other host. Hi, everyone.
 6. **Optional**: Click the "Translate" (globe) button to export in another language
    - Choose from 12+ supported languages (Spanish, French, German, Japanese, Portuguese, Italian, Korean, Chinese, Dutch, Russian, Arabic, Hindi)
    - macOS will translate the subtitles while preserving timestamps
-   - Requires macOS 12 or later
+   - Requires macOS 14 (Sonoma) or later
 7. Input and output are auto-saved with the episode
 
 **Output Format:**

@@ -87,7 +87,7 @@ User Action → ViewModel → SwiftData Model → ModelContext Save → UI Updat
 - Regex-based pattern matching for format detection
 
 #### TranslationService
-- Wraps macOS Translation API (available macOS 12+)
+- Wraps macOS Translation API (available macOS 14+)
 - Supports 12+ YouTube subtitle languages
 - Preserves SRT timestamps while translating text
 - Async translation with progress handling
@@ -111,7 +111,7 @@ User Action → ViewModel → SwiftData Model → ModelContext Save → UI Updat
 - Computed properties read/write directly to Core Data
 - Automatic context saving after changes
 - File import/export via NSOpenPanel/NSSavePanel
-- Translation export with language selection sheet (macOS 12+)
+- Translation export with language selection sheet (macOS 14+)
 
 #### ThumbnailViewModel
 - Episode-bound with Core Data context

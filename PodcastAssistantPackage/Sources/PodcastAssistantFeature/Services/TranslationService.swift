@@ -2,7 +2,7 @@ import Foundation
 import Translation
 
 /// Service responsible for translating SRT subtitle text using macOS Translation API
-@available(macOS 12.0, *)
+@available(macOS 14.0, *)
 public class TranslationService {
     
     public init() {}

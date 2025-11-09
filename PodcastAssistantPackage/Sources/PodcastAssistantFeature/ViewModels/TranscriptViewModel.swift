@@ -44,8 +44,8 @@ public class TranscriptViewModel: ObservableObject {
         self.episode = episode
         self.context = context
         
-        // Initialize translation service if available (macOS 12+)
-        if #available(macOS 12.0, *) {
+        // Initialize translation service if available (macOS 14+)
+        if #available(macOS 14.0, *) {
             self.translationService = TranslationService()
         } else {
             self.translationService = nil
@@ -144,7 +144,7 @@ public class TranscriptViewModel: ObservableObject {
         }
         
         guard translationService != nil else {
-            errorMessage = "Translation requires macOS 12 or later"
+            errorMessage = "Translation requires macOS 14 or later"
             return
         }
         
