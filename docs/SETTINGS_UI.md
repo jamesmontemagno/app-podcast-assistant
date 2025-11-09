@@ -24,6 +24,22 @@
 │ └─────────────────────────────────────────────────┘ │
 │                                                     │
 │ ┌─────────────────────────────────────────────────┐ │
+│ │ Appearance 🎨                                   │ │
+│ │ ┌───────────────────────────────────────────────┐ │
+│ │ │ Choose how the app looks                     │ │
+│ │ │                                               │ │
+│ │ │ ─────────────────────────────────────────────  │ │
+│ │ │                                               │ │
+│ │ │ Theme                                         │ │
+│ │ │ ┌─────────┬──────────┬──────────┐            │ │
+│ │ │ │ ◐ System│ ☀ Light │ 🌙 Dark  │  (segmented)│ │
+│ │ │ └─────────┴──────────┴──────────┘            │ │
+│ │ │                                               │ │
+│ │ │ ℹ️ The theme change will apply immediately    │ │
+│ │ └───────────────────────────────────────────────┘ │
+│ └─────────────────────────────────────────────────┘ │
+│                                                     │
+│ ┌─────────────────────────────────────────────────┐ │
 │ │ Font Management 🔤                              │ │
 │ │ ┌───────────────────────────────────────────────┐ │
 │ │ │ Import custom fonts to use in your podcast   │ │
@@ -99,6 +115,34 @@
 (Green background, auto-dismisses after 3 seconds)
 ```
 
+## Theme Variations
+
+### System Theme (Default)
+```
+Follows macOS appearance settings
+- In Light Mode: Standard light colors
+- In Dark Mode: Standard dark colors
+Icon: ◐ (circle.lefthalf.filled)
+```
+
+### Light Theme
+```
+Forces light appearance regardless of system
+- Always shows light UI
+- White/light gray backgrounds
+- Dark text
+Icon: ☀ (sun.max.fill)
+```
+
+### Dark Theme
+```
+Forces dark appearance regardless of system
+- Always shows dark UI
+- Dark/black backgrounds
+- Light text
+Icon: 🌙 (moon.fill)
+```
+
 ## Settings Button in ContentView
 
 ```
@@ -128,8 +172,14 @@ Sidebar Header:
 
 ## Color Legend
 
-- Blue: Primary accent color (app badge icon, links)
+- Blue: Primary accent color (app badge icon, links, selected theme segment)
 - Gray: Secondary text and backgrounds
 - Red: Error messages and delete buttons
 - Green: Success messages and status indicators
 - Background: GroupBox with subtle gray background
+
+## Theme Icons
+
+- **System**: ◐ (circle.lefthalf.filled) - Represents automatic/adaptive
+- **Light**: ☀ (sun.max.fill) - Represents brightness
+- **Dark**: 🌙 (moon.fill) - Represents night/dark mode

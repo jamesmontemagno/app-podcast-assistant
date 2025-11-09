@@ -6,7 +6,8 @@ This document describes the Settings page implementation for the Podcast Assista
 
 A comprehensive Settings page has been added to the app with:
 1. **About Section** - App information and GitHub repository link
-2. **Font Management** - Import and manage custom fonts for use in thumbnails
+2. **Appearance Section** - Theme selection (System/Light/Dark)
+3. **Font Management** - Import and manage custom fonts for use in thumbnails
 
 ## User Features
 
@@ -14,6 +15,12 @@ A comprehensive Settings page has been added to the app with:
 - Displays app name, version, and build number
 - Shows app description
 - Provides direct link to GitHub repository (https://github.com/jamesmontemagno/app-podcast-assistant)
+
+### Appearance Section
+- **Theme Selection**: Choose between System (default), Light, or Dark theme
+- **Immediate Application**: Theme changes apply instantly to the app
+- **Persistence**: Your theme preference is saved and restored on app restart
+- **System Theme**: Follows macOS appearance settings when set to System
 
 ### Font Management
 - **Import Fonts**: Click "Import Font" button to select and import TTF, OTF, or TTC font files
@@ -33,6 +40,8 @@ Click the gear icon (⚙️) in the sidebar header next to the "New Podcast" but
 - SwiftData model storing app-wide settings
 - Uses singleton pattern with unique ID "app-settings"
 - Persists list of imported font names
+- Persists theme preference (System/Light/Dark)
+- Includes `AppTheme` enum with all theme options
 - Automatically included in SwiftData schema
 
 #### 2. FontManager Service (`Services/FontManager.swift`)
@@ -44,7 +53,9 @@ Click the gear icon (⚙️) in the sidebar header next to the "New Podcast" but
 
 #### 3. SettingsViewModel (`ViewModels/SettingsViewModel.swift`)
 - ObservableObject managing settings state
-- Handles file picker dialogs
+- Handles file picker dialogs for font import
+- Manages theme selection and application
+- Updates NSApp.appearance for immediate theme changes
 - Manages error and success messages
 - Auto-dismisses success messages after 3 seconds
 
@@ -52,6 +63,7 @@ Click the gear icon (⚙️) in the sidebar header next to the "New Podcast" but
 - Two-part structure for proper StateObject initialization
 - Public wrapper passes ModelContext to private content view
 - Responsive UI with hover states and visual feedback
+- Segmented picker for theme selection with icons
 
 ### Integration Points
 
@@ -60,6 +72,7 @@ Click the gear icon (⚙️) in the sidebar header next to the "New Podcast" but
 2. Added Settings button in sidebar header
 3. Added `.sheet(isPresented: $showingSettings)` to show Settings
 4. Added `registerImportedFonts()` method called in `onAppear`
+5. Added `applyStoredTheme()` method to restore theme on app launch
 
 #### PersistenceController Changes
 - Added `AppSettings.self` to SwiftData schema
@@ -68,6 +81,11 @@ Click the gear icon (⚙️) in the sidebar header next to the "New Podcast" but
 
 Tests added in `PodcastAssistantFeatureTests.swift`:
 - `testAppSettingsCreation()` - Verify AppSettings model creation
+- `testAppSettingsFontManagement()` - Test font list management
+- `testFontManagerAvailableFonts()` - Check font availability
+- `testFontManagerDisplayName()` - Verify display name retrieval
+- `testAppThemeEnum()` - Validate theme enum cases and display names
+- `testAppSettingsThemeManagement()` - Test theme persistence and changes
 - `testAppSettingsFontManagement()` - Test font list management
 - `testFontManagerAvailableFonts()` - Check font availability
 - `testFontManagerDisplayName()` - Verify display name retrieval
@@ -89,8 +107,18 @@ Tests added in `PodcastAssistantFeatureTests.swift`:
 
 ## Usage Flow
 
+### Changing Theme
 1. User clicks Settings gear icon in sidebar
-2. Settings sheet opens with About and Font Management sections
+2. Settings sheet opens with About, Appearance, and Font Management sections
+3. To change theme:
+   - Click on the desired theme in the segmented control (System/Light/Dark)
+   - Theme applies immediately to the entire app
+   - Setting is saved automatically
+   - App will remember this choice on next launch
+
+### Managing Fonts
+1. User is already in Settings (see above)
+2. Scroll to Font Management section
 3. To import a font:
    - Click "Import Font" button
    - File picker opens (filtered to .ttf, .otf, .ttc files)
@@ -141,12 +169,32 @@ This location:
 - **OTF** (OpenType Font)
 - **TTC** (TrueType Collection)
 
+### Theme Options
+
+- **System**: Follows macOS appearance settings (Light/Dark based on system preferences)
+- **Light**: Forces light mode regardless of system settings
+- **Dark**: Forces dark mode regardless of system settings
+
+### How Theme Works
+
+The app uses `NSApp.appearance` to control the appearance:
+- **System**: `NSApp.appearance = nil` (delegates to system)
+- **Light**: `NSApp.appearance = NSAppearance(named: .aqua)`
+- **Dark**: `NSApp.appearance = NSAppearance(named: .darkAqua)`
+
+Theme preference is:
+1. Saved to SwiftData when changed
+2. Restored on app launch from `ContentView.onAppear`
+3. Applied immediately when changed in Settings
+
 ## Future Enhancements
 
 Potential improvements:
 - Font preview with custom sample text
 - Export/share font configuration
-- Cloud sync for imported fonts (via CloudKit)
+- Cloud sync for imported fonts and theme (via CloudKit)
 - Bulk font import
 - Font search/filter
 - Font categories/tags
+- Accent color customization
+- Custom color schemes
