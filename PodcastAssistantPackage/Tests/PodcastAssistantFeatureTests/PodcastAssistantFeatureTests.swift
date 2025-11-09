@@ -245,3 +245,113 @@ Today we're talking about podcasts
     // Should have at least one content type defined
     #expect(!contentTypes.isEmpty)
 }
+
+// MARK: - Settings Tests
+
+@Test func testAppSettingsCreation() async throws {
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try ModelContainer(
+        for: AppSettings.self,
+        configurations: config
+    )
+    let context = ModelContext(container)
+    
+    let settings = AppSettings()
+    context.insert(settings)
+    try context.save()
+    
+    #expect(settings.id == "app-settings")
+    #expect(settings.importedFonts.isEmpty)
+    #expect(!settings.createdAt.timeIntervalSince1970.isZero)
+}
+
+@Test func testAppSettingsFontManagement() async throws {
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try ModelContainer(
+        for: AppSettings.self,
+        configurations: config
+    )
+    let context = ModelContext(container)
+    
+    let settings = AppSettings()
+    context.insert(settings)
+    
+    // Add fonts
+    settings.importedFonts = ["Helvetica-Bold", "Arial-BoldMT"]
+    settings.updatedAt = Date()
+    try context.save()
+    
+    #expect(settings.importedFonts.count == 2)
+    #expect(settings.importedFonts.contains("Helvetica-Bold"))
+    #expect(settings.importedFonts.contains("Arial-BoldMT"))
+}
+
+@Test func testFontManagerAvailableFonts() async throws {
+    let fontManager = FontManager()
+    
+    let fonts = fontManager.getAllAvailableFonts()
+    
+    // Should have system fonts available
+    #expect(!fonts.isEmpty)
+    #expect(fonts.contains("Helvetica"))
+}
+
+@Test func testFontManagerDisplayName() async throws {
+    let fontManager = FontManager()
+    
+    // Test with a known system font
+    let displayName = fontManager.getDisplayName(for: "Helvetica")
+    
+    #expect(!displayName.isEmpty)
+}
+
+@Test func testAppThemeEnum() async throws {
+    // Test all theme cases
+    #expect(AppTheme.system.rawValue == "System")
+    #expect(AppTheme.light.rawValue == "Light")
+    #expect(AppTheme.dark.rawValue == "Dark")
+    
+    // Test all cases are present
+    #expect(AppTheme.allCases.count == 3)
+    
+    // Test display names
+    #expect(AppTheme.system.displayName == "System")
+    #expect(AppTheme.light.displayName == "Light")
+    #expect(AppTheme.dark.displayName == "Dark")
+}
+
+@Test func testAppSettingsThemeManagement() async throws {
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try ModelContainer(
+        for: AppSettings.self,
+        configurations: config
+    )
+    let context = ModelContext(container)
+    
+    let settings = AppSettings()
+    context.insert(settings)
+    
+    // Default theme should be system
+    #expect(settings.appTheme == .system)
+    #expect(settings.theme == "System")
+    
+    // Change to light theme
+    settings.appTheme = .light
+    try context.save()
+    #expect(settings.appTheme == .light)
+    #expect(settings.theme == "Light")
+    
+    // Change to dark theme
+    settings.appTheme = .dark
+    try context.save()
+    #expect(settings.appTheme == .dark)
+    #expect(settings.theme == "Dark")
+    
+    // Back to system
+    settings.appTheme = .system
+    try context.save()
+    #expect(settings.appTheme == .system)
+    #expect(settings.theme == "System")
+}
+
+

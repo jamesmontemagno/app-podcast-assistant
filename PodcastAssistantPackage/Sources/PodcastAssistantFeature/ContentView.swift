@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import AppKit
 
 /// Main navigation view with two-column layout: Sidebar (podcast selector + episodes) → Episode detail
 public struct ContentView: View {
@@ -17,6 +18,7 @@ public struct ContentView: View {
     @State private var editingEpisode: Episode?
     @State private var showingEpisodeDetailEdit = false
     @State private var selectedDetailTab: DetailTab = .details
+    @State private var showingSettings = false
     @State private var episodeSearchText = ""
     @State private var episodeSortOption: EpisodeSortOption = .numberAscending
     
@@ -39,6 +41,7 @@ public struct ContentView: View {
                         Text("Podcast")
                             .font(.headline)
                         Spacer()
+                        
                         Button {
                             showingPodcastForm = true
                         } label: {
@@ -47,25 +50,6 @@ public struct ContentView: View {
                         }
                         .buttonStyle(.glass)
                         .help("Create new podcast")
-                        
-                        if selectedPodcast != nil {
-                            Menu {
-                                Button("Edit Podcast") {
-                                    editingPodcast = selectedPodcast
-                                }
-                                Divider()
-                                Button("Delete Podcast", role: .destructive) {
-                                    if let podcast = selectedPodcast {
-                                        deletePodcast(podcast)
-                                    }
-                                }
-                            } label: {
-                                Label("Podcast Options", systemImage: "ellipsis.circle")
-                                    .labelStyle(.iconOnly)
-                            }
-                            .buttonStyle(.glass)
-                            .help("Podcast options")
-                        }
                     }
                     
                     if podcasts.isEmpty {
@@ -74,23 +58,44 @@ public struct ContentView: View {
                             .font(.caption)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
-                        Picker("Select Podcast", selection: $selectedPodcastID) {
-                            Text("Select a podcast...").tag(nil as String?)
-                            ForEach(podcasts) { podcast in
-                                HStack {
-                                    if let artworkData = podcast.artworkData,
-                                       let image = ImageUtilities.loadImage(from: artworkData) {
-                                        Image(nsImage: image)
-                                            .resizable()
-                                            .frame(width: 20, height: 20)
-                                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                        HStack(spacing: 8) {
+                            Picker("Select Podcast", selection: $selectedPodcastID) {
+                                Text("Select a podcast...").tag(nil as String?)
+                                ForEach(podcasts) { podcast in
+                                    HStack {
+                                        if let artworkData = podcast.artworkData,
+                                           let image = ImageUtilities.loadImage(from: artworkData) {
+                                            Image(nsImage: image)
+                                                .resizable()
+                                                .frame(width: 20, height: 20)
+                                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                                        }
+                                        Text(podcast.name)
                                     }
-                                    Text(podcast.name)
+                                    .tag(podcast.id as String?)
                                 }
-                                .tag(podcast.id as String?)
+                            }
+                            .labelsHidden()
+                            
+                            if selectedPodcast != nil {
+                                Menu {
+                                    Button("Edit Podcast") {
+                                        editingPodcast = selectedPodcast
+                                    }
+                                    Divider()
+                                    Button("Delete Podcast", role: .destructive) {
+                                        if let podcast = selectedPodcast {
+                                            deletePodcast(podcast)
+                                        }
+                                    }
+                                } label: {
+                                    Label("Podcast Options", systemImage: "ellipsis.circle")
+                                        .labelStyle(.iconOnly)
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Podcast options")
                             }
                         }
-                        .labelsHidden()
                     }
                 }
                 .padding()
@@ -203,6 +208,7 @@ public struct ContentView: View {
                             }
                         }
                     }
+                    .frame(maxHeight: .infinity)
                     .sheet(isPresented: $showingEpisodeForm) {
                         EpisodeFormView(podcast: podcast)
                     }
@@ -220,6 +226,26 @@ public struct ContentView: View {
                         Spacer()
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                }
+                
+                // Settings button at bottom
+                VStack(spacing: 0) {
+                    Divider()
+                    
+                    Button {
+                        showingSettings = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "gear")
+                            Text("Settings")
+                            Spacer()
+                        }
+                        .padding()
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .help("App settings")
                 }
             }
             .navigationSplitViewColumnWidth(min: 250, ideal: 300, max: 400)
@@ -251,8 +277,13 @@ public struct ContentView: View {
             }
         }
         .frame(minWidth: 800, minHeight: 700)
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+        }
         .onAppear {
             restoreLastSelectedPodcast()
+            registerImportedFonts()
+            applyStoredTheme()
         }
         .onChange(of: selectedPodcastID) { _, newPodcastID in
             if let id = newPodcastID {
@@ -277,6 +308,35 @@ public struct ContentView: View {
         
         // Fallback to first podcast
         selectedPodcastID = podcasts.first?.id
+    }
+    
+    private func registerImportedFonts() {
+        let fontManager = FontManager()
+        do {
+            try fontManager.registerImportedFonts()
+        } catch {
+            print("Error registering imported fonts: \(error)")
+        }
+    }
+    
+    private func applyStoredTheme() {
+        let descriptor = FetchDescriptor<AppSettings>()
+        do {
+            let allSettings = try modelContext.fetch(descriptor)
+            if let settings = allSettings.first {
+                let theme = settings.appTheme
+                switch theme {
+                case .system:
+                    NSApp.appearance = nil
+                case .light:
+                    NSApp.appearance = NSAppearance(named: .aqua)
+                case .dark:
+                    NSApp.appearance = NSAppearance(named: .darkAqua)
+                }
+            }
+        } catch {
+            print("Error loading theme preference: \(error)")
+        }
     }
     
     // MARK: - Episode Filtering and Sorting
