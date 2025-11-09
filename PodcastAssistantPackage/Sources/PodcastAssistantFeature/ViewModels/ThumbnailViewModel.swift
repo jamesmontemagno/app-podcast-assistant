@@ -106,6 +106,7 @@ public class ThumbnailViewModel: ObservableObject {
     @Published public var generatedThumbnail: NSImage?
     @Published public var errorMessage: String?
     @Published public var successMessage: String?
+    @Published public var isLoading: Bool = false
     
     private let generator = ThumbnailGenerator()
     private let defaults = UserDefaults.standard
@@ -221,9 +222,13 @@ public class ThumbnailViewModel: ObservableObject {
         self.backgroundScaling = ThumbnailGenerator.BackgroundScaling.allCases.first {
             $0.rawValue == episode.backgroundScaling
         } ?? .aspectFill
-        
-        // Generate initial thumbnail if background exists
+    }
+    
+    /// Performs initial thumbnail generation with a delay to allow UI to settle
+    public func performInitialGeneration() {
         Task { @MainActor in
+            // Give the UI time to load and render
+            try? await Task.sleep(nanoseconds: 300_000_000) // 300ms delay
             self.generateThumbnail()
         }
     }
@@ -400,9 +405,11 @@ public class ThumbnailViewModel: ObservableObject {
     public func generateThumbnail() {
         guard let background = backgroundImage else {
             generatedThumbnail = nil
+            isLoading = false
             return
         }
         
+        isLoading = true
         errorMessage = nil
         
         // Determine canvas size
@@ -440,9 +447,11 @@ public class ThumbnailViewModel: ObservableObject {
             saveContext()
             
             successMessage = "Thumbnail generated successfully!"
+            isLoading = false
         } else {
             generatedThumbnail = nil
             errorMessage = "Failed to generate thumbnail"
+            isLoading = false
         }
     }
     
