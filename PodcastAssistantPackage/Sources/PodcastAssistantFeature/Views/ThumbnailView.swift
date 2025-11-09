@@ -487,5 +487,19 @@ public struct ThumbnailView: View {
             // Trigger initial generation with delay when view appears
             viewModel.performInitialGeneration()
         }
+        .focusedSceneValue(\.thumbnailActions, ThumbnailActions(
+            importBackground: viewModel.importBackgroundImage,
+            importOverlay: viewModel.importOverlayImage,
+            pasteBackground: viewModel.pasteBackgroundFromClipboard,
+            pasteOverlay: viewModel.pasteOverlayFromClipboard,
+            generateThumbnail: viewModel.generateThumbnail,
+            exportThumbnail: viewModel.exportThumbnail,
+            clearThumbnail: viewModel.clear
+        ))
+        .focusedSceneValue(\.canPerformThumbnailActions, ThumbnailActionCapabilities(
+            canGenerate: viewModel.backgroundImage != nil,
+            canExport: viewModel.generatedThumbnail != nil,
+            canClear: viewModel.backgroundImage != nil || viewModel.overlayImage != nil || viewModel.generatedThumbnail != nil
+        ))
     }
 }

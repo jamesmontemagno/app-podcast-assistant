@@ -277,6 +277,31 @@ public struct ContentView: View {
             }
         }
         .frame(minWidth: 800, minHeight: 700)
+        .focusedSceneValue(\.selectedEpisode, selectedEpisode)
+        .focusedSceneValue(\.podcastActions, PodcastActions(
+            createPodcast: { showingPodcastForm = true }
+        ))
+        .focusedSceneValue(\.episodeActions, EpisodeActions(
+            createEpisode: { 
+                if selectedPodcast != nil {
+                    showingEpisodeForm = true
+                }
+            },
+            editEpisode: { 
+                if selectedEpisode != nil {
+                    showingEpisodeDetailEdit = true
+                }
+            },
+            deleteEpisode: { 
+                if let episode = selectedEpisode {
+                    deleteEpisode(episode)
+                }
+            },
+            showDetails: { selectedDetailTab = .details },
+            showTranscript: { selectedDetailTab = .transcript },
+            showThumbnail: { selectedDetailTab = .thumbnail },
+            showAIIdeas: { selectedDetailTab = .aiIdeas }
+        ))
         .sheet(isPresented: $showingSettings) {
             SettingsView()
         }

@@ -217,6 +217,18 @@ public struct TranscriptView: View {
                 Text(error)
             }
         }
+        .focusedSceneValue(\.transcriptActions, TranscriptActions(
+            importTranscript: viewModel.importFile,
+            convertToSRT: viewModel.convertToSRT,
+            exportSRT: viewModel.exportSRT,
+            exportTranslated: viewModel.exportTranslated,
+            clearTranscript: viewModel.clear
+        ))
+        .focusedSceneValue(\.canPerformTranscriptActions, TranscriptActionCapabilities(
+            canConvert: !viewModel.inputText.isEmpty && !viewModel.isProcessing,
+            canExport: !viewModel.outputSRT.isEmpty,
+            canClear: !viewModel.inputText.isEmpty || !viewModel.outputSRT.isEmpty
+        ))
     }
 }
 

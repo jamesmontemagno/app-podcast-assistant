@@ -93,6 +93,9 @@ public struct AIIdeasView: View {
                 }
             }
         }
+        .focusedSceneValue(\.aiActions, viewModel.modelAvailable && episode.transcriptInputText != nil && !episode.transcriptInputText!.isEmpty ? AIActions(
+            generateAll: viewModel.generateAll
+        ) : nil)
     }
     
     // MARK: - Unavailable View
