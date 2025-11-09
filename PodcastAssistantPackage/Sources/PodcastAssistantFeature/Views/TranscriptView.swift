@@ -157,6 +157,17 @@ public struct TranscriptView: View {
                 .applyLiquidGlassButtonStyle(prominent: true)
                 .disabled(viewModel.outputSRT.isEmpty)
                 .help("Export SRT file")
+                
+                // Translation export button (macOS 14+)
+                if #available(macOS 14.0, *) {
+                    Button(action: viewModel.exportTranslated) {
+                        Label("Translate", systemImage: "globe")
+                    }
+                    .labelStyle(.iconOnly)
+                    .applyLiquidGlassButtonStyle(prominent: true)
+                    .disabled(viewModel.outputSRT.isEmpty)
+                    .help("Export translated SRT file")
+                }
             }
             
             ToolbarItemGroup(placement: .automatic) {
@@ -169,6 +180,98 @@ public struct TranscriptView: View {
                 .help("Clear all content")
             }
         }
+        .sheet(isPresented: $viewModel.showingTranslationSheet) {
+            TranslationLanguageSheet(viewModel: viewModel)
+        }
+        .alert("Error", isPresented: $viewModel.showingErrorAlert) {
+            Button("OK") {
+                viewModel.showingErrorAlert = false
+            }
+            if let error = viewModel.errorMessage,
+               error.contains("Language pack") {
+                Button("Open System Settings") {
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.general") {
+                        NSWorkspace.shared.open(url)
+                    }
+                    viewModel.showingErrorAlert = false
+                }
+            }
+        } message: {
+            if let error = viewModel.errorMessage {
+                Text(error)
+            }
+        }
+    }
+}
+
+/// Sheet view for selecting translation language
+@available(macOS 14.0, *)
+private struct TranslationLanguageSheet: View {
+    @ObservedObject var viewModel: TranscriptViewModel
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            // Header
+            HStack {
+                Image(systemName: "globe")
+                    .font(.title)
+                    .foregroundColor(.blue)
+                Text("Export Translated SRT")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+            }
+            .padding(.top)
+            
+            Text("Select a language to translate the subtitles")
+                .font(.callout)
+                .foregroundColor(.secondary)
+            
+            Divider()
+            
+            // Language selection
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Target Language")
+                    .font(.headline)
+                
+                Picker("Language", selection: $viewModel.selectedLanguage) {
+                    Text("Select a language...").tag(nil as TranslationService.SupportedLanguage?)
+                    
+                    ForEach(TranslationService.SupportedLanguage.allCases) { language in
+                        Text(language.displayName).tag(language as TranslationService.SupportedLanguage?)
+                    }
+                }
+                .pickerStyle(.menu)
+                .frame(maxWidth: .infinity)
+            }
+            .padding(.horizontal)
+            
+            if viewModel.isProcessing {
+                ProgressView("Translating...")
+                    .padding()
+            }
+            
+            Divider()
+            
+            // Action buttons
+            HStack(spacing: 12) {
+                Button("Cancel") {
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
+                
+                Spacer()
+                
+                Button("Export Translated") {
+                    viewModel.translateAndExport()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(viewModel.selectedLanguage == nil || viewModel.isProcessing)
+            }
+            .padding(.horizontal)
+            .padding(.bottom)
+        }
+        .frame(width: 400, height: 300)
     }
 }
 
