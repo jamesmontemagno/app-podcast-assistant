@@ -86,6 +86,12 @@ User Action → ViewModel → SwiftData Model → ModelContext Save → UI Updat
 - Converts to YouTube-compatible SRT format
 - Regex-based pattern matching for format detection
 
+#### TranslationService
+- Wraps macOS Translation API (available macOS 12+)
+- Supports 12+ YouTube subtitle languages
+- Preserves SRT timestamps while translating text
+- Async translation with progress handling
+
 #### ThumbnailGenerator
 - AppKit-based image compositing
 - Text rendering with stroke/fill effects
@@ -105,6 +111,7 @@ User Action → ViewModel → SwiftData Model → ModelContext Save → UI Updat
 - Computed properties read/write directly to Core Data
 - Automatic context saving after changes
 - File import/export via NSOpenPanel/NSSavePanel
+- Translation export with language selection sheet (macOS 12+)
 
 #### ThumbnailViewModel
 - Episode-bound with Core Data context
