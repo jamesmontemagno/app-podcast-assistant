@@ -7,64 +7,67 @@ import SwiftData
 /// Binds directly to SwiftData Episode model
 @MainActor
 public class ThumbnailViewModel: ObservableObject {
-        @Published public var fontColor: Color = .white {
-            didSet {
-                episode.fontColorHex = fontColor.toHexString()
-                saveContext()
-                generateThumbnail()
-            }
+    @Published public var fontColor: Color = .white {
+        didSet {
+            episode.fontColorHex = fontColor.toHexString()
+            markDirty()
+            scheduleDebouncedGeneration()
         }
-        @Published public var outlineEnabled: Bool = true {
-            didSet {
-                episode.outlineEnabled = outlineEnabled
-                saveContext()
-                generateThumbnail()
-            }
+    }
+    @Published public var outlineEnabled: Bool = true {
+        didSet {
+            episode.outlineEnabled = outlineEnabled
+            markDirty()
+            scheduleDebouncedGeneration()
         }
-        @Published public var outlineColor: Color = .black {
-            didSet {
-                episode.outlineColorHex = outlineColor.toHexString()
-                saveContext()
-                generateThumbnail()
-            }
+    }
+    @Published public var outlineColor: Color = .black {
+        didSet {
+            episode.outlineColorHex = outlineColor.toHexString()
+            markDirty()
+            scheduleDebouncedGeneration()
         }
+    }
     @Published public var episodeNumber: String = "" {
-        didSet { generateThumbnail() }
+        didSet {
+            markDirty()
+            scheduleDebouncedGeneration()
+        }
     }
     @Published public var selectedFont: String = "Helvetica-Bold" {
-        didSet { 
+        didSet {
             episode.fontName = selectedFont
-            saveContext()
-            generateThumbnail()
+            markDirty()
+            scheduleDebouncedGeneration()
         }
     }
     @Published public var fontSize: Double = 72 {
-        didSet { 
+        didSet {
             episode.fontSize = fontSize
-            saveContext()
-            generateThumbnail()
+            markDirty()
+            scheduleDebouncedGeneration()
         }
     }
     @Published public var episodeNumberPosition: ThumbnailGenerator.TextPosition = .topRight {
-        didSet { 
+        didSet {
             episode.textPositionX = episodeNumberPosition.relativePosition.x
             episode.textPositionY = episodeNumberPosition.relativePosition.y
-            saveContext()
-            generateThumbnail()
+            markDirty()
+            scheduleDebouncedGeneration()
         }
     }
     @Published public var horizontalPadding: Double = 40 {
         didSet {
             episode.horizontalPadding = horizontalPadding
-            saveContext()
-            generateThumbnail()
+            markDirty()
+            scheduleDebouncedGeneration()
         }
     }
     @Published public var verticalPadding: Double = 40 {
         didSet {
             episode.verticalPadding = verticalPadding
-            saveContext()
-            generateThumbnail()
+            markDirty()
+            scheduleDebouncedGeneration()
         }
     }
     @Published public var selectedResolution: ThumbnailGenerator.CanvasResolution = .hd1080 {
@@ -73,8 +76,8 @@ public class ThumbnailViewModel: ObservableObject {
                 let size = selectedResolution.size
                 episode.canvasWidth = size.width
                 episode.canvasHeight = size.height
-                saveContext()
-                generateThumbnail()
+                markDirty()
+                scheduleDebouncedGeneration()
             }
         }
     }
@@ -82,8 +85,8 @@ public class ThumbnailViewModel: ObservableObject {
         didSet {
             if selectedResolution == .custom, let width = Double(customWidth) {
                 episode.canvasWidth = width
-                saveContext()
-                generateThumbnail()
+                markDirty()
+                scheduleDebouncedGeneration()
             }
         }
     }
@@ -91,16 +94,16 @@ public class ThumbnailViewModel: ObservableObject {
         didSet {
             if selectedResolution == .custom, let height = Double(customHeight) {
                 episode.canvasHeight = height
-                saveContext()
-                generateThumbnail()
+                markDirty()
+                scheduleDebouncedGeneration()
             }
         }
     }
     @Published public var backgroundScaling: ThumbnailGenerator.BackgroundScaling = .aspectFill {
         didSet {
             episode.backgroundScaling = backgroundScaling.rawValue
-            saveContext()
-            generateThumbnail()
+            markDirty()
+            scheduleDebouncedGeneration()
         }
     }
     @Published public var generatedThumbnail: NSImage?
@@ -112,6 +115,9 @@ public class ThumbnailViewModel: ObservableObject {
     @Published public var backgroundImage: NSImage? = nil
     @Published public var overlayImage: NSImage? = nil
     
+    // Dirty state tracking
+    @Published public var hasUnsavedChanges: Bool = false
+    
     private let generator = ThumbnailGenerator()
     private let fontManager: FontManager
     private var hasLoadedImages = false
@@ -120,6 +126,14 @@ public class ThumbnailViewModel: ObservableObject {
     public let episode: Episode
     private let context: ModelContext
     private var appSettings: AppSettings?
+    
+    // Debouncing for thumbnail generation only (no auto-save)
+    private var debounceTask: Task<Void, Never>?
+    private var renderTask: Task<Void, Never>?
+    private var currentGenerationID = UUID()
+    
+    // Cache last generation parameters to avoid redundant work
+    private var lastGenerationHash: Int = 0
     
     public var availableFonts: [String] {
         var fonts = [
@@ -141,17 +155,18 @@ public class ThumbnailViewModel: ObservableObject {
     }
     
     public init(episode: Episode, context: ModelContext, fontManager: FontManager = FontManager()) {
-                // Font color
-                if let hex = episode.fontColorHex, let color = Color(hex: hex) {
-                    self.fontColor = color
-                }
-                self.outlineEnabled = episode.outlineEnabled
-                if let hex = episode.outlineColorHex, let color = Color(hex: hex) {
-                    self.outlineColor = color
-                }
         self.episode = episode
         self.context = context
         self.fontManager = fontManager
+        
+        // Font color
+        if let hex = episode.fontColorHex, let color = Color(hex: hex) {
+            self.fontColor = color
+        }
+        self.outlineEnabled = episode.outlineEnabled
+        if let hex = episode.outlineColorHex, let color = Color(hex: hex) {
+            self.outlineColor = color
+        }
         
         // Load AppSettings
         loadSettings()
@@ -197,6 +212,17 @@ public class ThumbnailViewModel: ObservableObject {
         } ?? .aspectFill
     }
     
+    deinit {
+        // Cancel any pending tasks when view model is deallocated
+        debounceTask?.cancel()
+        renderTask?.cancel()
+    }
+    
+    /// Mark that there are unsaved changes
+    private func markDirty() {
+        hasUnsavedChanges = true
+    }
+    
     /// Loads images from SwiftData asynchronously (called once on view appear)
     private func loadImagesIfNeeded() async {
         guard !hasLoadedImages else { return }
@@ -225,19 +251,120 @@ public class ThumbnailViewModel: ObservableObject {
             
             // Give the UI time to load and render
             try? await Task.sleep(nanoseconds: 300_000_000) // 300ms delay
-            self.generateThumbnail()
+            self.requestGeneration(force: true, showSuccessFeedback: false)
         }
     }
     
-    /// Save the SwiftData context
-    private func saveContext() {
-        if context.hasChanges {
-            do {
-                try context.save()
-            } catch {
-                print("Error saving context: \(error)")
+    /// Schedule a debounced thumbnail generation (150ms delay for instant feel)
+    private func scheduleDebouncedGeneration() {
+        // Cancel any existing debounce task
+        debounceTask?.cancel()
+        renderTask?.cancel()
+        
+        // Create a new task that waits before generating
+        debounceTask = Task { @MainActor [weak self] in
+            // Wait for 150ms - if another change happens, this task gets cancelled
+            try? await Task.sleep(nanoseconds: 150_000_000)
+
+            // Check if we were cancelled
+            guard !Task.isCancelled else { return }
+
+            guard let viewModel = self else { return }
+            // Generate the thumbnail (with caching to skip redundant work)
+            viewModel.generateThumbnailIfNeeded()
+        }
+    }
+    
+    /// Save changes to SwiftData
+    public func saveChanges() {
+        let thumbnailWrapper = generatedThumbnail.map { ImageBox(image: $0) }
+        let hadThumbnail = thumbnailWrapper != nil
+        let preserveTransparency = overlayImage != nil
+
+        Task.detached(priority: .userInitiated) { [weak self] in
+            let processedData = thumbnailWrapper.flatMap { box in
+                ImageUtilities.processImageForStorage(box.image, preserveTransparency: preserveTransparency)
+            }
+
+            await MainActor.run { [weak self] in
+                self?.applySaveResult(processedData: processedData, hadThumbnail: hadThumbnail)
             }
         }
+    }
+
+    @MainActor
+    private func applySaveResult(processedData: Data?, hadThumbnail: Bool) {
+        if hadThumbnail && processedData == nil {
+            errorMessage = "Failed to prepare thumbnail for saving"
+            successMessage = nil
+            return
+        }
+
+        if let data = processedData {
+            episode.thumbnailOutputData = data
+        }
+
+        do {
+            if context.hasChanges {
+                try context.save()
+            }
+            hasUnsavedChanges = false
+            successMessage = "Changes saved successfully"
+            errorMessage = nil
+        } catch {
+            errorMessage = "Failed to save changes: \(error.localizedDescription)"
+        }
+    }
+    
+    /// Discard unsaved changes
+    public func discardChanges() {
+        context.rollback()
+        hasUnsavedChanges = false
+        // Reload values from episode
+        reloadFromEpisode()
+    }
+    
+    /// Reload all values from the episode model
+    private func reloadFromEpisode() {
+        episodeNumber = "\(episode.episodeNumber)"
+        selectedFont = episode.fontName ?? "Helvetica-Bold"
+        fontSize = episode.fontSize
+        horizontalPadding = episode.horizontalPadding
+        verticalPadding = episode.verticalPadding
+        
+        if let hex = episode.fontColorHex, let color = Color(hex: hex) {
+            fontColor = color
+        }
+        outlineEnabled = episode.outlineEnabled
+        if let hex = episode.outlineColorHex, let color = Color(hex: hex) {
+            outlineColor = color
+        }
+        
+        episodeNumberPosition = ThumbnailGenerator.TextPosition.fromRelativePosition(
+            x: episode.textPositionX,
+            y: episode.textPositionY
+        )
+        
+        let canvasSize = NSSize(width: episode.canvasWidth, height: episode.canvasHeight)
+        if canvasSize == ThumbnailGenerator.CanvasResolution.hd1080.size {
+            selectedResolution = .hd1080
+        } else if canvasSize == ThumbnailGenerator.CanvasResolution.hd720.size {
+            selectedResolution = .hd720
+        } else if canvasSize == ThumbnailGenerator.CanvasResolution.uhd4k.size {
+            selectedResolution = .uhd4k
+        } else if canvasSize == ThumbnailGenerator.CanvasResolution.square1080.size {
+            selectedResolution = .square1080
+        } else {
+            selectedResolution = .custom
+            customWidth = "\(Int(episode.canvasWidth))"
+            customHeight = "\(Int(episode.canvasHeight))"
+        }
+        
+        backgroundScaling = ThumbnailGenerator.BackgroundScaling.allCases.first {
+            $0.rawValue == episode.backgroundScaling
+        } ?? .aspectFill
+        
+        requestGeneration(force: true, showSuccessFeedback: false)
     }
     
     /// Imports a background image
@@ -247,10 +374,12 @@ public class ThumbnailViewModel: ObservableObject {
             self.backgroundImage = image
             if let image = image {
                 self.episode.thumbnailBackgroundData = ImageUtilities.processImageForStorage(image)
-                self.saveContext()
+                self.markDirty()
             }
             self.successMessage = "Background image loaded"
             self.errorMessage = nil
+            // Immediate generation for image imports
+            self.debounceTask?.cancel()
             self.generateThumbnail()
         }
     }
@@ -262,10 +391,12 @@ public class ThumbnailViewModel: ObservableObject {
             self.overlayImage = image
             if let image = image {
                 self.episode.thumbnailOverlayData = ImageUtilities.processImageForStorage(image, preserveTransparency: true)
-                self.saveContext()
+                self.markDirty()
             }
             self.successMessage = "Overlay image loaded"
             self.errorMessage = nil
+            // Immediate generation for image imports
+            self.debounceTask?.cancel()
             self.generateThumbnail()
         }
     }
@@ -274,9 +405,11 @@ public class ThumbnailViewModel: ObservableObject {
     public func removeOverlayImage() {
         overlayImage = nil
         episode.thumbnailOverlayData = nil
-        saveContext()
+        markDirty()
         successMessage = "Overlay removed"
         errorMessage = nil
+        // Immediate generation for removals
+        debounceTask?.cancel()
         generateThumbnail()
     }
     
@@ -285,9 +418,11 @@ public class ThumbnailViewModel: ObservableObject {
         if let image = getImageFromClipboard() {
             backgroundImage = image
             episode.thumbnailBackgroundData = ImageUtilities.processImageForStorage(image)
-            saveContext()
+            markDirty()
             successMessage = "Background pasted from clipboard"
             errorMessage = nil
+            // Immediate generation for image pastes
+            debounceTask?.cancel()
             generateThumbnail()
         } else {
             errorMessage = "No image found in clipboard"
@@ -299,9 +434,11 @@ public class ThumbnailViewModel: ObservableObject {
         if let image = getImageFromClipboard() {
             overlayImage = image
             episode.thumbnailOverlayData = ImageUtilities.processImageForStorage(image, preserveTransparency: true)
-            saveContext()
+            markDirty()
             successMessage = "Overlay pasted from clipboard"
             errorMessage = nil
+            // Immediate generation for image pastes
+            debounceTask?.cancel()
             generateThumbnail()
         } else {
             errorMessage = "No image found in clipboard"
@@ -435,30 +572,61 @@ public class ThumbnailViewModel: ObservableObject {
         }
     }
     
-    /// Generates the thumbnail
+    /// Generates the thumbnail with caching to avoid redundant work
+    private func generateThumbnailIfNeeded() {
+        requestGeneration(force: false, showSuccessFeedback: false)
+    }
+    
+    /// Calculate hash of current generation parameters to detect changes
+    private func calculateGenerationHash() -> Int {
+        var hasher = Hasher()
+        hasher.combine(episodeNumber)
+        hasher.combine(selectedFont)
+        hasher.combine(fontSize)
+        hasher.combine(episodeNumberPosition.rawValue)
+        hasher.combine(horizontalPadding)
+        hasher.combine(verticalPadding)
+        hasher.combine(selectedResolution.rawValue)
+        hasher.combine(customWidth)
+        hasher.combine(customHeight)
+        hasher.combine(backgroundScaling.rawValue)
+        hasher.combine(fontColor.description)
+        hasher.combine(outlineEnabled)
+        hasher.combine(outlineColor.description)
+        // Note: We don't hash images as they're expensive to compare
+        return hasher.finalize()
+    }
+    
+    /// Generates the thumbnail on demand (used by toolbar button)
     public func generateThumbnail() {
-        guard let background = backgroundImage else {
+        markDirty()
+        requestGeneration(force: true, showSuccessFeedback: true)
+    }
+
+    private func requestGeneration(force: Bool, showSuccessFeedback: Bool) {
+        guard let snapshot = makeSnapshot() else {
+            renderTask?.cancel()
+            currentGenerationID = UUID()
             generatedThumbnail = nil
             isLoading = false
             return
         }
-        
-        isLoading = true
-        errorMessage = nil
-        
-        // Determine canvas size
-        let canvasSize: NSSize
-        if selectedResolution == .custom {
-            if let width = Double(customWidth), let height = Double(customHeight) {
-                canvasSize = NSSize(width: width, height: height)
-            } else {
-                canvasSize = ThumbnailGenerator.CanvasResolution.hd1080.size
-            }
-        } else {
-            canvasSize = selectedResolution.size
+
+        let currentHash = calculateGenerationHash()
+        if !force && currentHash == lastGenerationHash {
+            return
         }
-        
-        if let thumbnail = generator.generateThumbnail(
+        lastGenerationHash = currentHash
+
+        startRender(with: snapshot, showSuccessFeedback: showSuccessFeedback)
+    }
+
+    private func makeSnapshot() -> ThumbnailRenderSnapshot? {
+        guard let background = backgroundImage else {
+            return nil
+        }
+
+        return ThumbnailRenderSnapshot(
             backgroundImage: background,
             overlayImage: overlayImage,
             episodeNumber: episodeNumber,
@@ -467,26 +635,90 @@ public class ThumbnailViewModel: ObservableObject {
             position: episodeNumberPosition,
             horizontalPadding: CGFloat(horizontalPadding),
             verticalPadding: CGFloat(verticalPadding),
-            canvasSize: canvasSize,
+            canvasSize: determineCanvasSize(),
             backgroundScaling: backgroundScaling,
             fontColor: NSColor(fontColor),
             outlineEnabled: outlineEnabled,
             outlineColor: NSColor(outlineColor)
-        ) {
-            generatedThumbnail = thumbnail
-            
-            // Save the generated thumbnail to Core Data (preserve transparency if overlay is used)
-            let hasTransparency = overlayImage != nil
-            episode.thumbnailOutputData = ImageUtilities.processImageForStorage(thumbnail, preserveTransparency: hasTransparency)
-            saveContext()
-            
-            successMessage = "Thumbnail generated successfully!"
-            isLoading = false
-        } else {
-            generatedThumbnail = nil
-            errorMessage = "Failed to generate thumbnail"
-            isLoading = false
+        )
+    }
+
+    private func determineCanvasSize() -> NSSize {
+        if selectedResolution == .custom {
+            if let width = Double(customWidth), let height = Double(customHeight) {
+                return NSSize(width: width, height: height)
+            }
+            return ThumbnailGenerator.CanvasResolution.hd1080.size
         }
+        return selectedResolution.size
+    }
+
+    private func startRender(with snapshot: ThumbnailRenderSnapshot, showSuccessFeedback: Bool) {
+        renderTask?.cancel()
+        let generationID = UUID()
+        currentGenerationID = generationID
+        isLoading = true
+        errorMessage = nil
+
+        renderTask = Task.detached(priority: .userInitiated) { [weak self, snapshot, showSuccessFeedback, generationID] in
+            if Task.isCancelled { return }
+
+            let image: NSImage? = autoreleasepool {
+                ThumbnailGenerator().generateThumbnail(
+                    backgroundImage: snapshot.backgroundImage,
+                    overlayImage: snapshot.overlayImage,
+                    episodeNumber: snapshot.episodeNumber,
+                    fontName: snapshot.fontName,
+                    fontSize: snapshot.fontSize,
+                    position: snapshot.position,
+                    horizontalPadding: snapshot.horizontalPadding,
+                    verticalPadding: snapshot.verticalPadding,
+                    canvasSize: snapshot.canvasSize,
+                    backgroundScaling: snapshot.backgroundScaling,
+                    fontColor: snapshot.fontColor,
+                    outlineEnabled: snapshot.outlineEnabled,
+                    outlineColor: snapshot.outlineColor
+                )
+            }
+
+            if Task.isCancelled { return }
+
+            await MainActor.run { [weak self] in
+                guard
+                    let strongSelf = self,
+                    strongSelf.currentGenerationID == generationID
+                else { return }
+                strongSelf.isLoading = false
+                strongSelf.renderTask = nil
+
+                if let image = image {
+                    strongSelf.generatedThumbnail = image
+                    if showSuccessFeedback {
+                        strongSelf.successMessage = "Thumbnail generated successfully!"
+                    }
+                } else {
+                    strongSelf.generatedThumbnail = nil
+                    strongSelf.errorMessage = "Failed to generate thumbnail"
+                    strongSelf.successMessage = nil
+                }
+            }
+        }
+    }
+
+    private struct ThumbnailRenderSnapshot: @unchecked Sendable {
+        let backgroundImage: NSImage
+        let overlayImage: NSImage?
+        let episodeNumber: String
+        let fontName: String
+        let fontSize: CGFloat
+        let position: ThumbnailGenerator.TextPosition
+        let horizontalPadding: CGFloat
+        let verticalPadding: CGFloat
+        let canvasSize: NSSize
+        let backgroundScaling: ThumbnailGenerator.BackgroundScaling
+        let fontColor: NSColor
+        let outlineEnabled: Bool
+        let outlineColor: NSColor
     }
     
     /// Exports the generated thumbnail
@@ -528,8 +760,17 @@ public class ThumbnailViewModel: ObservableObject {
         episode.thumbnailBackgroundData = nil
         episode.thumbnailOverlayData = nil
         episode.thumbnailOutputData = nil
-        saveContext()
+        markDirty()
         errorMessage = nil
         successMessage = nil
+        debounceTask?.cancel()
+        renderTask?.cancel()
+        currentGenerationID = UUID()
+        lastGenerationHash = 0
+        isLoading = false
+    }
+    
+    private struct ImageBox: @unchecked Sendable {
+        let image: NSImage
     }
 }

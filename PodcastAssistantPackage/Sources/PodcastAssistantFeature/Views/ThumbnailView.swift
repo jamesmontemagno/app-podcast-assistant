@@ -8,6 +8,7 @@ public struct ThumbnailView: View {
     @StateObject private var viewModel: ThumbnailViewModel
     @State private var previewZoom: CGFloat = 1.0
     @State private var fitToWindow: Bool = true
+    @State private var showingUnsavedChangesAlert = false
     
     public init(episode: Episode) {
         self.episode = episode
@@ -446,6 +447,32 @@ public struct ThumbnailView: View {
             }
         }
         .toolbar {
+            // Save/Discard buttons with unsaved changes indicator
+            ToolbarItemGroup(placement: .primaryAction) {
+                if viewModel.hasUnsavedChanges {
+                    HStack(spacing: 4) {
+                        Image(systemName: "circle.fill")
+                            .foregroundColor(.orange)
+                            .font(.system(size: 8))
+                            .help("Unsaved changes")
+                        
+                        Button(action: viewModel.discardChanges) {
+                            Label("Discard", systemImage: "arrow.uturn.backward")
+                        }
+                        .buttonStyle(.glass)
+                        .help("Discard changes")
+                        
+                        Button(action: viewModel.saveChanges) {
+                            Label("Save", systemImage: "square.and.arrow.down")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .help("Save changes")
+                    }
+                    
+                    Divider()
+                }
+            }
+            
             ToolbarItem(placement: .primaryAction) {
                 Button(action: viewModel.generateThumbnail) {
                     Label("Generate", systemImage: "wand.and.stars")
@@ -483,9 +510,26 @@ public struct ThumbnailView: View {
                 .help("Clear all")
             }
         }
+        .alert("Unsaved Changes", isPresented: $showingUnsavedChangesAlert) {
+            Button("Save") {
+                viewModel.saveChanges()
+            }
+            Button("Discard", role: .destructive) {
+                viewModel.discardChanges()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("You have unsaved changes. Do you want to save them before continuing?")
+        }
         .onAppear {
             // Trigger initial generation with delay when view appears
             viewModel.performInitialGeneration()
+        }
+        .onDisappear {
+            // Check for unsaved changes when view is about to disappear
+            if viewModel.hasUnsavedChanges {
+                showingUnsavedChangesAlert = true
+            }
         }
         .focusedSceneValue(\.thumbnailActions, ThumbnailActions(
             importBackground: viewModel.importBackgroundImage,
