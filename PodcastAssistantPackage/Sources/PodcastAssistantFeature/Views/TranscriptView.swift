@@ -173,10 +173,6 @@ public struct TranscriptView: View {
             // Translation export button (macOS 14+)
             if #available(macOS 14.0, *) {
                 ToolbarItem(placement: .primaryAction) {
-                    Spacer()
-                }
-                
-                ToolbarItem(placement: .primaryAction) {
                     Button(action: viewModel.exportTranslated) {
                         Label("Translate", systemImage: "character.book.closed")
                     }

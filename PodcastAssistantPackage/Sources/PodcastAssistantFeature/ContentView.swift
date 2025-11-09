@@ -453,6 +453,22 @@ private struct EpisodeDetailView: View {
             VStack(alignment: .leading, spacing: 0) {
                 // Episode information
                 VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Episode Info")
+                            .font(.headline)
+                        
+                        Spacer()
+                        
+                        Button {
+                            showingEpisodeDetailEdit = true
+                        } label: {
+                            Label("Edit Details", systemImage: "square.and.pencil")
+                        }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.glass)
+                        .help("Edit episode details and settings")
+                    }
+                    
                     Text(episode.title)
                         .font(.title2)
                         .fontWeight(.bold)
@@ -595,18 +611,6 @@ private struct EpisodeDetailView: View {
                 }
             }
             .frame(minWidth: 500, idealWidth: 800, maxWidth: .infinity)
-        }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showingEpisodeDetailEdit = true
-                } label: {
-                    Label("Edit Details", systemImage: "square.and.pencil")
-                }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.glass)
-                .help("Edit episode details and settings")
-            }
         }
     }
 }
