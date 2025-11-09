@@ -9,101 +9,67 @@ import SwiftData
 public class ThumbnailViewModel: ObservableObject {
     @Published public var fontColor: Color = .white {
         didSet {
-            episode.fontColorHex = fontColor.toHexString()
             markDirty()
-            scheduleDebouncedGeneration()
         }
     }
     @Published public var outlineEnabled: Bool = true {
         didSet {
-            episode.outlineEnabled = outlineEnabled
             markDirty()
-            scheduleDebouncedGeneration()
         }
     }
     @Published public var outlineColor: Color = .black {
         didSet {
-            episode.outlineColorHex = outlineColor.toHexString()
             markDirty()
-            scheduleDebouncedGeneration()
         }
     }
     @Published public var episodeNumber: String = "" {
         didSet {
             markDirty()
-            scheduleDebouncedGeneration()
         }
     }
     @Published public var selectedFont: String = "Helvetica-Bold" {
         didSet {
-            episode.fontName = selectedFont
             markDirty()
-            scheduleDebouncedGeneration()
         }
     }
     @Published public var fontSize: Double = 72 {
         didSet {
-            episode.fontSize = fontSize
             markDirty()
-            scheduleDebouncedGeneration()
         }
     }
     @Published public var episodeNumberPosition: ThumbnailGenerator.TextPosition = .topRight {
         didSet {
-            episode.textPositionX = episodeNumberPosition.relativePosition.x
-            episode.textPositionY = episodeNumberPosition.relativePosition.y
             markDirty()
-            scheduleDebouncedGeneration()
         }
     }
     @Published public var horizontalPadding: Double = 40 {
         didSet {
-            episode.horizontalPadding = horizontalPadding
             markDirty()
-            scheduleDebouncedGeneration()
         }
     }
     @Published public var verticalPadding: Double = 40 {
         didSet {
-            episode.verticalPadding = verticalPadding
             markDirty()
-            scheduleDebouncedGeneration()
         }
     }
     @Published public var selectedResolution: ThumbnailGenerator.CanvasResolution = .hd1080 {
         didSet {
-            if selectedResolution != .custom {
-                let size = selectedResolution.size
-                episode.canvasWidth = size.width
-                episode.canvasHeight = size.height
-                markDirty()
-                scheduleDebouncedGeneration()
-            }
+            markDirty()
         }
     }
     @Published public var customWidth: String = "1920" {
         didSet {
-            if selectedResolution == .custom, let width = Double(customWidth) {
-                episode.canvasWidth = width
-                markDirty()
-                scheduleDebouncedGeneration()
-            }
+            markDirty()
         }
     }
     @Published public var customHeight: String = "1080" {
         didSet {
-            if selectedResolution == .custom, let height = Double(customHeight) {
-                episode.canvasHeight = height
-                markDirty()
-                scheduleDebouncedGeneration()
-            }
+            markDirty()
         }
     }
     @Published public var backgroundScaling: ThumbnailGenerator.BackgroundScaling = .aspectFill {
         didSet {
-            episode.backgroundScaling = backgroundScaling.rawValue
             markDirty()
-            scheduleDebouncedGeneration()
         }
     }
     @Published public var generatedThumbnail: NSImage?
@@ -255,7 +221,7 @@ public class ThumbnailViewModel: ObservableObject {
         }
     }
     
-    /// Schedule a debounced thumbnail generation (150ms delay for instant feel)
+    /// Schedule a debounced thumbnail generation (800ms delay to wait for user to finish adjusting)
     private func scheduleDebouncedGeneration() {
         // Cancel any existing debounce task
         debounceTask?.cancel()
@@ -263,8 +229,8 @@ public class ThumbnailViewModel: ObservableObject {
         
         // Create a new task that waits before generating
         debounceTask = Task { @MainActor [weak self] in
-            // Wait for 150ms - if another change happens, this task gets cancelled
-            try? await Task.sleep(nanoseconds: 150_000_000)
+            // Wait for 800ms - if another change happens, this task gets cancelled
+            try? await Task.sleep(nanoseconds: 800_000_000)
 
             // Check if we were cancelled
             guard !Task.isCancelled else { return }
@@ -298,6 +264,45 @@ public class ThumbnailViewModel: ObservableObject {
             errorMessage = "Failed to prepare thumbnail for saving"
             successMessage = nil
             return
+        }
+
+        // Update all episode properties from current ViewModel state
+        episode.fontColorHex = fontColor.toHexString()
+        episode.outlineEnabled = outlineEnabled
+        episode.outlineColorHex = outlineColor.toHexString()
+        episode.fontName = selectedFont
+        episode.fontSize = fontSize
+        episode.textPositionX = episodeNumberPosition.relativePosition.x
+        episode.textPositionY = episodeNumberPosition.relativePosition.y
+        episode.horizontalPadding = horizontalPadding
+        episode.verticalPadding = verticalPadding
+        
+        // Update canvas size
+        if selectedResolution != .custom {
+            let size = selectedResolution.size
+            episode.canvasWidth = size.width
+            episode.canvasHeight = size.height
+        } else {
+            if let width = Double(customWidth) {
+                episode.canvasWidth = width
+            }
+            if let height = Double(customHeight) {
+                episode.canvasHeight = height
+            }
+        }
+        
+        episode.backgroundScaling = backgroundScaling.rawValue
+        
+        // Save background image if changed
+        if let bgImage = backgroundImage {
+            episode.thumbnailBackgroundData = ImageUtilities.processImageForStorage(bgImage)
+        }
+        
+        // Save overlay image if changed
+        if let ovImage = overlayImage {
+            episode.thumbnailOverlayData = ImageUtilities.processImageForStorage(ovImage, preserveTransparency: true)
+        } else {
+            episode.thumbnailOverlayData = nil
         }
 
         if let data = processedData {
@@ -372,8 +377,7 @@ public class ThumbnailViewModel: ObservableObject {
         selectImage { [weak self] image in
             guard let self = self else { return }
             self.backgroundImage = image
-            if let image = image {
-                self.episode.thumbnailBackgroundData = ImageUtilities.processImageForStorage(image)
+            if image != nil {
                 self.markDirty()
             }
             self.successMessage = "Background image loaded"
@@ -389,8 +393,7 @@ public class ThumbnailViewModel: ObservableObject {
         selectImage { [weak self] image in
             guard let self = self else { return }
             self.overlayImage = image
-            if let image = image {
-                self.episode.thumbnailOverlayData = ImageUtilities.processImageForStorage(image, preserveTransparency: true)
+            if image != nil {
                 self.markDirty()
             }
             self.successMessage = "Overlay image loaded"
@@ -404,7 +407,6 @@ public class ThumbnailViewModel: ObservableObject {
     /// Removes the overlay image
     public func removeOverlayImage() {
         overlayImage = nil
-        episode.thumbnailOverlayData = nil
         markDirty()
         successMessage = "Overlay removed"
         errorMessage = nil
@@ -417,7 +419,6 @@ public class ThumbnailViewModel: ObservableObject {
     public func pasteBackgroundFromClipboard() {
         if let image = getImageFromClipboard() {
             backgroundImage = image
-            episode.thumbnailBackgroundData = ImageUtilities.processImageForStorage(image)
             markDirty()
             successMessage = "Background pasted from clipboard"
             errorMessage = nil
@@ -433,7 +434,6 @@ public class ThumbnailViewModel: ObservableObject {
     public func pasteOverlayFromClipboard() {
         if let image = getImageFromClipboard() {
             overlayImage = image
-            episode.thumbnailOverlayData = ImageUtilities.processImageForStorage(image, preserveTransparency: true)
             markDirty()
             successMessage = "Overlay pasted from clipboard"
             errorMessage = nil
