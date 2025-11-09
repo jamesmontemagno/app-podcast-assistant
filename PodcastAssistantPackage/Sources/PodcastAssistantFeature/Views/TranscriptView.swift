@@ -285,10 +285,10 @@ private struct TranslationLanguageSheet: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         if !progress.preview.isEmpty {
-                            Text("\"\\(progress.preview)\"")
+                            Text(progress.preview)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                                .lineLimit(2)
+                                .lineLimit(4)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     } else {
@@ -325,7 +325,7 @@ private struct TranslationLanguageSheet: View {
             .padding(.horizontal)
             .padding(.bottom)
         }
-        .frame(width: 400, height: 300)
+        .frame(width: 460, height: 320)
     }
 }
 

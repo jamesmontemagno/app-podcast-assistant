@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import AppKit
 
 /// Inline view for viewing and editing episode details
 public struct EpisodeDetailsView: View {
@@ -109,6 +110,11 @@ public struct EpisodeDetailsView: View {
                 
                 Divider()
                 
+                if #available(macOS 26.0, *) {
+                    EpisodeMetadataTranslationSection(title: $title, description: $description)
+                    Divider()
+                }
+
                 // Podcast Association
                 if let podcast = episode.podcast {
                     VStack(alignment: .leading, spacing: 8) {
@@ -266,3 +272,188 @@ public struct EpisodeDetailsView: View {
         loadEpisodeData()
     }
 }
+
+    @available(macOS 26.0, *)
+    private struct EpisodeMetadataTranslationSection: View {
+        @Binding var title: String
+        @Binding var description: String
+        @StateObject private var viewModel = EpisodeTranslationViewModel()
+        @State private var showingPreview: Bool = false
+    
+        var body: some View {
+            VStack(alignment: .leading, spacing: 12) {
+                Label("Translate Episode Text", systemImage: "globe")
+                    .font(.headline)
+            
+                Text("Preview a translated title and description without saving changes.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            
+                if viewModel.isLoadingLanguages {
+                    ProgressView("Loading languages...")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else if viewModel.availableLanguages.isEmpty {
+                    Text("No translation languages available. Install translation packs in System Settings > General > Language & Region > Translation Languages, then restart Podcast Assistant.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Picker("Language", selection: $viewModel.selectedLanguage) {
+                        Text("Select a language...").tag(nil as AvailableLanguage?)
+                        ForEach(viewModel.availableLanguages) { language in
+                            Text(language.localizedName)
+                                .tag(Optional(language))
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: .infinity)
+                
+                    if let language = viewModel.selectedLanguage, !language.isInstalled {
+                        Text("Download the translation packs for both your source language (usually English) and \(language.localizedName). Restart Podcast Assistant after installation so the language appears here.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            
+                HStack(spacing: 12) {
+                    Button("Translate Title & Description") {
+                        viewModel.clearResults()
+                        Task { @MainActor in
+                            await viewModel.translateEpisode(title: title, description: description)
+                            if viewModel.errorMessage == nil {
+                                showingPreview = true
+                            }
+                        }
+                    }
+                    .disabled(viewModel.isLoadingLanguages || viewModel.isTranslating)
+                    .buttonStyle(.glassProminent)
+                
+                    if viewModel.isTranslating {
+                        ProgressView()
+                    }
+                }
+            
+                if let error = viewModel.errorMessage {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(.vertical, 4)
+            .sheet(isPresented: $showingPreview) {
+                EpisodeTranslationPreviewSheet(viewModel: viewModel)
+            }
+            .alert("Translation Error", isPresented: $viewModel.isShowingErrorAlert, actions: {
+                Button("OK", role: .cancel) {
+                    viewModel.isShowingErrorAlert = false
+                }
+                if let message = viewModel.errorMessage,
+                   message.contains("Translation Languages") {
+                    Button("Open Settings") {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.general") {
+                            NSWorkspace.shared.open(url)
+                        }
+                        viewModel.isShowingErrorAlert = false
+                    }
+                }
+            }, message: {
+                if let message = viewModel.errorMessage {
+                    Text(message)
+                }
+            })
+        }
+    }
+
+    @available(macOS 26.0, *)
+    private struct EpisodeTranslationPreviewSheet: View {
+        @ObservedObject var viewModel: EpisodeTranslationViewModel
+        @Environment(\.dismiss) private var dismiss
+    
+        var body: some View {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Image(systemName: "globe")
+                        .foregroundColor(.blue)
+                    Text("Translated Episode Text")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                    Spacer()
+                    if let languageName = viewModel.selectedLanguage?.localizedName {
+                        Text(languageName)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Title")
+                            .font(.headline)
+                        Spacer()
+                        Button("Copy") {
+                            copyToClipboard(viewModel.translatedTitle)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(viewModel.translatedTitle.isEmpty)
+                    }
+                    ScrollView {
+                        Text(viewModel.translatedTitle.isEmpty ? "Translation pending" : viewModel.translatedTitle)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
+                            .padding(12)
+                            .background(Color(NSColor.controlBackgroundColor))
+                            .cornerRadius(8)
+                    }
+                    .frame(minHeight: 80, maxHeight: 120)
+                }
+            
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Description")
+                            .font(.headline)
+                        Spacer()
+                        Button("Copy") {
+                            copyToClipboard(viewModel.translatedDescription)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(viewModel.translatedDescription.isEmpty)
+                    }
+                    ScrollView {
+                        if viewModel.translatedDescription.isEmpty {
+                            Text("No description translated.")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .foregroundStyle(.secondary)
+                                .padding(12)
+                                .background(Color(NSColor.controlBackgroundColor))
+                                .cornerRadius(8)
+                        } else {
+                            Text(viewModel.translatedDescription)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .textSelection(.enabled)
+                                .padding(12)
+                                .background(Color(NSColor.controlBackgroundColor))
+                                .cornerRadius(8)
+                        }
+                    }
+                    .frame(minHeight: 120, maxHeight: 200)
+                }
+            
+                HStack {
+                    Spacer()
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(24)
+            .frame(width: 480)
+        }
+    
+        private func copyToClipboard(_ text: String) {
+            guard !text.isEmpty else { return }
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString(text, forType: .string)
+        }
+    }

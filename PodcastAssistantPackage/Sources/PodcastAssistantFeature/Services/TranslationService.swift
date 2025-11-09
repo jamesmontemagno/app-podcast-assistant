@@ -2,7 +2,7 @@ import Foundation
 import Translation
 
 /// Represents a language available for translation
-public struct AvailableLanguage: Identifiable, Hashable {
+public struct AvailableLanguage: Identifiable, Hashable, Sendable {
     public let id: String
     public let language: Locale.Language
     public let localizedName: String
@@ -201,6 +201,21 @@ public final class TranslationService: Sendable {
             print("      ❌ Unknown error type: \(error)")
             throw TranslationError.translationFailed(error.localizedDescription)
         }
+    }
+
+    /// Translates an arbitrary block of text to the target language.
+    /// - Parameters:
+    ///   - text: Text to translate.
+    ///   - targetLanguage: Destination language; must be installed.
+    /// - Returns: The translated text.
+    public func translateTextBlock(
+        _ text: String,
+        to targetLanguage: AvailableLanguage
+    ) async throws -> String {
+        guard targetLanguage.isInstalled else {
+            throw TranslationError.languagePackNotInstalled(targetLanguage.localizedName)
+        }
+        return try await translateText(text, to: targetLanguage)
     }
     
     /// Parses SRT content into structured entries
