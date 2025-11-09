@@ -30,6 +30,10 @@ public class FontManager {
         }
     }
     
+    // MARK: - Initialization
+    
+    public init() {}
+    
     // MARK: - Properties
     
     private let fileManager = FileManager.default
