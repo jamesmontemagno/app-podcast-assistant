@@ -9,6 +9,8 @@ A comprehensive Settings page has been added to the app with:
 2. **Appearance Section** - Theme selection (System/Light/Dark)
 3. **Font Management** - Import and manage custom fonts for use in thumbnails
 
+**Note:** Episode Translation is a separate feature accessible from the Episode Detail Edit view. See [TRANSLATION.md](TRANSLATION.md) for details.
+
 ## User Features
 
 ### About Section
@@ -198,3 +200,31 @@ Potential improvements:
 - Font categories/tags
 - Accent color customization
 - Custom color schemes
+
+## Related Features
+
+### Episode Translation
+Episode title and description translation is **NOT** in the Settings page. It's a per-episode feature accessible from:
+- Click "Edit Details" (pencil icon) next to an episode
+- Click "Translate" button at the bottom
+- See [TRANSLATION.md](TRANSLATION.md) for complete documentation
+
+### SRT Translation
+SRT subtitle translation is in the Transcript tab:
+- Convert transcript to SRT first
+- Click "Translate" (globe icon) in toolbar
+- See [TRANSLATION.md](TRANSLATION.md) for complete documentation
+
+### AI Ideas
+AI content generation is in the AI Ideas tab:
+- Requires transcript
+- macOS 26+ with Apple Intelligence
+- See [AI_IDEAS.md](AI_IDEAS.md) for complete documentation
+
+## Additional Documentation
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture and data flow
+- [TRANSLATION.md](TRANSLATION.md) - SRT and episode translation features
+- [AI_IDEAS.md](AI_IDEAS.md) - AI-powered content generation
+- [SETTINGS_UI.md](SETTINGS_UI.md) - UI mockups and layout details
+- [SETTINGS_QUICKREF.md](SETTINGS_QUICKREF.md) - Quick reference guide

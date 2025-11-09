@@ -18,7 +18,7 @@ A SwiftUI macOS application for comprehensive podcast production management with
 - Import text transcript files per episode
 - Automatically detect and convert multiple timestamp formats to SRT
 - Export ready-to-upload SRT files for YouTube
-- **Multi-language translation** - Export SRT in 12+ languages (Spanish, French, German, Japanese, etc.) using macOS Translation API (macOS 14+)
+- **Multi-language SRT translation** - Export SRT in 12+ languages (Spanish, French, German, Japanese, etc.) using macOS Translation API (macOS 26+)
 - Speaker name preservation (Zencastr format)
 - Intelligent timestamp calculation
 - Episode-scoped storage (auto-saved to Core Data)
@@ -31,11 +31,37 @@ A SwiftUI macOS application for comprehensive podcast production management with
 - Automatic episode number placement with customizable fonts and positioning
 - Export as PNG or JPEG
 - Generated thumbnails auto-saved with episode
+- **Lazy loading** - Instant view loading with smooth background generation
+
+### 🤖 AI-Powered Content Generation (Apple Intelligence)
+- Generate catchy episode titles from transcript content
+- Create episode descriptions in multiple lengths (short/medium/long)
+- Generate social media posts for multiple platforms (X/Twitter, LinkedIn, Threads/Bluesky)
+- Auto-generate chapter markers with timestamps and descriptions
+- **All content is generated locally on-device** using Apple Intelligence (macOS 26+)
+- No cloud services or API keys required
+- Content never leaves your Mac
+
+### 🌐 Episode Translation
+- Translate episode titles and descriptions to 12+ languages
+- Uses macOS Translation API for high-quality, on-device translation
+- Perfect for creating multilingual podcast content
+- Supports Spanish, French, German, Japanese, Portuguese, Italian, Korean, Chinese, Dutch, Russian, Arabic, Hindi, and more
+- Copy translated content directly to clipboard
+- Requires macOS 26+
+
+### ⚙️ Settings & Customization
+- **Theme Selection** - Choose between System, Light, or Dark mode with instant application
+- **Custom Font Management** - Import and manage TTF, OTF, and TTC fonts for thumbnails
+- **Font Auto-Registration** - Imported fonts automatically available across the app
+- Theme and font preferences persist across app launches
+- All settings stored locally with Core Data
 
 ## Requirements
 
-- macOS 14.0 or later
-- Xcode 16 or later (for building)
+- **macOS 14.0 or later** - Core app functionality
+- **macOS 26.0 or later** - For AI Ideas and Episode Translation features (requires Apple Intelligence)
+- **Xcode 16 or later** - For building from source
 
 ## Getting Started
 
@@ -158,10 +184,11 @@ I am the other host. Hi, everyone.
 3. Import your text file or paste content directly
 4. Click "Convert to SRT" (format is auto-detected)
 5. Export the generated SRT file
-6. **Optional**: Click the "Translate" (globe) button to export in another language
+6. **Optional**: Click the "Translate" (globe) button to export SRT in another language
    - Choose from 12+ supported languages (Spanish, French, German, Japanese, Portuguese, Italian, Korean, Chinese, Dutch, Russian, Arabic, Hindi)
    - macOS will translate the subtitles while preserving timestamps
-   - Requires macOS 14 (Sonoma) or later
+   - Requires macOS 26+ with translation packs installed
+   - Download language packs in System Settings > General > Language & Region > Translation Languages
 7. Input and output are auto-saved with the episode
 
 **Output Format:**
@@ -184,9 +211,81 @@ Frank: I am the other host. Hi, everyone.
 4. Optionally select an overlay image for branding
 5. Episode number is pre-filled from episode data
 6. Font and position settings are inherited from podcast defaults
-7. Thumbnail generates automatically with live preview
+7. Thumbnail generates automatically with live preview (lazy loaded for smooth UI)
 8. Generated thumbnail auto-saves with the episode
 9. Click "Export Thumbnail" to save as PNG/JPEG file
+
+**Performance:**
+- View loads instantly with lazy thumbnail generation
+- Background processing with progress indicator
+- Smooth UI even with large 4K images
+
+### AI Content Generation
+
+**Requirements:**
+- macOS 26+ with Apple Intelligence enabled
+- Episode must have a transcript
+
+**Steps:**
+1. Select an episode with a transcript
+2. Click the "AI Ideas" tab in the detail pane
+3. Choose content type to generate:
+   - **Titles**: Generate 3 catchy title variations
+   - **Description**: Create short, medium, or long descriptions
+   - **Social Posts**: Generate platform-optimized posts (X/Twitter, LinkedIn, Threads/Bluesky)
+   - **Chapters**: Auto-detect chapter breaks with timestamps and descriptions
+4. Click "Generate All" to create all content types at once
+5. Copy generated content directly to clipboard
+6. Refine and regenerate as needed
+
+**Privacy:**
+- All AI processing happens on-device using Apple Intelligence
+- No data is sent to cloud services
+- No API keys or accounts required
+
+### Episode Translation
+
+**Requirements:**
+- macOS 26+ with Translation API support
+- Translation packs installed for both source and target languages
+
+**Steps:**
+1. Select an episode from the episode list
+2. Click "Edit Details" (pencil icon) next to the episode
+3. Click the "Translate" (globe) button at the bottom
+4. Select target language from the dropdown
+5. Click "Translate"
+6. Review translated title and description
+7. Copy to clipboard or click "Done" to close
+
+**Installing Translation Packs:**
+1. Open System Settings > General > Language & Region
+2. Scroll to "Translation Languages"
+3. Add both your source language (e.g., English) and target languages
+4. Wait for packs to download
+5. Restart Podcast Assistant
+
+### Settings & Customization
+
+**Accessing Settings:**
+- Click the gear icon (⚙️) in the sidebar header
+
+**Theme Selection:**
+1. Open Settings
+2. Find "Appearance" section
+3. Choose between:
+   - **System** - Follows macOS appearance
+   - **Light** - Always light mode
+   - **Dark** - Always dark mode
+4. Theme applies instantly
+
+**Font Management:**
+1. Open Settings
+2. Scroll to "Font Management" section
+3. Click "Import Font"
+4. Select TTF, OTF, or TTC font file
+5. Font appears in list and is available in thumbnail generator
+6. To remove: hover over font and click trash icon
 
 **Default Settings:**
 - New episodes automatically copy font, overlay, and positioning from podcast defaults

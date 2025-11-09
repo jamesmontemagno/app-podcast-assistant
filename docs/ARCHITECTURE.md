@@ -47,9 +47,11 @@ Sidebar (Podcasts)  →  Middle (Episodes)  →  Detail (Transcript/Thumbnail)
 - Visual indicators for transcript/thumbnail completion
 
 #### Column 3: Detail Pane
-- Segmented control for Transcript/Thumbnail tabs
+- Segmented control for Transcript/Thumbnail/AI Ideas tabs
 - Episode-scoped editing (all changes auto-save to Core Data)
 - Real-time preview for thumbnail generation
+- AI-powered content generation (macOS 26+)
+- Episode translation support (macOS 26+)
 - File import/export operations
 
 ### Data Flow
@@ -104,6 +106,14 @@ User Action → ViewModel → SwiftData Model → ModelContext Save → UI Updat
 - JPEG compression at 0.8 quality
 - Keeps database size manageable while maintaining quality
 
+#### FontManager
+- Manages custom font import and registration
+- Validates and copies font files (TTF, OTF, TTC)
+- Storage: `~/Library/Application Support/PodcastAssistant/Fonts/`
+- Uses CoreText (CTFontManager) for macOS font registration
+- Auto-loads imported fonts on app launch
+- Cleanup and unregistration support
+
 ### ViewModels
 
 #### TranscriptViewModel
@@ -118,6 +128,33 @@ User Action → ViewModel → SwiftData Model → ModelContext Save → UI Updat
 - Lazy-loaded images from Data blobs
 - Real-time thumbnail generation on property changes
 - Persists generated thumbnails to episode
+- Loading state management for smooth UI (300ms delay)
+- Background processing with progress indicators
+
+#### AIIdeasViewModel (macOS 26+)
+- Apple Intelligence integration for content generation
+- Generates titles, descriptions, social posts, chapter markers
+- In-memory state (not persisted to Core Data)
+- Uses SystemLanguageModel for on-device AI
+- Model availability checking
+- Transcript cleaning and preparation
+- Copy-to-clipboard functionality for generated content
+
+#### EpisodeTranslationViewModel (macOS 26+)
+- Manages episode title and description translation
+- Language availability and status tracking
+- Translation pack installation detection
+- Uses TranslationService for on-device translation
+- Error handling for missing language packs
+- Clipboard integration for translated content
+
+#### SettingsViewModel
+- ObservableObject managing app-wide settings
+- Theme selection (System/Light/Dark)
+- Font import/removal management
+- File picker dialogs for font selection
+- NSApp.appearance updates for immediate theme changes
+- Success/error message handling with auto-dismiss
 
 ### Views
 
@@ -126,6 +163,9 @@ User Action → ViewModel → SwiftData Model → ModelContext Save → UI Updat
 - `@FetchRequest` for podcast list
 - Selection binding with UserDefaults persistence
 - Empty state placeholders for each column
+- Settings button with sheet presentation
+- Font auto-registration on app launch
+- Theme restoration from AppSettings
 
 #### PodcastFormView
 - Create/edit podcast metadata
@@ -150,6 +190,32 @@ User Action → ViewModel → SwiftData Model → ModelContext Save → UI Updat
 - Three-column layout (controls, preview, export)
 - Real-time preview updates
 - Image clipboard paste support
+- Lazy loading with spinner during generation
+
+#### AIIdeasView (macOS 26+)
+- Four-section layout for content generation
+- Title suggestions with refresh and copy
+- Description generator with length options
+- Social media posts for multiple platforms
+- Chapter markers with timestamps
+- "Generate All" batch operation
+- Model availability checking
+- Requires transcript to function
+
+#### EpisodeDetailEditView
+- Edit episode title and description
+- Translation button integration
+- Sheet presentation for episode translation
+- Save/cancel workflow
+
+#### SettingsView
+- Three-section tabbed interface
+- About section with app info and GitHub link
+- Appearance section with theme picker
+- Font Management section with import/remove
+- Two-part structure for StateObject initialization
+- Hover states and visual feedback
+- Auto-dismissing success messages
 
 ## File Organization
 
@@ -157,25 +223,34 @@ User Action → ViewModel → SwiftData Model → ModelContext Save → UI Updat
 Models/
 ├── Podcast.swift                           # @Model definition with all properties
 ├── Episode.swift                           # @Model definition with custom init
+├── AppSettings.swift                       # @Model for app-wide settings
 ├── TranscriptEntry.swift                   # Legacy model (used for SRT)
 └── SRTDocument.swift                       # FileDocument for export
 
 Services/
 ├── PersistenceController.swift             # Core Data stack management
 ├── TranscriptConverter.swift               # Format detection & conversion
+├── TranslationService.swift                # SRT & episode translation (macOS 26+)
 ├── ThumbnailGenerator.swift                # Image compositing
-└── ImageUtilities.swift                    # Image processing
+├── ImageUtilities.swift                    # Image processing
+└── FontManager.swift                       # Custom font management
 
 ViewModels/
 ├── TranscriptViewModel.swift               # Transcript conversion state
-└── ThumbnailViewModel.swift                # Thumbnail generation state
+├── ThumbnailViewModel.swift                # Thumbnail generation state
+├── AIIdeasViewModel.swift                  # AI content generation (macOS 26+)
+├── EpisodeTranslationViewModel.swift       # Episode translation (macOS 26+)
+└── SettingsViewModel.swift                 # App settings management
 
 Views/
 ├── ContentView.swift                       # Main navigation container
 ├── PodcastFormView.swift                   # Podcast create/edit form
 ├── EpisodeFormView.swift                   # Episode create/edit form
+├── EpisodeDetailEditView.swift             # Episode detail editor with translation
 ├── TranscriptView.swift                    # Transcript editor
-└── ThumbnailView.swift                     # Thumbnail generator
+├── ThumbnailView.swift                     # Thumbnail generator
+├── AIIdeasView.swift                       # AI content generation (macOS 26+)
+└── SettingsView.swift                      # Settings modal
 ```
 
 ## Build Configuration
@@ -237,6 +312,17 @@ xcodebuild -workspace PodcastAssistant.xcworkspace \
 - Container ID prepared: `iCloud.com.refractored.PodcastAssistant`
 - Requires: Uncomment config + entitlements + Apple Developer setup
 
+### AI Content Persistence
+- Save generated AI content to Core Data models
+- Version history for AI-generated content
+- Template library for common content types
+
+### Enhanced Translation Features
+- Batch translate multiple episodes
+- Auto-translate on episode creation
+- Translation quality feedback
+- Custom terminology dictionaries
+
 ### Multi-Window Support
 - Replace `WindowGroup` with `WindowGroup(for: Podcast.ID.self)`
 - Per-podcast window management
@@ -252,3 +338,10 @@ xcodebuild -workspace PodcastAssistant.xcworkspace \
 - Custom text effects (shadow, glow)
 - Template library
 - Drag-and-drop image support
+- Video thumbnail generation from podcast audio
+
+### Settings Enhancements
+- Accent color customization
+- Custom color schemes
+- Font categories/tags
+- Export/import settings profiles
