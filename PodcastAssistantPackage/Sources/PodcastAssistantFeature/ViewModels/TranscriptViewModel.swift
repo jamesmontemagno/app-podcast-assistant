@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
 import SwiftData
+import AppKit
 
 /// ViewModel for transcript conversion functionality
 /// Binds directly to SwiftData Episode model
@@ -12,8 +13,11 @@ public class TranscriptViewModel: ObservableObject {
     @Published public var successMessage: String?
     @Published public var showingExporter: Bool = false
     @Published public var showingImporter: Bool = false
+    @Published public var showingTranslationSheet: Bool = false
+    @Published public var selectedLanguage: TranslationService.SupportedLanguage?
     
     private let converter = TranscriptConverter()
+    private let translationService: TranslationService?
     
     // SwiftData episode
     public let episode: Episode
@@ -39,6 +43,13 @@ public class TranscriptViewModel: ObservableObject {
     public init(episode: Episode, context: ModelContext) {
         self.episode = episode
         self.context = context
+        
+        // Initialize translation service if available (macOS 12+)
+        if #available(macOS 12.0, *) {
+            self.translationService = TranslationService()
+        } else {
+            self.translationService = nil
+        }
     }
     
     /// Returns an SRTDocument for the current output
@@ -123,6 +134,78 @@ public class TranscriptViewModel: ObservableObject {
             return
         }
         showingExporter = true
+    }
+    
+    /// Triggers the translation sheet for language selection
+    public func exportTranslated() {
+        guard !outputSRT.isEmpty else {
+            errorMessage = "No SRT content to export"
+            return
+        }
+        
+        guard translationService != nil else {
+            errorMessage = "Translation requires macOS 12 or later"
+            return
+        }
+        
+        showingTranslationSheet = true
+    }
+    
+    /// Translates and exports SRT in the selected language
+    public func translateAndExport() {
+        guard let language = selectedLanguage else {
+            errorMessage = "Please select a language"
+            return
+        }
+        
+        guard let service = translationService else {
+            errorMessage = "Translation service not available"
+            return
+        }
+        
+        isProcessing = true
+        errorMessage = nil
+        successMessage = nil
+        
+        Task { @MainActor in
+            do {
+                let translatedSRT = try await service.translateSRT(self.outputSRT, to: language)
+                
+                // Save to temporary location for export
+                let tempURL = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("translated_\(language.rawValue).srt")
+                
+                try translatedSRT.write(to: tempURL, atomically: true, encoding: .utf8)
+                
+                // Open save panel
+                let panel = NSSavePanel()
+                if let srtType = UTType(filenameExtension: "srt") {
+                    panel.allowedContentTypes = [srtType]
+                } else {
+                    panel.allowedContentTypes = [.plainText]
+                }
+                panel.nameFieldStringValue = "transcript_\(language.rawValue).srt"
+                panel.canCreateDirectories = true
+                
+                panel.begin { response in
+                    Task { @MainActor in
+                        if response == .OK, let url = panel.url {
+                            do {
+                                try translatedSRT.write(to: url, atomically: true, encoding: .utf8)
+                                self.successMessage = "Translated SRT saved to \(url.lastPathComponent)"
+                                self.showingTranslationSheet = false
+                            } catch {
+                                self.errorMessage = "Failed to save file: \(error.localizedDescription)"
+                            }
+                        }
+                        self.isProcessing = false
+                    }
+                }
+            } catch {
+                self.errorMessage = "Translation failed: \(error.localizedDescription)"
+                self.isProcessing = false
+            }
+        }
     }
     
     /// Handles the export completion from fileExporter

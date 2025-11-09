@@ -245,3 +245,43 @@ Today we're talking about podcasts
     // Should have at least one content type defined
     #expect(!contentTypes.isEmpty)
 }
+
+// MARK: - Translation Service Tests
+
+@available(macOS 12.0, *)
+@Test func testSupportedLanguages() async throws {
+    // Verify all supported languages are available
+    let languages = TranslationService.SupportedLanguage.allCases
+    
+    #expect(languages.count > 0)
+    #expect(languages.contains(.spanish))
+    #expect(languages.contains(.french))
+    #expect(languages.contains(.german))
+}
+
+@available(macOS 12.0, *)
+@Test func testLanguageDisplayNames() async throws {
+    let spanish = TranslationService.SupportedLanguage.spanish
+    #expect(spanish.displayName.contains("Spanish"))
+    #expect(spanish.displayName.contains("Español"))
+    
+    let french = TranslationService.SupportedLanguage.french
+    #expect(french.displayName.contains("French"))
+}
+
+@available(macOS 12.0, *)
+@Test func testLanguageLocales() async throws {
+    let spanish = TranslationService.SupportedLanguage.spanish
+    #expect(spanish.locale.identifier == "es")
+    
+    let japanese = TranslationService.SupportedLanguage.japanese
+    #expect(japanese.locale.identifier == "ja")
+}
+
+@available(macOS 12.0, *)
+@Test func testTranslationServiceInit() async throws {
+    let service = TranslationService()
+    // Should initialize without errors
+    #expect(service != nil)
+}
+
