@@ -272,10 +272,10 @@ Today we're talking about podcasts
 @available(macOS 14.0, *)
 @Test func testLanguageLocales() async throws {
     let spanish = TranslationService.SupportedLanguage.spanish
-    #expect(spanish.locale.identifier == "es")
+    #expect(spanish.languageCode.identifier == "es")
     
     let japanese = TranslationService.SupportedLanguage.japanese
-    #expect(japanese.locale.identifier == "ja")
+    #expect(japanese.languageCode.identifier == "ja")
 }
 
 @available(macOS 14.0, *)

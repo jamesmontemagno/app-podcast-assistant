@@ -41,8 +41,8 @@ public class TranslationService {
             }
         }
         
-        public var locale: Locale {
-            return Locale(identifier: rawValue)
+        public var languageCode: Locale.LanguageCode {
+            return Locale.LanguageCode(rawValue)
         }
     }
     
@@ -83,9 +83,9 @@ public class TranslationService {
         _ text: String,
         to targetLanguage: SupportedLanguage
     ) async throws -> String {
-        // Create translation session
+        // Create translation session configuration
         let configuration = TranslationSession.Configuration(
-            target: targetLanguage.locale
+            target: Locale.Language(languageCode: targetLanguage.languageCode)
         )
         
         let session = TranslationSession(configuration: configuration)
@@ -93,12 +93,14 @@ public class TranslationService {
         do {
             // Prepare translation request
             let request = TranslationSession.Request(
-                sourceText: text,
-                clientIdentifier: "com.refractored.PodcastAssistant.translation"
+                sourceText: text
             )
             
             // Perform translation
             let response = try await session.translate(request)
+            
+            // Invalidate session when done
+            session.invalidate()
             
             return response.targetText
         } catch {
