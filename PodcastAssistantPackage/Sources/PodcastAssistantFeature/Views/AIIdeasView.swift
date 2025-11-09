@@ -78,7 +78,7 @@ public struct AIIdeasView: View {
         }
         .toolbar {
             if viewModel.modelAvailable && episode.transcriptInputText != nil && !episode.transcriptInputText!.isEmpty {
-                ToolbarItem {
+                ToolbarItem(placement: .primaryAction) {
                     Button(action: {
                         Task {
                             await viewModel.generateAll()

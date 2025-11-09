@@ -213,7 +213,7 @@ public struct EpisodeDetailsView: View {
         }
         .toolbar {
             if hasUnsavedChanges {
-                ToolbarItem {
+                ToolbarItem(placement: .primaryAction) {
                     Button(action: revertChanges) {
                         Label("Revert", systemImage: "arrow.uturn.backward.circle")
                     }
@@ -222,7 +222,7 @@ public struct EpisodeDetailsView: View {
                     .help("Discard changes")
                 }
                 
-                ToolbarItem {
+                ToolbarItem(placement: .primaryAction) {
                     Button(action: saveChanges) {
                         Label("Save Changes", systemImage: "checkmark.circle.fill")
                     }
