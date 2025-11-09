@@ -319,6 +319,7 @@ public class AIIdeasViewModel: ObservableObject {
             instructions: """
             You are a podcast editor who identifies topic changes and creates chapter markers.
             Analyze the transcript and find major topic transitions.
+            Follow strict spacing rules: no more than 10 chapters per hour, minimum 3 minutes between chapters.
             """
         )
         
@@ -327,12 +328,14 @@ public class AIIdeasViewModel: ObservableObject {
         // Build context about previous chapters if any
         var previousChaptersContext = ""
         if !previousChapters.isEmpty {
+            let lastChapter = previousChapters.last!
             previousChaptersContext = """
             
             Previous chapters already identified:
             \(previousChapters.map { "- \($0.timestamp): \($0.title)" }.joined(separator: "\n"))
             
             Continue from where these left off and avoid duplicating these topics.
+            IMPORTANT: Your first chapter must be at least 3 minutes after \(lastChapter.timestamp).
             """
         }
         
@@ -342,11 +345,18 @@ public class AIIdeasViewModel: ObservableObject {
         Analyze the transcript and identify \(chapterCount) major topic changes or transitions.
         Each chapter should represent a distinct segment where the conversation shifts to a new subject.
         
+        CRITICAL SPACING REQUIREMENTS:
+        - Maximum 10 chapters per hour of content (aim for 6-10 chapters total for typical episodes)
+        - Each chapter must be at least 3 minutes (180 seconds) apart from the previous one
+        - Chapters should mark MAJOR topic shifts, not minor tangents or sub-topics
+        - Better to have fewer, well-spaced chapters than many close together
+        
         For each chapter:
         - Extract the exact timestamp from the transcript (format: MM:SS or HH:MM:SS)
         - If no timestamps are visible, estimate based on content progression
         - Create a clear, descriptive title (under 8 words) that tells listeners what this segment covers
         - Write a one-sentence summary of what's discussed in this chapter
+        - Ensure at least 3 minutes gap from the previous chapter
         
         Focus on meaningful topic shifts, not minor tangents.
         \(totalChunks > 1 ? "Note: This is section \(chunkIndex + 1) of \(totalChunks) from the full episode. Focus on major topics in this section." : "")\(previousChaptersContext)
@@ -382,9 +392,32 @@ public class AIIdeasViewModel: ObservableObject {
         }
         
         // Sort by timestamp
-        return uniqueChapters.sorted { timestamp1, timestamp2 in
+        let sortedChapters = uniqueChapters.sorted { timestamp1, timestamp2 in
             compareTimestamps(timestamp1.timestamp, timestamp2.timestamp)
         }
+        
+        // Enforce 3-minute minimum spacing
+        return enforceMinimumSpacing(sortedChapters, minimumGapSeconds: 180)
+    }
+    
+    /// Filters chapters to ensure minimum spacing between them
+    private func enforceMinimumSpacing(_ chapters: [ChapterMarker], minimumGapSeconds: Int) -> [ChapterMarker] {
+        guard !chapters.isEmpty else { return [] }
+        
+        var filteredChapters: [ChapterMarker] = [chapters[0]] // Always keep first chapter
+        
+        for chapter in chapters.dropFirst() {
+            let previousTimestamp = filteredChapters.last!.timestamp
+            let currentSeconds = timestampToSeconds(chapter.timestamp)
+            let previousSeconds = timestampToSeconds(previousTimestamp)
+            
+            // Only add if it's at least minimumGapSeconds after the previous chapter
+            if currentSeconds - previousSeconds >= minimumGapSeconds {
+                filteredChapters.append(chapter)
+            }
+        }
+        
+        return filteredChapters
     }
     
     private func compareTimestamps(_ ts1: String, _ ts2: String) -> Bool {
