@@ -82,7 +82,7 @@ public struct EpisodeFormView: View {
                     Button("Save") {
                         saveEpisode()
                     }
-                    .buttonStyle(.glassProminent)
+                    .buttonStyle(.glass)
                     .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }

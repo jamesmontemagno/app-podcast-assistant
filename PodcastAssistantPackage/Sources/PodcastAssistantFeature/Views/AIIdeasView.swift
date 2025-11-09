@@ -84,10 +84,10 @@ public struct AIIdeasView: View {
                             await viewModel.generateAll()
                         }
                     }) {
-                        Label("Generate All", systemImage: "sparkles")
+                        Label("Generate All", systemImage: "sparkles.rectangle.stack")
                     }
                     .labelStyle(.iconOnly)
-                    .applyLiquidGlassButtonStyle(prominent: true)
+                    .applyLiquidGlassButtonStyle(prominent: false)
                     .disabled(viewModel.isGeneratingAll)
                     .help("Generate all AI content suggestions")
                 }

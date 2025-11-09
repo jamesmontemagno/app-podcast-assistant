@@ -134,37 +134,43 @@ public struct TranscriptView: View {
         )
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
-                // Import and processing actions
+                // File import
                 Button(action: viewModel.importFile) {
-                    Label("Import", systemImage: "doc.badge.plus")
+                    Label("Import", systemImage: "arrow.down.doc")
                 }
                 .labelStyle(.iconOnly)
-                .applyLiquidGlassButtonStyle(prominent: true)
+                .applyLiquidGlassButtonStyle(prominent: false)
                 .help("Import transcript file")
-                
+            }
+            
+            ToolbarItemGroup(placement: .automatic) {
+                // Processing actions
                 Button(action: viewModel.convertToSRT) {
-                    Label("Convert", systemImage: "arrow.right.circle.fill")
+                    Label("Convert", systemImage: "arrow.triangle.2.circlepath")
                 }
                 .labelStyle(.iconOnly)
-                .applyLiquidGlassButtonStyle(prominent: true)
+                .applyLiquidGlassButtonStyle(prominent: false)
                 .disabled(viewModel.inputText.isEmpty || viewModel.isProcessing)
                 .help("Convert transcript to SRT format")
-                
+            }
+            
+            ToolbarItemGroup(placement: .automatic) {
+                // Export actions
                 Button(action: viewModel.exportSRT) {
-                    Label("Export", systemImage: "square.and.arrow.up")
+                    Label("Export", systemImage: "arrow.up.doc")
                 }
                 .labelStyle(.iconOnly)
-                .applyLiquidGlassButtonStyle(prominent: true)
+                .applyLiquidGlassButtonStyle(prominent: false)
                 .disabled(viewModel.outputSRT.isEmpty)
                 .help("Export SRT file")
                 
                 // Translation export button (macOS 14+)
                 if #available(macOS 14.0, *) {
                     Button(action: viewModel.exportTranslated) {
-                        Label("Translate", systemImage: "globe")
+                        Label("Translate", systemImage: "character.book.closed")
                     }
                     .labelStyle(.iconOnly)
-                    .applyLiquidGlassButtonStyle(prominent: true)
+                    .applyLiquidGlassButtonStyle(prominent: false)
                     .disabled(viewModel.outputSRT.isEmpty)
                     .help("Export translated SRT file")
                 }

@@ -447,20 +447,23 @@ public struct ThumbnailView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
-                // Generation and export actions
+                // Generation action
                 Button(action: viewModel.generateThumbnail) {
                     Label("Generate", systemImage: "wand.and.stars")
                 }
                 .labelStyle(.iconOnly)
-                .buttonStyle(.glassProminent)
+                .buttonStyle(.glass)
                 .disabled(viewModel.backgroundImage == nil)
                 .help("Generate thumbnail")
-                
+            }
+            
+            ToolbarItemGroup(placement: .automatic) {
+                // Export action
                 Button(action: viewModel.exportThumbnail) {
-                    Label("Export", systemImage: "square.and.arrow.up")
+                    Label("Export", systemImage: "arrow.up.doc")
                 }
                 .labelStyle(.iconOnly)
-                .buttonStyle(.glassProminent)
+                .buttonStyle(.glass)
                 .disabled(viewModel.generatedThumbnail == nil)
                 .help("Export thumbnail")
             }

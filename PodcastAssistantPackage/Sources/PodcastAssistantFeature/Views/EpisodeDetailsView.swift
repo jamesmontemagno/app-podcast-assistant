@@ -215,7 +215,7 @@ public struct EpisodeDetailsView: View {
             ToolbarItemGroup(placement: .automatic) {
                 if hasUnsavedChanges {
                     Button(action: revertChanges) {
-                        Label("Revert", systemImage: "arrow.uturn.backward")
+                        Label("Revert", systemImage: "arrow.uturn.backward.circle")
                     }
                     .labelStyle(.iconOnly)
                     .buttonStyle(.glass)
@@ -225,7 +225,7 @@ public struct EpisodeDetailsView: View {
                         Label("Save Changes", systemImage: "checkmark.circle.fill")
                     }
                     .labelStyle(.iconOnly)
-                    .buttonStyle(.glassProminent)
+                    .buttonStyle(.glass)
                     .help("Save episode details")
                     .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
                 }

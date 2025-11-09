@@ -601,7 +601,7 @@ private struct EpisodeDetailView: View {
                 Button {
                     showingEpisodeDetailEdit = true
                 } label: {
-                    Label("Edit Details", systemImage: "pencil.circle")
+                    Label("Edit Details", systemImage: "square.and.pencil")
                 }
                 .labelStyle(.iconOnly)
                 .buttonStyle(.glass)

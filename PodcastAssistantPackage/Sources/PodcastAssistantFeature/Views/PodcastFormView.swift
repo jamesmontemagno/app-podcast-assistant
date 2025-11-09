@@ -41,6 +41,10 @@ public struct PodcastFormView: View {
         self.podcast = podcast
     }
     
+    private var isEditMode: Bool {
+        podcast != nil
+    }
+    
     public var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -87,10 +91,10 @@ public struct PodcastFormView: View {
                     .applyLiquidGlassButtonStyle(prominent: false)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+                    Button(isEditMode ? "Save" : "Create") {
                         savePodcast()
                     }
-                    .applyLiquidGlassButtonStyle(prominent: true)
+                    .applyLiquidGlassButtonStyle(prominent: false)
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
