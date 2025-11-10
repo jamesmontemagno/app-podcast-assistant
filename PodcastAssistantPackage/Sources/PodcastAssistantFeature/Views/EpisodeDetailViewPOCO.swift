@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 public struct EpisodeDetailViewPOCO: View {
     let episode: EpisodePOCO
     let podcast: PodcastPOCO
-    let store: PodcastLibraryStore
+    @ObservedObject var store: PodcastLibraryStore
     
     @State private var selectedSection: EpisodeSection = .details
     @State private var hasUnsavedChanges: Bool = false
@@ -29,6 +29,7 @@ public struct EpisodeDetailViewPOCO: View {
                 Text(episode.title)
                     .font(.title2)
                     .fontWeight(.bold)
+                    .id("title-\(episode.title)") // Force update when title changes
                 Text("Episode #\(episode.episodeNumber)")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
