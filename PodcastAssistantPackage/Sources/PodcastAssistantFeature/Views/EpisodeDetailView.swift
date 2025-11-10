@@ -183,43 +183,9 @@ public struct EpisodeDetailView: View {
             }
             
             // Thumbnail tab toolbar
-            if selectedSection == .thumbnail {
+            if selectedSection == .thumbnail, let vm = thumbnailViewModel {
                 ToolbarItemGroup(placement: .automatic) {
-                    Button {
-                        thumbnailViewModel?.generateThumbnail()
-                    } label: {
-                        if thumbnailViewModel?.isLoading == true {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Label("Generate", systemImage: "wand.and.stars")
-                        }
-                    }
-                    .help("Generate thumbnail")
-                    .disabled(thumbnailViewModel?.backgroundImage == nil || thumbnailViewModel?.isLoading == true)
-                    
-                    Button {
-                        thumbnailViewModel?.saveToEpisode()
-                    } label: {
-                        Label("Save", systemImage: "square.and.arrow.down")
-                    }
-                    .help("Save thumbnail to episode")
-                    .disabled(thumbnailViewModel?.generatedThumbnail == nil)
-                    
-                    Button {
-                        thumbnailViewModel?.exportThumbnail()
-                    } label: {
-                        Label("Export", systemImage: "arrow.up.doc")
-                    }
-                    .help("Export thumbnail file")
-                    .disabled(thumbnailViewModel?.generatedThumbnail == nil)
-                    
-                    Button {
-                        thumbnailViewModel?.resetAll()
-                    } label: {
-                        Label("Reset", systemImage: "arrow.counterclockwise")
-                    }
-                    .help("Reset all settings")
+                    ThumbnailToolbarButtons(viewModel: vm)
                 }
             }
         }
@@ -299,6 +265,57 @@ public struct EpisodeDetailView: View {
         transcriptOutputText = ""
         episode.transcriptInputText = nil
         episode.srtOutputText = nil
+    }
+}
+
+// MARK: - Thumbnail Toolbar Buttons
+private struct ThumbnailToolbarButtons: View {
+    @ObservedObject var viewModel: ThumbnailViewModel
+    
+    var body: some View {
+        Button {
+            viewModel.undo()
+        } label: {
+            Label("Undo", systemImage: "arrow.uturn.backward")
+        }
+        .help("Undo last change")
+        .disabled(!viewModel.canUndo)
+        
+        Button {
+            viewModel.generateThumbnail()
+        } label: {
+            if viewModel.isLoading {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                Label("Generate", systemImage: "wand.and.stars")
+            }
+        }
+        .help("Generate thumbnail")
+        .disabled(viewModel.backgroundImage == nil || viewModel.isLoading)
+        
+        Button {
+            viewModel.saveToEpisode()
+        } label: {
+            Label("Save", systemImage: "square.and.arrow.down")
+        }
+        .help("Save thumbnail to episode")
+        .disabled(viewModel.generatedThumbnail == nil)
+        
+        Button {
+            viewModel.exportThumbnail()
+        } label: {
+            Label("Export", systemImage: "arrow.up.doc")
+        }
+        .help("Export thumbnail file")
+        .disabled(viewModel.generatedThumbnail == nil)
+        
+        Button {
+            viewModel.resetAll()
+        } label: {
+            Label("Reset", systemImage: "arrow.counterclockwise")
+        }
+        .help("Reset all settings")
     }
 }
 

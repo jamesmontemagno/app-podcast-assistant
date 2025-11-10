@@ -8,43 +8,82 @@ public class ThumbnailViewModel: ObservableObject {
     // MARK: - Published Properties
     
     @Published public var fontColor: Color = .white {
-        didSet { scheduleGeneration() }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
+        }
     }
     @Published public var outlineEnabled: Bool = true {
-        didSet { scheduleGeneration() }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
+        }
     }
     @Published public var outlineColor: Color = .black {
-        didSet { scheduleGeneration() }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
+        }
     }
     @Published public var episodeNumber: String = "" {
-        didSet { scheduleGeneration() }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
+        }
     }
     @Published public var selectedFont: String = "Helvetica-Bold" {
-        didSet { scheduleGeneration() }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
+        }
     }
     @Published public var fontSize: Double = 72 {
-        didSet { scheduleGeneration() }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
+        }
     }
     @Published public var episodeNumberPosition: ThumbnailGenerator.TextPosition = .topRight {
-        didSet { scheduleGeneration() }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
+        }
     }
     @Published public var horizontalPadding: Double = 40 {
-        didSet { scheduleGeneration() }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
+        }
     }
     @Published public var verticalPadding: Double = 40 {
-        didSet { scheduleGeneration() }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
+        }
     }
     @Published public var selectedResolution: ThumbnailGenerator.CanvasResolution = .hd1080 {
-        didSet { scheduleGeneration() }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
+        }
     }
     @Published public var customWidth: String = "1920" {
-        didSet { scheduleGeneration() }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
+        }
     }
     @Published public var customHeight: String = "1080" {
-        didSet { scheduleGeneration() }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
+        }
     }
     @Published public var backgroundScaling: ThumbnailGenerator.BackgroundScaling = .aspectFill {
-        didSet { scheduleGeneration() }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
+        }
     }
     @Published public var generatedThumbnail: NSImage?
     @Published public var errorMessage: String?
@@ -52,6 +91,30 @@ public class ThumbnailViewModel: ObservableObject {
     @Published public var isLoading: Bool = false
     @Published public var backgroundImage: NSImage? = nil
     @Published public var overlayImage: NSImage? = nil
+    @Published public var canUndo: Bool = false
+    
+    // MARK: - Undo/Redo State
+    
+    private struct StateSnapshot {
+        let fontColor: Color
+        let outlineEnabled: Bool
+        let outlineColor: Color
+        let episodeNumber: String
+        let selectedFont: String
+        let fontSize: Double
+        let episodeNumberPosition: ThumbnailGenerator.TextPosition
+        let horizontalPadding: Double
+        let verticalPadding: Double
+        let selectedResolution: ThumbnailGenerator.CanvasResolution
+        let customWidth: String
+        let customHeight: String
+        let backgroundScaling: ThumbnailGenerator.BackgroundScaling
+        let backgroundImage: NSImage?
+        let overlayImage: NSImage?
+    }
+    
+    private var undoStack: [StateSnapshot] = []
+    private var isRestoringState = false
     
     // MARK: - Dependencies
     
@@ -88,6 +151,8 @@ public class ThumbnailViewModel: ObservableObject {
     public func loadInitialData() {
         guard !hasInitializedFromEpisode else { return }
         hasInitializedFromEpisode = true
+        
+        isRestoringState = true // Prevent undo tracking during initial load
         
         Task { @MainActor in
             // Load saved settings from episode
@@ -145,6 +210,9 @@ public class ThumbnailViewModel: ObservableObject {
                 generatedThumbnail = ImageUtilities.loadImage(from: outputData)
             }
             
+            isRestoringState = false // Re-enable undo tracking
+            captureInitialSnapshot() // Capture the initial state
+            
             // Generate if we have background image but no output
             if backgroundImage != nil && generatedThumbnail == nil {
                 try? await Task.sleep(nanoseconds: 300_000_000)
@@ -153,11 +221,95 @@ public class ThumbnailViewModel: ObservableObject {
         }
     }
     
+    // MARK: - Undo/Redo Management
+    
+    private func captureInitialSnapshot() {
+        let snapshot = StateSnapshot(
+            fontColor: fontColor,
+            outlineEnabled: outlineEnabled,
+            outlineColor: outlineColor,
+            episodeNumber: episodeNumber,
+            selectedFont: selectedFont,
+            fontSize: fontSize,
+            episodeNumberPosition: episodeNumberPosition,
+            horizontalPadding: horizontalPadding,
+            verticalPadding: verticalPadding,
+            selectedResolution: selectedResolution,
+            customWidth: customWidth,
+            customHeight: customHeight,
+            backgroundScaling: backgroundScaling,
+            backgroundImage: backgroundImage,
+            overlayImage: overlayImage
+        )
+        undoStack = [snapshot] // Start with initial state
+        canUndo = false
+    }
+    
+    private func pushUndoState() {
+        let snapshot = StateSnapshot(
+            fontColor: fontColor,
+            outlineEnabled: outlineEnabled,
+            outlineColor: outlineColor,
+            episodeNumber: episodeNumber,
+            selectedFont: selectedFont,
+            fontSize: fontSize,
+            episodeNumberPosition: episodeNumberPosition,
+            horizontalPadding: horizontalPadding,
+            verticalPadding: verticalPadding,
+            selectedResolution: selectedResolution,
+            customWidth: customWidth,
+            customHeight: customHeight,
+            backgroundScaling: backgroundScaling,
+            backgroundImage: backgroundImage,
+            overlayImage: overlayImage
+        )
+        undoStack.append(snapshot)
+        canUndo = undoStack.count > 1
+    }
+    
+    public func undo() {
+        guard undoStack.count > 1 else { return }
+        
+        // Remove current state
+        undoStack.removeLast()
+        
+        // Restore previous state
+        if let previousState = undoStack.last {
+            isRestoringState = true
+            
+            fontColor = previousState.fontColor
+            outlineEnabled = previousState.outlineEnabled
+            outlineColor = previousState.outlineColor
+            episodeNumber = previousState.episodeNumber
+            selectedFont = previousState.selectedFont
+            fontSize = previousState.fontSize
+            episodeNumberPosition = previousState.episodeNumberPosition
+            horizontalPadding = previousState.horizontalPadding
+            verticalPadding = previousState.verticalPadding
+            selectedResolution = previousState.selectedResolution
+            customWidth = previousState.customWidth
+            customHeight = previousState.customHeight
+            backgroundScaling = previousState.backgroundScaling
+            backgroundImage = previousState.backgroundImage
+            overlayImage = previousState.overlayImage
+            
+            isRestoringState = false
+            canUndo = undoStack.count > 1
+            
+            generateThumbnail()
+        }
+    }
+    
+    private func clearUndoStack() {
+        captureInitialSnapshot()
+    }
+    
     // MARK: - Image Import/Paste
     
     public func importBackgroundImage() {
         selectImage { [weak self] image in
             guard let self = self else { return }
+            if !self.isRestoringState { self.pushUndoState() }
             self.backgroundImage = image
             if image != nil {
                 self.successMessage = "Background image loaded"
@@ -170,6 +322,7 @@ public class ThumbnailViewModel: ObservableObject {
     public func importOverlayImage() {
         selectImage { [weak self] image in
             guard let self = self else { return }
+            if !self.isRestoringState { self.pushUndoState() }
             self.overlayImage = image
             if image != nil {
                 self.successMessage = "Overlay image loaded"
@@ -180,6 +333,7 @@ public class ThumbnailViewModel: ObservableObject {
     }
     
     public func removeOverlayImage() {
+        if !isRestoringState { pushUndoState() }
         overlayImage = nil
         successMessage = "Overlay removed"
         errorMessage = nil
@@ -188,6 +342,7 @@ public class ThumbnailViewModel: ObservableObject {
     
     public func pasteBackgroundFromClipboard() {
         if let image = getImageFromClipboard() {
+            if !isRestoringState { pushUndoState() }
             backgroundImage = image
             successMessage = "Background pasted from clipboard"
             errorMessage = nil
@@ -199,6 +354,7 @@ public class ThumbnailViewModel: ObservableObject {
     
     public func pasteOverlayFromClipboard() {
         if let image = getImageFromClipboard() {
+            if !isRestoringState { pushUndoState() }
             overlayImage = image
             successMessage = "Overlay pasted from clipboard"
             errorMessage = nil
@@ -392,6 +548,7 @@ public class ThumbnailViewModel: ObservableObject {
                     try self.store.updateEpisode(self.episode)
                     self.successMessage = "Thumbnail saved to episode"
                     self.errorMessage = nil
+                    self.clearUndoStack() // Clear undo history after successful save
                 } catch {
                     self.errorMessage = "Failed to save: \(error.localizedDescription)"
                 }
@@ -435,6 +592,8 @@ public class ThumbnailViewModel: ObservableObject {
         debounceTask?.cancel()
         debounceTask = nil
         
+        isRestoringState = true
+        
         // Reset images
         backgroundImage = nil
         overlayImage = nil
@@ -457,11 +616,14 @@ public class ThumbnailViewModel: ObservableObject {
         // Reset episode number to current episode
         episodeNumber = "\(episode.episodeNumber)"
         
+        isRestoringState = false
+        
         // Clear messages
         errorMessage = nil
         successMessage = "Settings reset to defaults"
         
-        // Clear initialization flag so loadInitialData can run again if needed
+        // Clear initialization flag and undo stack
         hasInitializedFromEpisode = false
+        clearUndoStack()
     }
 }
