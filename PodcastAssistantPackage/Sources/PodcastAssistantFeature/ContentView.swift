@@ -527,7 +527,10 @@ public struct ContentView: View {
         searchDebounceTask = Task { @MainActor in
             do {
                 try await Task.sleep(for: .milliseconds(200))
+            } catch is CancellationError {
+                return
             } catch {
+                print("Unexpected error during Task.sleep: \(error)")
                 return
             }
             guard !Task.isCancelled else { return }

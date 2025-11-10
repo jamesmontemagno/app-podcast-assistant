@@ -84,6 +84,7 @@ public final class PodcastLibraryStore: ObservableObject {
         }
         var descriptor = FetchDescriptor<Episode>(predicate: predicate)
         descriptor.sortBy = [SortDescriptor(\Episode.publishDate, order: .reverse)]
+        // Fetch only the lightweight properties and cached flags
         descriptor.propertiesToFetch = [
             \Episode.id,
             \Episode.title,
@@ -93,25 +94,33 @@ public final class PodcastLibraryStore: ObservableObject {
             \Episode.hasThumbnailOutput
         ]
         let fetched = try context.fetch(descriptor)
-        var updatedDerivedFlags = false
+        
+        // Validate and update flags if needed (handles cases where didSet wasn't called)
+        var needsSave = false
         for episode in fetched {
+            // Only validate if we suspect the flag might be wrong
             if episode.hasTranscriptData == false {
-                let hasTranscript = episode.transcriptInputText?.isEmpty == false
-                if hasTranscript {
-                    episode.hasTranscriptData = true
-                    updatedDerivedFlags = true
+                // Fault in the property to check (unavoidable for validation)
+                let actuallyHasTranscript = episode.transcriptInputText?.isEmpty == false
+                if actuallyHasTranscript != episode.hasTranscriptData {
+                    episode.hasTranscriptData = actuallyHasTranscript
+                    needsSave = true
                 }
             }
             if episode.hasThumbnailOutput == false {
-                if episode.thumbnailOutputData != nil {
-                    episode.hasThumbnailOutput = true
-                    updatedDerivedFlags = true
+                // Fault in the property to check (unavoidable for validation)
+                let actuallyHasThumbnail = episode.thumbnailOutputData != nil
+                if actuallyHasThumbnail != episode.hasThumbnailOutput {
+                    episode.hasThumbnailOutput = actuallyHasThumbnail
+                    needsSave = true
                 }
             }
         }
-        if updatedDerivedFlags {
+        
+        if needsSave {
             try context.save()
         }
+        
         let summaries = fetched.map(EpisodeSummary.init)
         if episodesCache[podcastID] != summaries {
             episodesCache[podcastID] = summaries

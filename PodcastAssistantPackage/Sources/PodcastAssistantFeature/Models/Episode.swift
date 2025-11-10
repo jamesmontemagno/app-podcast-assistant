@@ -21,8 +21,13 @@ public final class Episode {
             hasThumbnailOutput = thumbnailOutputData != nil
         }
     }
+    
+    /// Cached flag indicating if transcript data exists (updated via didSet and validated on fetch)
     public var hasTranscriptData: Bool = false
+    
+    /// Cached flag indicating if thumbnail output exists (updated via didSet and validated on fetch)
     public var hasThumbnailOutput: Bool = false
+    
     public var fontName: String?
     public var fontSize: Double
     public var textPositionX: Double
