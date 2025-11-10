@@ -34,6 +34,14 @@ public struct ThumbnailActionCapabilitiesKey: FocusedValueKey {
     public typealias Value = ThumbnailActionCapabilities
 }
 
+public struct SelectedEpisodeSectionKey: FocusedValueKey {
+    public typealias Value = EpisodeSection
+}
+
+public struct EpisodeDetailActionsKey: FocusedValueKey {
+    public typealias Value = EpisodeDetailActions
+}
+
 extension FocusedValues {
     public var selectedEpisode: SelectedEpisodeKey.Value? {
         get { self[SelectedEpisodeKey.self] }
@@ -73,6 +81,16 @@ extension FocusedValues {
     public var canPerformThumbnailActions: ThumbnailActionCapabilitiesKey.Value? {
         get { self[ThumbnailActionCapabilitiesKey.self] }
         set { self[ThumbnailActionCapabilitiesKey.self] = newValue }
+    }
+    
+    public var selectedEpisodeSection: SelectedEpisodeSectionKey.Value? {
+        get { self[SelectedEpisodeSectionKey.self] }
+        set { self[SelectedEpisodeSectionKey.self] = newValue }
+    }
+    
+    public var episodeDetailActions: EpisodeDetailActionsKey.Value? {
+        get { self[EpisodeDetailActionsKey.self] }
+        set { self[EpisodeDetailActionsKey.self] = newValue }
     }
 }
 
@@ -193,5 +211,32 @@ public struct ThumbnailActionCapabilities {
         self.canGenerate = canGenerate
         self.canExport = canExport
         self.canClear = canClear
+    }
+}
+
+// MARK: - Episode Section
+
+public enum EpisodeSection {
+    case details
+    case transcript
+    case thumbnail
+    case aiIdeas
+}
+
+// MARK: - Episode Detail Actions
+
+public struct EpisodeDetailActions {
+    public let save: (() -> Void)?
+    public let revert: (() -> Void)?
+    public let translate: (() -> Void)?
+    
+    public init(
+        save: (() -> Void)? = nil,
+        revert: (() -> Void)? = nil,
+        translate: (() -> Void)? = nil
+    ) {
+        self.save = save
+        self.revert = revert
+        self.translate = translate
     }
 }

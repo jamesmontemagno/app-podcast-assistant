@@ -351,26 +351,10 @@ public struct ContentView: View {
     
     @ViewBuilder
     private var detailContent: some View {
-        if let episode = selectedEpisodeModel {
-            VStack {
-                Text("Episode: \(episode.title)")
-                    .font(.title)
-                Text("Episode #\(episode.episodeNumber)")
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-                
-                Divider().padding()
-                
-                Text("Simple POCO-based view")
-                    .foregroundStyle(.secondary)
-                Text("No SwiftData binding here - just pure Swift objects")
-                    .foregroundStyle(.tertiary)
-                    .font(.caption)
-                
-                Spacer()
-            }
-            .padding()
-            .id("episode-\(episode.id)")
+        if let episode = selectedEpisodeModel,
+           let podcast = libraryStore.getPodcast(with: episode.podcastID) {
+            EpisodeDetailViewPOCO(episode: episode, podcast: podcast, store: libraryStore)
+                .id("episode-\(episode.id)")
         } else {
             ContentUnavailableView(
                 "Select an Episode",
