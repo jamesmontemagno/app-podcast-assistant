@@ -64,9 +64,20 @@ public struct PodcastFormView: View {
     
     public var body: some View {
         VStack(spacing: 0) {
-            Text(isEditMode ? "Edit Podcast" : "New Podcast")
-                .font(.title)
-                .padding(.top, 20)
+            // Header
+            VStack(spacing: 8) {
+                Text(isEditMode ? "Edit Podcast" : "New Podcast")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                Text("Configure your podcast settings and defaults")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 20)
+            .padding(.bottom, 12)
+            
+            Divider()
             
             // Tab selector
             Picker("", selection: $selectedTab) {
@@ -77,6 +88,8 @@ public struct PodcastFormView: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             .padding()
+            
+            Divider()
             
             // Tab content
             ScrollView {
@@ -90,23 +103,31 @@ public struct PodcastFormView: View {
                         thumbnailDefaultsTab
                     }
                 }
-                .padding()
             }
             
+            // Error message
             if let error = errorMessage {
-                Text(error)
-                    .foregroundStyle(.red)
-                    .font(.caption)
-                    .padding(.horizontal)
+                Divider()
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                    Text(error)
+                        .font(.callout)
+                    Spacer()
+                }
+                .padding(16)
+                .background(Color.red.opacity(0.1))
             }
             
             Divider()
             
+            // Bottom buttons
             HStack {
                 Button("Cancel") {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
+                .buttonStyle(.bordered)
                 
                 Spacer()
                 
@@ -116,8 +137,10 @@ public struct PodcastFormView: View {
                 .keyboardShortcut(.defaultAction)
                 .disabled(name.isEmpty)
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
             }
-            .padding()
+            .padding(16)
+            .background(Color(NSColor.windowBackgroundColor))
         }
         .frame(width: 650, height: 600)
     }
@@ -127,21 +150,37 @@ public struct PodcastFormView: View {
     private var basicInfoTab: some View {
         Form {
             Section {
-                TextField("Podcast Name", text: $name)
+                Text("Enter your podcast's basic information")
+                    .foregroundStyle(.secondary)
+                    .font(.subheadline)
+            }
+            
+            Section {
+                TextField("Podcast Name", text: $name, prompt: Text("My Awesome Podcast"))
                     .textFieldStyle(.roundedBorder)
                 
-                TextField("Description (Optional)", text: $podcastDescription, axis: .vertical)
+                TextField("Description (Optional)", text: $podcastDescription, prompt: Text("A brief description of your podcast"), axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(4...8)
             } header: {
                 Text("Basic Information")
+            } footer: {
+                Text("The podcast name will be used to organize your episodes")
+                    .font(.caption)
             }
         }
         .formStyle(.grouped)
+        .padding(24)
     }
     
     private var artworkTab: some View {
         Form {
+            Section {
+                Text("Add artwork to represent your podcast")
+                    .foregroundStyle(.secondary)
+                    .font(.subheadline)
+            }
+            
             Section {
                 VStack(spacing: 16) {
                     if let image = artworkImage {
@@ -149,36 +188,44 @@ public struct PodcastFormView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(maxWidth: 200, maxHeight: 200)
-                            .cornerRadius(8)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
                     } else {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.gray.opacity(0.2))
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.gray.opacity(0.1))
                             .frame(width: 200, height: 200)
                             .overlay {
-                                VStack {
+                                VStack(spacing: 8) {
                                     Image(systemName: "photo")
-                                        .font(.largeTitle)
+                                        .font(.system(size: 48))
                                         .foregroundStyle(.secondary)
                                     Text("No Artwork")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
                             }
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                            )
                     }
                     
                     HStack(spacing: 12) {
                         Button("Select Artwork...") {
                             selectArtwork()
                         }
+                        .buttonStyle(.bordered)
                         
                         if artworkImage != nil {
                             Button("Remove") {
                                 artworkImage = nil
                             }
                             .foregroundStyle(.red)
+                            .buttonStyle(.bordered)
                         }
                     }
                 }
+                .frame(maxWidth: .infinity)
             } header: {
                 Text("Podcast Artwork")
             } footer: {
@@ -187,10 +234,17 @@ public struct PodcastFormView: View {
             }
         }
         .formStyle(.grouped)
+        .padding(24)
     }
     
     private var thumbnailDefaultsTab: some View {
         Form {
+            Section {
+                Text("Set default thumbnail settings for new episodes")
+                    .foregroundStyle(.secondary)
+                    .font(.subheadline)
+            }
+            
             Section {
                 VStack(spacing: 16) {
                     if let image = overlayImage {
@@ -347,6 +401,7 @@ public struct PodcastFormView: View {
             }
         }
         .formStyle(.grouped)
+        .padding(24)
     }
     
     // MARK: - Image Selection

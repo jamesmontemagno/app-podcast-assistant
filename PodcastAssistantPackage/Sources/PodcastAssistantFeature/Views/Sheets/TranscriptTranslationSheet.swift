@@ -16,23 +16,36 @@ public struct TranscriptTranslationSheet: View {
     
     public var body: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 16) {
-                // Header
+            // Header
+            VStack(spacing: 8) {
                 HStack {
                     Image(systemName: "globe")
                         .foregroundColor(.blue)
                         .font(.title2)
                     Text("Translate Transcript")
                         .font(.title2)
-                        .fontWeight(.semibold)
+                        .fontWeight(.bold)
                     Spacer()
                 }
+                Text("Translate SRT transcript to another language")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.top, 20)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 12)
             
-            // Language selection
-            HStack {
-                Text("Target Language:")
-                
-                if viewModel.availableLanguages.isEmpty {
+            Divider()
+            
+            VStack(alignment: .leading, spacing: 16) {
+            
+                // Language selection
+                HStack {
+                    Text("Target Language:")
+                        .font(.headline)
+                    
+                    if viewModel.availableLanguages.isEmpty {
                     ProgressView()
                         .controlSize(.small)
                 } else {
@@ -70,30 +83,33 @@ public struct TranscriptTranslationSheet: View {
                 .cornerRadius(6)
             }
             
-            // Translate/Cancel buttons
-            HStack(spacing: 12) {
-                if viewModel.isTranslating {
-                    Button {
-                        viewModel.cancel()
-                    } label: {
-                        Text("Cancel")
-                            .frame(width: 100)
+                Divider()
+                
+                // Translate/Cancel buttons
+                HStack(spacing: 12) {
+                    Spacer()
+                    if viewModel.isTranslating {
+                        Button {
+                            viewModel.cancel()
+                        } label: {
+                            Text("Cancel")
+                        }
+                        .buttonStyle(.bordered)
+                    } else {
+                        Button {
+                            viewModel.translate()
+                        } label: {
+                            Text("Translate")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(viewModel.selectedLanguage == nil)
                     }
-                    .buttonStyle(.bordered)
-                } else {
-                    Button {
-                        viewModel.translate()
-                    } label: {
-                        Text("Translate")
-                            .frame(width: 100)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(viewModel.selectedLanguage == nil)
                 }
-            }
+                
+                Divider()
             
-            // Progress indicator
-            if let progress = viewModel.progressUpdate {
+                // Progress indicator
+                if let progress = viewModel.progressUpdate {
                 VStack(spacing: 8) {
                     ProgressView(value: progress.fractionCompleted) {
                         HStack {
@@ -117,14 +133,14 @@ public struct TranscriptTranslationSheet: View {
                             .lineLimit(1)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    }
+                    .padding(12)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(8)
                 }
-                .padding()
-                .background(Color(NSColor.controlBackgroundColor))
-                .cornerRadius(8)
-            }
-            
-            // Results
-            if let translatedText = viewModel.translatedText {
+                
+                // Results
+                if let translatedText = viewModel.translatedText {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Text("Translated SRT")
@@ -144,17 +160,24 @@ public struct TranscriptTranslationSheet: View {
                     .frame(height: 300)
                     .background(Color(nsColor: .textBackgroundColor))
                     .border(Color.gray.opacity(0.3))
+                    }
                 }
-            }
-            
-            // Error message
-            if let error = viewModel.errorMessage {
-                Text(error)
-                    .foregroundColor(.red)
-                    .font(.caption)
-            }
-            
-            Spacer()
+                
+                // Error message
+                if let error = viewModel.errorMessage {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.red)
+                        Text(error)
+                            .font(.callout)
+                        Spacer()
+                    }
+                    .padding(12)
+                    .background(Color.red.opacity(0.1))
+                    .cornerRadius(6)
+                }
+                
+                Spacer()
             }
             .padding(20)
             

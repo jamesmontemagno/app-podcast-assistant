@@ -17,26 +17,36 @@ public struct EpisodeTranslationSheet: View {
     
     public var body: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 16) {
-                // Header
+            // Header
+            VStack(spacing: 8) {
                 HStack {
                     Image(systemName: "globe")
                         .foregroundColor(.blue)
                         .font(.title2)
                     Text("Translate Episode")
                         .font(.title2)
-                        .fontWeight(.semibold)
+                        .fontWeight(.bold)
                     Spacer()
                 }
+                Text("Translate episode title and description to another language")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.top, 20)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 12)
             
             Divider()
             
-            // Language selection
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Target Language")
-                    .font(.headline)
-                
-                if viewModel.isLoadingLanguages {
+            VStack(alignment: .leading, spacing: 16) {
+            
+                // Language selection
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Target Language")
+                        .font(.headline)
+                    
+                    if viewModel.isLoadingLanguages {
                     ProgressView("Loading languages...")
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else if viewModel.availableLanguages.isEmpty {
@@ -80,36 +90,37 @@ public struct EpisodeTranslationSheet: View {
                 }
             }
             
-            Divider()
-            
-            // Translate/Cancel buttons
-            HStack {
-                Spacer()
-                if viewModel.isTranslating {
-                    Button {
-                        viewModel.cancel()
-                    } label: {
-                        Text("Cancel")
-                    }
-                    .buttonStyle(.bordered)
-                } else {
-                    Button {
-                        Task {
-                            await viewModel.translateEpisode(title: title, description: description)
+                    Divider()
+                    
+                    // Translate/Cancel buttons
+                    HStack {
+                        Spacer()
+                        if viewModel.isTranslating {
+                            ProgressView()
+                                .controlSize(.small)
+                            Button {
+                                viewModel.cancel()
+                            } label: {
+                                Text("Cancel")
+                            }
+                            .buttonStyle(.bordered)
+                        } else {
+                            Button {
+                                Task {
+                                    await viewModel.translateEpisode(title: title, description: description)
+                                }
+                            } label: {
+                                Text("Translate")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(viewModel.selectedLanguage == nil || viewModel.selectedLanguage?.isInstalled == false)
                         }
-                    } label: {
-                        Text("Translate")
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(viewModel.selectedLanguage == nil || viewModel.selectedLanguage?.isInstalled == false)
-                }
-            }
+                    
+                    Divider()
             
-            Divider()
-            
-            // Results
-            if !viewModel.translatedTitle.isEmpty || !viewModel.translatedDescription.isEmpty {
-                ScrollView {
+                    // Results
+                    if !viewModel.translatedTitle.isEmpty || !viewModel.translatedDescription.isEmpty {
                     VStack(alignment: .leading, spacing: 16) {
                         // Translated title
                         VStack(alignment: .leading, spacing: 8) {
@@ -174,29 +185,26 @@ public struct EpisodeTranslationSheet: View {
                                     .cornerRadius(6)
                             }
                         }
+                        }
                     }
+                    
+                    // Error message
+                    if let error = viewModel.errorMessage {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.red)
+                            Text(error)
+                                .font(.callout)
+                            Spacer()
+                        }
+                        .padding(12)
+                        .background(Color.red.opacity(0.1))
+                        .cornerRadius(6)
+                    }
+                    
+                    Spacer()
                 }
-                .frame(maxHeight: 300)
-            }
-            
-            // Error message
-            if let error = viewModel.errorMessage {
-                HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.red.opacity(0.1))
-                .cornerRadius(6)
-            }
-            
-            Spacer()
-            }
-            .padding(20)
+                .padding(20)
             
             // Close button at bottom
             Divider()

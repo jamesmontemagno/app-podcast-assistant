@@ -41,40 +41,81 @@ public struct EpisodeFormView: View {
     }
     
     public var body: some View {
-        VStack(spacing: 20) {
-            Text(isEditMode ? "Edit Episode" : "New Episode")
-                .font(.title)
+        VStack(spacing: 0) {
+            // Header
+            VStack(spacing: 8) {
+                Text(isEditMode ? "Edit Episode" : "New Episode")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                
+                HStack(spacing: 4) {
+                    Text("Podcast:")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Text(podcast.name)
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 20)
+            .padding(.bottom, 12)
             
-            Text("Podcast: \(podcast.name)")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            Divider()
             
+            // Form content
             Form {
-                TextField("Episode Title", text: $title)
-                    .textFieldStyle(.roundedBorder)
+                Section {
+                    Text("Enter the episode details")
+                        .foregroundStyle(.secondary)
+                        .font(.subheadline)
+                }
                 
-                TextField("Episode Number", text: $episodeNumber)
-                    .textFieldStyle(.roundedBorder)
-                
-                DatePicker("Release Date", selection: $publishDate, displayedComponents: [.date])
-                
-                TextField("Description (Optional)", text: $episodeDescription, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                    .lineLimit(3...6)
+                Section {
+                    TextField("Episode Title", text: $title, prompt: Text("Episode 1: Introduction"))
+                        .textFieldStyle(.roundedBorder)
+                    
+                    TextField("Episode Number", text: $episodeNumber, prompt: Text("1"))
+                        .textFieldStyle(.roundedBorder)
+                    
+                    DatePicker("Release Date", selection: $publishDate, displayedComponents: [.date])
+                    
+                    TextField("Description (Optional)", text: $episodeDescription, prompt: Text("A brief summary of this episode"), axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                        .lineLimit(3...6)
+                } header: {
+                    Text("Episode Information")
+                } footer: {
+                    Text("Episode number is used for sorting and display")
+                        .font(.caption)
+                }
             }
-            .padding()
+            .formStyle(.grouped)
+            .padding(24)
             
+            // Error message
             if let error = errorMessage {
-                Text(error)
-                    .foregroundStyle(.red)
-                    .font(.caption)
+                Divider()
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                    Text(error)
+                        .font(.callout)
+                    Spacer()
+                }
+                .padding(16)
+                .background(Color.red.opacity(0.1))
             }
             
+            Divider()
+            
+            // Bottom buttons
             HStack {
                 Button("Cancel") {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
+                .buttonStyle(.bordered)
                 
                 Spacer()
                 
@@ -83,11 +124,13 @@ public struct EpisodeFormView: View {
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(title.isEmpty || episodeNumber.isEmpty)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
             }
-            .padding()
+            .padding(16)
+            .background(Color(NSColor.windowBackgroundColor))
         }
-        .frame(width: 450, height: 350)
-        .padding()
+        .frame(width: 500, height: 450)
     }
     
     private func saveEpisode() {
