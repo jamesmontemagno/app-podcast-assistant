@@ -40,7 +40,30 @@ public final class PodcastLibraryStore: ObservableObject {
             throw StoreError.contextNotSet
         }
         
-        let descriptor = FetchDescriptor<Podcast>(sortBy: [SortDescriptor(\Podcast.createdAt, order: .reverse)])
+        var descriptor = FetchDescriptor<Podcast>(sortBy: [SortDescriptor(\Podcast.createdAt, order: .reverse)])
+        
+        // Performance optimization: Only fetch properties needed for POCO conversion
+        descriptor.propertiesToFetch = [
+            \Podcast.id,
+            \Podcast.name,
+            \Podcast.podcastDescription,
+            \Podcast.artworkData,
+            \Podcast.defaultOverlayData,
+            \Podcast.defaultFontName,
+            \Podcast.defaultFontSize,
+            \Podcast.defaultTextPositionX,
+            \Podcast.defaultTextPositionY,
+            \Podcast.defaultHorizontalPadding,
+            \Podcast.defaultVerticalPadding,
+            \Podcast.defaultCanvasWidth,
+            \Podcast.defaultCanvasHeight,
+            \Podcast.defaultBackgroundScaling,
+            \Podcast.defaultFontColorHex,
+            \Podcast.defaultOutlineEnabled,
+            \Podcast.defaultOutlineColorHex,
+            \Podcast.createdAt
+        ]
+        
         let fetched = try context.fetch(descriptor)
         
         // Convert SwiftData models to POCOs
@@ -171,7 +194,37 @@ public final class PodcastLibraryStore: ObservableObject {
         }
         
         let predicate = #Predicate<Episode> { $0.podcast?.id == podcastID }
-        let descriptor = FetchDescriptor<Episode>(predicate: predicate, sortBy: [SortDescriptor(\Episode.publishDate, order: .reverse)])
+        var descriptor = FetchDescriptor<Episode>(predicate: predicate, sortBy: [SortDescriptor(\Episode.publishDate, order: .reverse)])
+        
+        // Performance optimization: Only fetch properties needed for POCO conversion
+        // This avoids loading heavy blobs (transcripts, thumbnails) into memory
+        descriptor.propertiesToFetch = [
+            \Episode.id,
+            \Episode.title,
+            \Episode.episodeNumber,
+            \Episode.episodeDescription,
+            \Episode.publishDate,
+            \Episode.createdAt,
+            \Episode.hasTranscriptData,
+            \Episode.hasThumbnailOutput,
+            \Episode.transcriptInputText,
+            \Episode.srtOutputText,
+            \Episode.thumbnailBackgroundData,
+            \Episode.thumbnailOverlayData,
+            \Episode.thumbnailOutputData,
+            \Episode.fontName,
+            \Episode.fontSize,
+            \Episode.textPositionX,
+            \Episode.textPositionY,
+            \Episode.horizontalPadding,
+            \Episode.verticalPadding,
+            \Episode.canvasWidth,
+            \Episode.canvasHeight,
+            \Episode.backgroundScaling,
+            \Episode.fontColorHex,
+            \Episode.outlineEnabled,
+            \Episode.outlineColorHex
+        ]
         
         let fetched = try context.fetch(descriptor)
         
