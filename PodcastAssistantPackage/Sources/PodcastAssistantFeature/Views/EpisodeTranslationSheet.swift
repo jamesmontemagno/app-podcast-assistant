@@ -27,11 +27,6 @@ public struct EpisodeTranslationSheet: View {
                         .font(.title2)
                         .fontWeight(.semibold)
                     Spacer()
-                    Button(!viewModel.translatedTitle.isEmpty || !viewModel.translatedDescription.isEmpty ? "Done" : "Close") {
-                        dismiss()
-                    }
-                    .keyboardShortcut(.cancelAction)
-                    .disabled(viewModel.isTranslating)
                 }
             
             Divider()
@@ -202,11 +197,24 @@ public struct EpisodeTranslationSheet: View {
             Spacer()
             }
             .padding(20)
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(12)
+            
+            // Close button at bottom
+            Divider()
+            
+            HStack {
+                Spacer()
+                Button(!viewModel.translatedTitle.isEmpty || !viewModel.translatedDescription.isEmpty ? "Done" : "Close") {
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(viewModel.isTranslating)
+            }
             .padding(16)
+            .background(Color(NSColor.windowBackgroundColor))
         }
-        .frame(width: 600, height: 500)
+        .frame(width: 600, height: 550)
     }
     
     private func copyToClipboard(_ text: String) {

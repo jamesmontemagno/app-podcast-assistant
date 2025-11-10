@@ -15,6 +15,7 @@ public struct EpisodeDetailViewPOCO: View {
     @State private var showingTranscriptTranslation: Bool = false
     @State private var transcriptInputText: String = ""
     @State private var transcriptOutputText: String = ""
+    @State private var thumbnailViewModel: ThumbnailViewModelPOCO?
     
     public init(episode: EpisodePOCO, podcast: PodcastPOCO, store: PodcastLibraryStore) {
         self.episode = episode
@@ -72,7 +73,7 @@ public struct EpisodeDetailViewPOCO: View {
                         outputText: $transcriptOutputText
                     )
                 case .thumbnail:
-                    PlaceholderSection(title: "Thumbnail", icon: "photo")
+                    ThumbnailSectionPOCO(episode: episode, podcast: podcast, store: store, viewModel: $thumbnailViewModel)
                 case .aiIdeas:
                     AIIdeasSectionPOCO(episode: episode, podcast: podcast, store: store)
                 }
@@ -170,6 +171,47 @@ public struct EpisodeDetailViewPOCO: View {
                         .help("Translate transcript")
                         .disabled(transcriptOutputText.isEmpty)
                     }
+                }
+            }
+            
+            // Thumbnail tab toolbar
+            if selectedSection == .thumbnail {
+                ToolbarItemGroup(placement: .automatic) {
+                    Button {
+                        thumbnailViewModel?.generateThumbnail()
+                    } label: {
+                        if thumbnailViewModel?.isLoading == true {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Label("Generate", systemImage: "wand.and.stars")
+                        }
+                    }
+                    .help("Generate thumbnail")
+                    .disabled(thumbnailViewModel?.backgroundImage == nil || thumbnailViewModel?.isLoading == true)
+                    
+                    Button {
+                        thumbnailViewModel?.saveToEpisode()
+                    } label: {
+                        Label("Save", systemImage: "square.and.arrow.down")
+                    }
+                    .help("Save thumbnail to episode")
+                    .disabled(thumbnailViewModel?.generatedThumbnail == nil)
+                    
+                    Button {
+                        thumbnailViewModel?.exportThumbnail()
+                    } label: {
+                        Label("Export", systemImage: "arrow.up.doc")
+                    }
+                    .help("Export thumbnail file")
+                    .disabled(thumbnailViewModel?.generatedThumbnail == nil)
+                    
+                    Button {
+                        thumbnailViewModel?.resetAll()
+                    } label: {
+                        Label("Reset", systemImage: "arrow.counterclockwise")
+                    }
+                    .help("Reset all settings")
                 }
             }
         }
@@ -1033,3 +1075,440 @@ private struct AIIdeasSectionPOCO: View {
         }
     }
 }
+
+// MARK: - Thumbnail Section (POCO)
+
+private struct ThumbnailSectionPOCO: View {
+    let episode: EpisodePOCO
+    let podcast: PodcastPOCO
+    let store: PodcastLibraryStore
+    @Binding var viewModel: ThumbnailViewModelPOCO?
+    
+    @State private var previewZoom: CGFloat = 1.0
+    @State private var fitToWindow: Bool = true
+    
+    init(episode: EpisodePOCO, podcast: PodcastPOCO, store: PodcastLibraryStore, viewModel: Binding<ThumbnailViewModelPOCO?>) {
+        self.episode = episode
+        self.podcast = podcast
+        self.store = store
+        self._viewModel = viewModel
+    }
+    
+    var body: some View {
+        Group {
+            if let viewModel = viewModel {
+                contentView(viewModel: viewModel)
+            } else {
+                ProgressView("Loading...")
+                    .onAppear {
+                        self.viewModel = ThumbnailViewModelPOCO(episode: episode, store: store)
+                    }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func contentView(viewModel: ThumbnailViewModelPOCO) -> some View {
+        GeometryReader { geometry in
+            let totalWidth = geometry.size.width - 48
+            let leftWidth = totalWidth * 0.35
+            let rightWidth = totalWidth * 0.65
+            
+            HStack(spacing: 16) {
+                // Left Panel - Controls
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Images Section
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Images")
+                                .font(.headline)
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Background Image")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                
+                                HStack(spacing: 8) {
+                                    Button(action: viewModel.importBackgroundImage) {
+                                        Label(viewModel.backgroundImage == nil ? "Select" : "Change", systemImage: "photo")
+                                    }
+                                    .buttonStyle(.bordered)
+                                    
+                                    Button(action: viewModel.pasteBackgroundFromClipboard) {
+                                        Label("Paste", systemImage: "doc.on.clipboard")
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
+                                
+                                if viewModel.backgroundImage != nil {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.green)
+                                        Text("Background loaded")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                            
+                            Divider()
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Overlay Image (Optional)")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                
+                                HStack(spacing: 8) {
+                                    Button(action: viewModel.importOverlayImage) {
+                                        Label(viewModel.overlayImage == nil ? "Select" : "Change", systemImage: "square.on.square")
+                                    }
+                                    .buttonStyle(.bordered)
+                                    
+                                    Button(action: viewModel.pasteOverlayFromClipboard) {
+                                        Label("Paste", systemImage: "doc.on.clipboard")
+                                    }
+                                    .buttonStyle(.bordered)
+                                    
+                                    if viewModel.overlayImage != nil {
+                                        Button(action: viewModel.removeOverlayImage) {
+                                            Label("Remove", systemImage: "trash")
+                                        }
+                                        .buttonStyle(.bordered)
+                                        .foregroundColor(.red)
+                                    }
+                                }
+                                
+                                if viewModel.overlayImage != nil {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.green)
+                                        Text("Overlay loaded")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(16)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        
+                        // Canvas Settings Section
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Canvas")
+                                .font(.headline)
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Resolution")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                Picker("Resolution", selection: $viewModel.selectedResolution) {
+                                    ForEach(ThumbnailGenerator.CanvasResolution.allCases) { resolution in
+                                        Text(resolution.rawValue).tag(resolution)
+                                    }
+                                }
+                                .labelsHidden()
+                                
+                                if viewModel.selectedResolution == .custom {
+                                    HStack(spacing: 8) {
+                                        TextField("Width", text: $viewModel.customWidth)
+                                            .textFieldStyle(.roundedBorder)
+                                            .frame(width: 80)
+                                        Text("×")
+                                            .foregroundStyle(.secondary)
+                                        TextField("Height", text: $viewModel.customHeight)
+                                            .textFieldStyle(.roundedBorder)
+                                            .frame(width: 80)
+                                    }
+                                }
+                                
+                                Text("Background Scaling")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                Picker("Scaling", selection: $viewModel.backgroundScaling) {
+                                    ForEach(ThumbnailGenerator.BackgroundScaling.allCases) { scaling in
+                                        Text(scaling.rawValue).tag(scaling)
+                                    }
+                                }
+                                .labelsHidden()
+                            }
+                        }
+                        .padding(16)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        
+                        // Text & Styling Section
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Text & Styling")
+                                .font(.headline)
+                            
+                            VStack(alignment: .leading, spacing: 12) {
+                                // Episode Number
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Episode Number")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                    TextField("e.g., EP 42 or 42", text: $viewModel.episodeNumber)
+                                        .textFieldStyle(.roundedBorder)
+                                }
+                                
+                                Divider()
+                                
+                                // Font Settings
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Font")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                    Picker("Font", selection: $viewModel.selectedFont) {
+                                        ForEach(viewModel.availableFonts, id: \.self) { font in
+                                            Text(font.replacingOccurrences(of: "-Bold", with: ""))
+                                                .tag(font)
+                                        }
+                                    }
+                                    .labelsHidden()
+                                    
+                                    HStack {
+                                        Text("Size")
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                        Spacer()
+                                        Text("\(Int(viewModel.fontSize))")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Slider(value: $viewModel.fontSize, in: 24...200, step: 4)
+                                }
+                                
+                                Divider()
+                                
+                                // Colors
+                                HStack {
+                                    Text("Font Color")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    ColorPicker("", selection: $viewModel.fontColor, supportsOpacity: false)
+                                        .labelsHidden()
+                                }
+                                
+                                Toggle(isOn: $viewModel.outlineEnabled) {
+                                    Text("Outline")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                                
+                                if viewModel.outlineEnabled {
+                                    HStack {
+                                        Text("Outline Color")
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                        Spacer()
+                                        ColorPicker("", selection: $viewModel.outlineColor, supportsOpacity: false)
+                                            .labelsHidden()
+                                    }
+                                    .padding(.leading, 8)
+                                }
+                                
+                                Divider()
+                                
+                                // Layout
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Position")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                    Picker("Position", selection: $viewModel.episodeNumberPosition) {
+                                        ForEach(ThumbnailGenerator.TextPosition.allCases) { position in
+                                            Text(position.rawValue).tag(position)
+                                        }
+                                    }
+                                    .labelsHidden()
+                                    
+                                    HStack {
+                                        Text("H-Padding")
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                        Spacer()
+                                        Text("\(Int(viewModel.horizontalPadding))")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Slider(value: $viewModel.horizontalPadding, in: 0...200, step: 5)
+                                    
+                                    HStack {
+                                        Text("V-Padding")
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                        Spacer()
+                                        Text("\(Int(viewModel.verticalPadding))")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Slider(value: $viewModel.verticalPadding, in: 0...200, step: 5)
+                                }
+                            }
+                        }
+                        .padding(16)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        
+                        // Messages
+                        if let error = viewModel.errorMessage {
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                                Text(error)
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.red.opacity(0.1))
+                            .cornerRadius(8)
+                        }
+                        
+                        if let success = viewModel.successMessage {
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                                Text(success)
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.green.opacity(0.1))
+                            .cornerRadius(8)
+                        }
+                    }
+                    .padding(20)
+                }
+                .frame(width: leftWidth)
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(12)
+                
+                // Right Panel - Preview
+                VStack(spacing: 0) {
+                    // Header
+                    HStack {
+                        Text("Preview")
+                            .font(.headline)
+                        
+                        Spacer()
+                        
+                        if viewModel.generatedThumbnail != nil {
+                            HStack(spacing: 8) {
+                                Button {
+                                    fitToWindow.toggle()
+                                    if fitToWindow {
+                                        previewZoom = 1.0
+                                    }
+                                } label: {
+                                    Image(systemName: fitToWindow ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                                }
+                                .buttonStyle(.borderless)
+                                .help(fitToWindow ? "Manual zoom" : "Fit to window")
+                                
+                                if !fitToWindow {
+                                    Button {
+                                        previewZoom = max(0.25, previewZoom - 0.25)
+                                    } label: {
+                                        Image(systemName: "minus.magnifyingglass")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .disabled(previewZoom <= 0.25)
+                                    
+                                    Text("\(Int(previewZoom * 100))%")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .frame(minWidth: 40)
+                                    
+                                    Button {
+                                        previewZoom = min(4.0, previewZoom + 0.25)
+                                    } label: {
+                                        Image(systemName: "plus.magnifyingglass")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .disabled(previewZoom >= 4.0)
+                                    
+                                    Button {
+                                        previewZoom = 1.0
+                                    } label: {
+                                        Image(systemName: "arrow.counterclockwise")
+                                    }
+                                    .buttonStyle(.borderless)
+                                }
+                            }
+                            
+                            Text("•")
+                                .foregroundStyle(.secondary)
+                            
+                            if let thumbnail = viewModel.generatedThumbnail {
+                                Text("\(Int(thumbnail.size.width)) × \(Int(thumbnail.size.height))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .padding(12)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    
+                    Divider()
+                    
+                    // Preview content
+                    if viewModel.isLoading {
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.5)
+                            Text("Generating thumbnail...")
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color.black.opacity(0.05))
+                    } else if let thumbnail = viewModel.generatedThumbnail {
+                        if fitToWindow {
+                            GeometryReader { geo in
+                                Image(nsImage: thumbnail)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: geo.size.width, height: geo.size.height)
+                            }
+                            .background(Color.black.opacity(0.05))
+                        } else {
+                            ScrollView([.horizontal, .vertical]) {
+                                Image(nsImage: thumbnail)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .scaleEffect(previewZoom)
+                                    .padding()
+                            }
+                            .background(Color.black.opacity(0.05))
+                        }
+                    } else {
+                        VStack(spacing: 16) {
+                            Image(systemName: "photo.on.rectangle.angled")
+                                .font(.system(size: 64))
+                                .foregroundColor(.secondary)
+                            Text("Generated thumbnail will appear here")
+                                .foregroundColor(.secondary)
+                            Text("Select a background image and tap Generate")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color.black.opacity(0.05))
+                    }
+                }
+                .frame(width: rightWidth)
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(12)
+            }
+            .padding(16)
+        }
+        .onAppear {
+            viewModel.loadInitialData()
+        }
+    }
+}
+

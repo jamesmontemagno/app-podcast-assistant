@@ -16,10 +16,17 @@ public struct TranscriptTranslationSheet: View {
     
     public var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 16) {
-                Text("Translate Transcript")
-                    .font(.title2)
-                    .fontWeight(.semibold)
+            VStack(alignment: .leading, spacing: 16) {
+                // Header
+                HStack {
+                    Image(systemName: "globe")
+                        .foregroundColor(.blue)
+                        .font(.title2)
+                    Text("Translate Transcript")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    Spacer()
+                }
             
             // Language selection
             HStack {
@@ -148,23 +155,26 @@ public struct TranscriptTranslationSheet: View {
             }
             
             Spacer()
+            }
+            .padding(20)
             
-            // Close/Done button
+            // Close button at bottom
+            Divider()
+            
             HStack {
                 Spacer()
                 Button(viewModel.translatedText != nil ? "Done" : "Close") {
                     dismiss()
                 }
-                .keyboardShortcut(.cancelAction)
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
                 .disabled(viewModel.isTranslating)
             }
-            }
-            .padding(20)
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(12)
             .padding(16)
+            .background(Color(NSColor.windowBackgroundColor))
         }
-        .frame(width: 600, height: 550)
+        .frame(width: 600, height: 600)
     }
     
     private func saveToFile(_ text: String) {

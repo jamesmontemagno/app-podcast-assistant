@@ -26,7 +26,22 @@ public struct EpisodeFormView: View {
     }
     
     public var body: some View {
-        NavigationStack {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Image(systemName: episode == nil ? "plus.circle.fill" : "pencil.circle.fill")
+                    .foregroundColor(.blue)
+                    .font(.title2)
+                Text(episode == nil ? "New Episode" : "Edit Episode")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                Spacer()
+            }
+            .padding(20)
+            
+            Divider()
+            
+            // Form content
             Form {
                 Section("Episode Information") {
                     TextField("Episode Title", text: $title)
@@ -60,37 +75,53 @@ public struct EpisodeFormView: View {
                 } header: {
                     Text("Default Settings")
                 }
-                
-                if let errorMessage = errorMessage {
-                    Section {
-                        Text(errorMessage)
-                            .foregroundColor(.red)
-                            .font(.caption)
-                    }
-                }
             }
             .formStyle(.grouped)
-            .navigationTitle(episode == nil ? "New Episode" : "Edit Episode")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .buttonStyle(.glass)
+            .scrollContentBackground(.hidden)
+            
+            // Error message
+            if let errorMessage = errorMessage {
+                Divider()
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.red)
+                    Text(errorMessage)
+                        .foregroundColor(.red)
+                        .font(.callout)
+                    Spacer()
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveEpisode()
-                    }
-                    .buttonStyle(.glass)
-                    .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
+                .padding(16)
+                .background(Color.red.opacity(0.1))
+            }
+            
+            // Action buttons at bottom
+            Divider()
+            
+            HStack(spacing: 12) {
+                Button("Cancel") {
+                    dismiss()
                 }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .keyboardShortcut(.cancelAction)
+                
+                Spacer()
+                
+                Button("Save") {
+                    saveEpisode()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
+                .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
             }
-            .onAppear {
-                loadExistingData()
-            }
+            .padding(16)
+            .background(Color(NSColor.windowBackgroundColor))
         }
-        .frame(minWidth: 400, minHeight: 300)
+        .frame(minWidth: 450, idealWidth: 500, minHeight: 350, idealHeight: 400)
+        .onAppear {
+            loadExistingData()
+        }
     }
     
     // MARK: - Data Loading

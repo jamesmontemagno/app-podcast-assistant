@@ -46,63 +46,86 @@ public struct PodcastFormView: View {
     }
     
     public var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Tab Picker
-                Picker("", selection: $selectedTab) {
-                    ForEach(FormTab.allCases, id: \.self) { tab in
-                        Text(tab.rawValue).tag(tab)
-                    }
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Image(systemName: podcast == nil ? "plus.circle.fill" : "pencil.circle.fill")
+                    .foregroundColor(.blue)
+                    .font(.title2)
+                Text(podcast == nil ? "New Podcast" : "Edit Podcast")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                Spacer()
+            }
+            .padding(20)
+            
+            Divider()
+            
+            // Tab Picker
+            Picker("", selection: $selectedTab) {
+                ForEach(FormTab.allCases, id: \.self) { tab in
+                    Text(tab.rawValue).tag(tab)
                 }
-                .pickerStyle(.segmented)
-                .padding()
-                
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            
+            Divider()
+            
+            // Tab Content
+            Group {
+                switch selectedTab {
+                case .basicInfo:
+                    basicInfoTab
+                case .thumbnailDefaults:
+                    thumbnailDefaultsTab
+                }
+            }
+            
+            // Error message
+            if let errorMessage = errorMessage {
                 Divider()
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.red)
+                    Text(errorMessage)
+                        .foregroundColor(.red)
+                        .font(.callout)
+                    Spacer()
+                }
+                .padding(16)
+                .background(Color.red.opacity(0.1))
+            }
+            
+            // Action buttons at bottom
+            Divider()
+            
+            HStack(spacing: 12) {
+                Button("Cancel") {
+                    dismiss()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .keyboardShortcut(.cancelAction)
                 
-                // Tab Content
-                Group {
-                    switch selectedTab {
-                    case .basicInfo:
-                        basicInfoTab
-                    case .thumbnailDefaults:
-                        thumbnailDefaultsTab
-                    }
-                }
+                Spacer()
                 
-                if let errorMessage = errorMessage {
-                    Divider()
-                    HStack {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.red)
-                        Text(errorMessage)
-                            .foregroundColor(.red)
-                            .font(.caption)
-                    }
-                    .padding()
-                    .background(Color.red.opacity(0.1))
+                Button(isEditMode ? "Save" : "Create") {
+                    savePodcast()
                 }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
             }
-            .navigationTitle(podcast == nil ? "New Podcast" : "Edit Podcast")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .applyLiquidGlassButtonStyle(prominent: false)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(isEditMode ? "Save" : "Create") {
-                        savePodcast()
-                    }
-                    .applyLiquidGlassButtonStyle(prominent: false)
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
-            }
-            .onAppear {
-                loadExistingData()
-            }
+            .padding(16)
+            .background(Color(NSColor.windowBackgroundColor))
         }
         .frame(minWidth: 600, idealWidth: 650, minHeight: 600, idealHeight: 650)
+        .onAppear {
+            loadExistingData()
+        }
     }
     
     // MARK: - Tab Views
@@ -138,11 +161,11 @@ public struct PodcastFormView: View {
                                 Button("Change") {
                                     selectArtworkImage()
                                 }
-                                .applyLiquidGlassButtonStyle(prominent: false)
+                                .buttonStyle(.bordered)
                                 Button("Remove") {
                                     self.artworkImage = nil
                                 }
-                                .applyLiquidGlassButtonStyle(prominent: false)
+                                .buttonStyle(.bordered)
                                 .foregroundColor(.red)
                             }
                         }
@@ -151,7 +174,7 @@ public struct PodcastFormView: View {
                     Button("Select Artwork Image") {
                         selectArtworkImage()
                     }
-                    .applyLiquidGlassButtonStyle(prominent: false)
+                    .buttonStyle(.bordered)
                 }
             } header: {
                 Text("Podcast Artwork")
@@ -187,11 +210,11 @@ public struct PodcastFormView: View {
                                 Button("Change") {
                                     selectOverlayImage()
                                 }
-                                .applyLiquidGlassButtonStyle(prominent: false)
+                                .buttonStyle(.bordered)
                                 Button("Remove") {
                                     self.defaultOverlayImage = nil
                                 }
-                                .applyLiquidGlassButtonStyle(prominent: false)
+                                .buttonStyle(.bordered)
                                 .foregroundColor(.red)
                             }
                         }
@@ -200,7 +223,7 @@ public struct PodcastFormView: View {
                     Button("Select Default Overlay (Optional)") {
                         selectOverlayImage()
                     }
-                    .applyLiquidGlassButtonStyle(prominent: false)
+                    .buttonStyle(.bordered)
                 }
             } header: {
                 Text("Images")
@@ -474,21 +497,4 @@ public struct PodcastFormView: View {
     }
 }
 
-private extension View {
-    @ViewBuilder
-    func applyLiquidGlassButtonStyle(prominent: Bool) -> some View {
-        if #available(macOS 26.0, *) {
-            if prominent {
-                self.buttonStyle(.glassProminent)
-            } else {
-                self.buttonStyle(.glass)
-            }
-        } else {
-            if prominent {
-                self.buttonStyle(.borderedProminent)
-            } else {
-                self.buttonStyle(.bordered)
-            }
-        }
-    }
-}
+
