@@ -124,6 +124,7 @@ public struct ThumbnailActions {
     public let pasteBackground: () -> Void
     public let pasteOverlay: () -> Void
     public let generateThumbnail: () -> Void
+    public let saveThumbnail: () -> Void
     public let exportThumbnail: () -> Void
     public let clearThumbnail: () -> Void
     
@@ -133,6 +134,7 @@ public struct ThumbnailActions {
         pasteBackground: @escaping () -> Void,
         pasteOverlay: @escaping () -> Void,
         generateThumbnail: @escaping () -> Void,
+        saveThumbnail: @escaping () -> Void,
         exportThumbnail: @escaping () -> Void,
         clearThumbnail: @escaping () -> Void
     ) {
@@ -141,6 +143,7 @@ public struct ThumbnailActions {
         self.pasteBackground = pasteBackground
         self.pasteOverlay = pasteOverlay
         self.generateThumbnail = generateThumbnail
+        self.saveThumbnail = saveThumbnail
         self.exportThumbnail = exportThumbnail
         self.clearThumbnail = clearThumbnail
     }
@@ -204,11 +207,13 @@ public struct TranscriptActionCapabilities {
 
 public struct ThumbnailActionCapabilities {
     public let canGenerate: Bool
+    public let canSave: Bool
     public let canExport: Bool
     public let canClear: Bool
     
-    public init(canGenerate: Bool, canExport: Bool, canClear: Bool) {
+    public init(canGenerate: Bool, canSave: Bool, canExport: Bool, canClear: Bool) {
         self.canGenerate = canGenerate
+        self.canSave = canSave
         self.canExport = canExport
         self.canClear = canClear
     }

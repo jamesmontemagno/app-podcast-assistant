@@ -7,8 +7,9 @@ public struct EpisodeDetailView: View {
     let episode: EpisodePOCO
     let podcast: PodcastPOCO
     @ObservedObject var store: PodcastLibraryStore
+    @Binding var selectedSection: EpisodeSection
+    @StateObject private var appState = AppState.shared
     
-    @State private var selectedSection: EpisodeSection = .details
     @State private var hasUnsavedChanges: Bool = false
     @State private var detailsViewModel: DetailsViewModel?
     @State private var showingTranslation: Bool = false
@@ -17,10 +18,11 @@ public struct EpisodeDetailView: View {
     @State private var transcriptOutputText: String = ""
     @State private var thumbnailViewModel: ThumbnailViewModel?
     
-    public init(episode: EpisodePOCO, podcast: PodcastPOCO, store: PodcastLibraryStore) {
+    public init(episode: EpisodePOCO, podcast: PodcastPOCO, store: PodcastLibraryStore, selectedSection: Binding<EpisodeSection>) {
         self.episode = episode
         self.podcast = podcast
         self.store = store
+        self._selectedSection = selectedSection
     }
     
     public var body: some View {
@@ -88,12 +90,25 @@ public struct EpisodeDetailView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .focusedValue(\.selectedEpisodeSection, selectedSection)
-        .focusedValue(\.episodeDetailActions, EpisodeDetailActions(
-            save: { detailsViewModel?.save() },
-            revert: { detailsViewModel?.revert() },
-            translate: { showingTranslation = true }
-        ))
+        .id("section-\(selectedSection)")
+        .onChange(of: selectedSection) { _, _ in
+            updateAppState()
+        }
+        .onChange(of: transcriptInputText) { _, _ in
+            updateAppState()
+        }
+        .onChange(of: transcriptOutputText) { _, _ in
+            updateAppState()
+        }
+        .onChange(of: thumbnailViewModel?.generatedThumbnail) { _, _ in
+            updateAppState()
+        }
+        .onChange(of: thumbnailViewModel?.hasUnsavedChanges) { _, _ in
+            updateAppState()
+        }
+        .onAppear {
+            updateAppState()
+        }
         .toolbar {
             // Details tab toolbar
             if selectedSection == .details {
@@ -265,6 +280,73 @@ public struct EpisodeDetailView: View {
         transcriptOutputText = ""
         episode.transcriptInputText = nil
         episode.srtOutputText = nil
+    }
+    
+    // MARK: - Focused Value Helpers
+    
+    private func makeEpisodeDetailActions() -> EpisodeDetailActions {
+        EpisodeDetailActions(
+            save: selectedSection == .details ? { detailsViewModel?.save() } : nil,
+            revert: selectedSection == .details ? { detailsViewModel?.revert() } : nil,
+            translate: selectedSection == .details ? { showingTranslation = true } : nil
+        )
+    }
+    
+    private func makeTranscriptActions() -> TranscriptActions? {
+        guard selectedSection == .transcript else { return nil }
+        
+        return TranscriptActions(
+            importTranscript: { importTranscriptFile() },
+            convertToSRT: { convertTranscriptToSRT() },
+            exportSRT: { exportTranscriptFile() },
+            exportTranslated: { showingTranscriptTranslation = true },
+            clearTranscript: { clearTranscriptAll() }
+        )
+    }
+    
+    private func makeTranscriptCapabilities() -> TranscriptActionCapabilities? {
+        guard selectedSection == .transcript else { return nil }
+        
+        return TranscriptActionCapabilities(
+            canConvert: !transcriptInputText.isEmpty,
+            canExport: !transcriptOutputText.isEmpty,
+            canClear: !transcriptInputText.isEmpty || !transcriptOutputText.isEmpty
+        )
+    }
+    
+    private func makeThumbnailActions() -> ThumbnailActions? {
+        guard selectedSection == .thumbnail, let vm = thumbnailViewModel else { return nil }
+        
+        return ThumbnailActions(
+            importBackground: { vm.importBackgroundImage() },
+            importOverlay: { vm.importOverlayImage() },
+            pasteBackground: { vm.pasteBackgroundFromClipboard() },
+            pasteOverlay: { vm.pasteOverlayFromClipboard() },
+            generateThumbnail: { vm.generateThumbnail() },
+            saveThumbnail: { vm.saveToEpisode() },
+            exportThumbnail: { vm.exportThumbnail() },
+            clearThumbnail: { vm.resetAll() }
+        )
+    }
+    
+    private func makeThumbnailCapabilities() -> ThumbnailActionCapabilities? {
+        guard selectedSection == .thumbnail, let vm = thumbnailViewModel else { return nil }
+        
+        return ThumbnailActionCapabilities(
+            canGenerate: vm.backgroundImage != nil && !vm.isLoading,
+            canSave: vm.generatedThumbnail != nil && vm.hasUnsavedChanges,
+            canExport: vm.generatedThumbnail != nil,
+            canClear: vm.backgroundImage != nil || vm.overlayImage != nil
+        )
+    }
+    
+    // Update AppState with current actions and capabilities
+    private func updateAppState() {
+        appState.episodeDetailActions = makeEpisodeDetailActions()
+        appState.transcriptActions = makeTranscriptActions()
+        appState.transcriptCapabilities = makeTranscriptCapabilities()
+        appState.thumbnailActions = makeThumbnailActions()
+        appState.thumbnailCapabilities = makeThumbnailCapabilities()
     }
 }
 

@@ -8,6 +8,7 @@ public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     
     @StateObject private var libraryStore = PodcastLibraryStore()
+    @StateObject private var appState = AppState.shared
     @State private var selectedPodcastID: String?
     @State private var selectedEpisodeID: String?
     @State private var selectedEpisodeModel: EpisodePOCO?
@@ -37,6 +38,12 @@ public struct ContentView: View {
             sidebarContent
         } detail: {
             detailContent
+        }
+        .onChange(of: selectedDetailTab) { _, _ in
+            appState.selectedEpisodeSection = selectedEpisodeModel != nil ? episodeSectionBinding.wrappedValue : nil
+        }
+        .onChange(of: selectedEpisodeModel) { _, _ in
+            appState.selectedEpisodeSection = selectedEpisodeModel != nil ? episodeSectionBinding.wrappedValue : nil
         }
         .frame(minWidth: 800, minHeight: 700)
         .sheet(isPresented: $showingPodcastForm, onDismiss: {
@@ -353,8 +360,13 @@ public struct ContentView: View {
     private var detailContent: some View {
         if let episode = selectedEpisodeModel,
            let podcast = libraryStore.getPodcast(with: episode.podcastID) {
-            EpisodeDetailView(episode: episode, podcast: podcast, store: libraryStore)
-                .id("episode-\(episode.id)")
+            EpisodeDetailView(
+                episode: episode,
+                podcast: podcast,
+                store: libraryStore,
+                selectedSection: episodeSectionBinding
+            )
+            .id("episode-\(episode.id)")
         } else {
             ContentUnavailableView(
                 "Select an Episode",
@@ -362,6 +374,28 @@ public struct ContentView: View {
                 description: Text("Choose an episode from the sidebar to view its details")
             )
         }
+    }
+    
+    // Convert DetailTab to EpisodeSection for focused values
+    private var episodeSectionBinding: Binding<EpisodeSection> {
+        Binding(
+            get: {
+                switch selectedDetailTab {
+                case .details: return .details
+                case .transcript: return .transcript
+                case .thumbnail: return .thumbnail
+                case .aiIdeas: return .aiIdeas
+                }
+            },
+            set: { newValue in
+                switch newValue {
+                case .details: selectedDetailTab = .details
+                case .transcript: selectedDetailTab = .transcript
+                case .thumbnail: selectedDetailTab = .thumbnail
+                case .aiIdeas: selectedDetailTab = .aiIdeas
+                }
+            }
+        )
     }
     
     // MARK: - Helper Methods
