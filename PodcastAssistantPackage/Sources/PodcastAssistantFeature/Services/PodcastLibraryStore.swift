@@ -128,6 +128,9 @@ public final class PodcastLibraryStore: ObservableObject {
             updated[index] = poco
             podcasts = updated
         }
+        
+        // Force UI refresh everywhere
+        objectWillChange.send()
     }
     
     /// Delete a podcast (removes from both SwiftData and POCO)
@@ -304,6 +307,9 @@ public final class PodcastLibraryStore: ObservableObject {
             podcastEpisodes[episodeIndex] = poco
             episodes[podcastID] = podcastEpisodes
         }
+        
+        // Force UI refresh everywhere
+        objectWillChange.send()
     }
     
     /// Delete an episode (removes from both SwiftData and POCO)
