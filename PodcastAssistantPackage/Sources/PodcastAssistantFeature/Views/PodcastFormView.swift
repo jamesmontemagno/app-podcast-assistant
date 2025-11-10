@@ -1,44 +1,61 @@
 import SwiftUI
 import AppKit
-import SwiftData
 
-/// Form view for creating or editing a podcast
+/// Form for creating or editing a podcast
 public struct PodcastFormView: View {
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
-    // Editing existing podcast (nil for new podcast)
-    public let podcast: Podcast?
+    let podcast: PodcastPOCO? // nil for new podcast
+    let store: PodcastLibraryStore
     
-    // Form fields
     @State private var name: String = ""
-    @State private var description: String = ""
+    @State private var podcastDescription: String = ""
     @State private var artworkImage: NSImage?
-    @State private var defaultOverlayImage: NSImage?
-    @State private var defaultFontName: String = "Helvetica-Bold"
-    @State private var defaultFontSize: Double = 72.0
-    @State private var defaultTextPosition: ThumbnailGenerator.TextPosition = .topRight
-    @State private var defaultHorizontalPadding: Double = 40.0
-    @State private var defaultVerticalPadding: Double = 40.0
-    @State private var defaultCanvasResolution: ThumbnailGenerator.CanvasResolution = .hd1080
-    @State private var defaultCustomWidth: String = "1920"
-    @State private var defaultCustomHeight: String = "1080"
-    @State private var defaultBackgroundScaling: ThumbnailGenerator.BackgroundScaling = .aspectFill
-    @State private var defaultFontColor: Color = .white
-    @State private var defaultOutlineEnabled: Bool = true
-    @State private var defaultOutlineColor: Color = .black
-    
-    // UI state
+    @State private var overlayImage: NSImage?
+    @State private var selectedFontName: String?
+    @State private var fontSize: Double = 72.0
+    @State private var textPositionX: Double = 0.5
+    @State private var textPositionY: Double = 0.5
+    @State private var horizontalPadding: Double = 40.0
+    @State private var verticalPadding: Double = 40.0
+    @State private var canvasWidth: Double = 1920.0
+    @State private var canvasHeight: Double = 1080.0
+    @State private var backgroundScaling: String = "Aspect Fill (Crop)"
+    @State private var fontColorHex: String = "#FFFFFF"
+    @State private var outlineEnabled: Bool = true
+    @State private var outlineColorHex: String = "#000000"
     @State private var errorMessage: String?
-    @State private var selectedTab: FormTab = .basicInfo
+    @State private var selectedTab: FormTab = .basic
     
-    private enum FormTab: String, CaseIterable {
-        case basicInfo = "Basic Info"
-        case thumbnailDefaults = "Thumbnail Defaults"
+    private enum FormTab {
+        case basic
+        case artwork
+        case thumbnailDefaults
     }
     
-    public init(podcast: Podcast? = nil) {
+    public init(podcast: PodcastPOCO? = nil, store: PodcastLibraryStore) {
         self.podcast = podcast
+        self.store = store
+        
+        // Initialize with existing values if editing
+        if let podcast = podcast {
+            _name = State(initialValue: podcast.name)
+            _podcastDescription = State(initialValue: podcast.podcastDescription ?? "")
+            _artworkImage = State(initialValue: podcast.artworkData.flatMap { ImageUtilities.loadImage(from: $0) })
+            _overlayImage = State(initialValue: podcast.defaultOverlayData.flatMap { ImageUtilities.loadImage(from: $0) })
+            _selectedFontName = State(initialValue: podcast.defaultFontName)
+            _fontSize = State(initialValue: podcast.defaultFontSize)
+            _textPositionX = State(initialValue: podcast.defaultTextPositionX)
+            _textPositionY = State(initialValue: podcast.defaultTextPositionY)
+            _horizontalPadding = State(initialValue: podcast.defaultHorizontalPadding)
+            _verticalPadding = State(initialValue: podcast.defaultVerticalPadding)
+            _canvasWidth = State(initialValue: podcast.defaultCanvasWidth)
+            _canvasHeight = State(initialValue: podcast.defaultCanvasHeight)
+            _backgroundScaling = State(initialValue: podcast.defaultBackgroundScaling)
+            _fontColorHex = State(initialValue: podcast.defaultFontColorHex ?? "#FFFFFF")
+            _outlineEnabled = State(initialValue: podcast.defaultOutlineEnabled)
+            _outlineColorHex = State(initialValue: podcast.defaultOutlineColorHex ?? "#000000")
+        }
     }
     
     private var isEditMode: Bool {
@@ -47,66 +64,48 @@ public struct PodcastFormView: View {
     
     public var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Image(systemName: podcast == nil ? "plus.circle.fill" : "pencil.circle.fill")
-                    .foregroundColor(.blue)
-                    .font(.title2)
-                Text(podcast == nil ? "New Podcast" : "Edit Podcast")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                Spacer()
-            }
-            .padding(20)
+            Text(isEditMode ? "Edit Podcast" : "New Podcast")
+                .font(.title)
+                .padding(.top, 20)
             
-            Divider()
-            
-            // Tab Picker
+            // Tab selector
             Picker("", selection: $selectedTab) {
-                ForEach(FormTab.allCases, id: \.self) { tab in
-                    Text(tab.rawValue).tag(tab)
-                }
+                Text("Basic Info").tag(FormTab.basic)
+                Text("Artwork").tag(FormTab.artwork)
+                Text("Thumbnail Defaults").tag(FormTab.thumbnailDefaults)
             }
             .pickerStyle(.segmented)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
+            .labelsHidden()
+            .padding()
+            
+            // Tab content
+            ScrollView {
+                Group {
+                    switch selectedTab {
+                    case .basic:
+                        basicInfoTab
+                    case .artwork:
+                        artworkTab
+                    case .thumbnailDefaults:
+                        thumbnailDefaultsTab
+                    }
+                }
+                .padding()
+            }
+            
+            if let error = errorMessage {
+                Text(error)
+                    .foregroundStyle(.red)
+                    .font(.caption)
+                    .padding(.horizontal)
+            }
             
             Divider()
             
-            // Tab Content
-            Group {
-                switch selectedTab {
-                case .basicInfo:
-                    basicInfoTab
-                case .thumbnailDefaults:
-                    thumbnailDefaultsTab
-                }
-            }
-            
-            // Error message
-            if let errorMessage = errorMessage {
-                Divider()
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.red)
-                    Text(errorMessage)
-                        .foregroundColor(.red)
-                        .font(.callout)
-                    Spacer()
-                }
-                .padding(16)
-                .background(Color.red.opacity(0.1))
-            }
-            
-            // Action buttons at bottom
-            Divider()
-            
-            HStack(spacing: 12) {
+            HStack {
                 Button("Cancel") {
                     dismiss()
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
                 .keyboardShortcut(.cancelAction)
                 
                 Spacer()
@@ -114,18 +113,13 @@ public struct PodcastFormView: View {
                 Button(isEditMode ? "Save" : "Create") {
                     savePodcast()
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
                 .keyboardShortcut(.defaultAction)
-                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(name.isEmpty)
+                .buttonStyle(.borderedProminent)
             }
-            .padding(16)
-            .background(Color(NSColor.windowBackgroundColor))
+            .padding()
         }
-        .frame(minWidth: 600, idealWidth: 650, minHeight: 600, idealHeight: 650)
-        .onAppear {
-            loadExistingData()
-        }
+        .frame(width: 650, height: 600)
     }
     
     // MARK: - Tab Views
@@ -136,365 +130,318 @@ public struct PodcastFormView: View {
                 TextField("Podcast Name", text: $name)
                     .textFieldStyle(.roundedBorder)
                 
-                TextField("Description (optional)", text: $description, axis: .vertical)
+                TextField("Description (Optional)", text: $podcastDescription, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
-                    .lineLimit(3...6)
+                    .lineLimit(4...8)
             } header: {
-                Text("Information")
-                    .font(.headline)
-            }
-            
-            Section {
-                if let artworkImage = artworkImage {
-                    HStack(spacing: 16) {
-                        Image(nsImage: artworkImage)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 100, height: 100)
-                            .cornerRadius(8)
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Current Artwork")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            HStack(spacing: 8) {
-                                Button("Change") {
-                                    selectArtworkImage()
-                                }
-                                .buttonStyle(.bordered)
-                                Button("Remove") {
-                                    self.artworkImage = nil
-                                }
-                                .buttonStyle(.bordered)
-                                .foregroundColor(.red)
-                            }
-                        }
-                    }
-                } else {
-                    Button("Select Artwork Image") {
-                        selectArtworkImage()
-                    }
-                    .buttonStyle(.bordered)
-                }
-            } header: {
-                Text("Podcast Artwork")
-                    .font(.headline)
+                Text("Basic Information")
             }
         }
         .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
+    }
+    
+    private var artworkTab: some View {
+        Form {
+            Section {
+                VStack(spacing: 16) {
+                    if let image = artworkImage {
+                        Image(nsImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: 200, maxHeight: 200)
+                            .cornerRadius(8)
+                    } else {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(width: 200, height: 200)
+                            .overlay {
+                                VStack {
+                                    Image(systemName: "photo")
+                                        .font(.largeTitle)
+                                        .foregroundStyle(.secondary)
+                                    Text("No Artwork")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                    }
+                    
+                    HStack(spacing: 12) {
+                        Button("Select Artwork...") {
+                            selectArtwork()
+                        }
+                        
+                        if artworkImage != nil {
+                            Button("Remove") {
+                                artworkImage = nil
+                            }
+                            .foregroundStyle(.red)
+                        }
+                    }
+                }
+            } header: {
+                Text("Podcast Artwork")
+            } footer: {
+                Text("Used for podcast identification. Will be resized and optimized for storage.")
+                    .font(.caption)
+            }
+        }
+        .formStyle(.grouped)
     }
     
     private var thumbnailDefaultsTab: some View {
         Form {
             Section {
-                Text("These settings will be copied to new episodes")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            Section {
-                if let overlayImage = defaultOverlayImage {
-                    HStack(spacing: 16) {
-                        Image(nsImage: overlayImage)
+                VStack(spacing: 16) {
+                    if let image = overlayImage {
+                        Image(nsImage: image)
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 80, height: 80)
-                            .cornerRadius(6)
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Default Overlay")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            HStack(spacing: 8) {
-                                Button("Change") {
-                                    selectOverlayImage()
+                            .frame(maxWidth: 200, maxHeight: 200)
+                            .cornerRadius(8)
+                    } else {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(width: 200, height: 200)
+                            .overlay {
+                                VStack {
+                                    Image(systemName: "square.on.square")
+                                        .font(.largeTitle)
+                                        .foregroundStyle(.secondary)
+                                    Text("No Default Overlay")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
                                 }
-                                .buttonStyle(.bordered)
-                                Button("Remove") {
-                                    self.defaultOverlayImage = nil
-                                }
-                                .buttonStyle(.bordered)
-                                .foregroundColor(.red)
                             }
+                    }
+                    
+                    HStack(spacing: 12) {
+                        Button("Select Default Overlay...") {
+                            selectOverlay()
+                        }
+                        
+                        if overlayImage != nil {
+                            Button("Remove") {
+                                overlayImage = nil
+                            }
+                            .foregroundStyle(.red)
                         }
                     }
-                } else {
-                    Button("Select Default Overlay (Optional)") {
-                        selectOverlayImage()
-                    }
-                    .buttonStyle(.bordered)
                 }
             } header: {
-                Text("Images")
-                    .font(.headline)
+                Text("Default Thumbnail Overlay")
+            } footer: {
+                Text("Logo/branding to overlay on episode thumbnails. New episodes will use this by default.")
+                    .font(.caption)
             }
             
             Section {
-                Picker("Resolution", selection: $defaultCanvasResolution) {
-                    ForEach(ThumbnailGenerator.CanvasResolution.allCases) { resolution in
-                        Text(resolution.rawValue).tag(resolution)
+                Picker("Font", selection: $selectedFontName) {
+                    Text("System Default").tag(nil as String?)
+                    ForEach(NSFontManager.shared.availableFontFamilies.sorted(), id: \.self) { fontFamily in
+                        Text(fontFamily).tag(fontFamily as String?)
                     }
                 }
                 
-                if defaultCanvasResolution == .custom {
+                LabeledContent("Font Size") {
                     HStack {
-                        TextField("Width", text: $defaultCustomWidth)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 100)
-                        Text("×")
-                        TextField("Height", text: $defaultCustomHeight)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 100)
+                        Slider(value: $fontSize, in: 12...200, step: 1)
+                        Text("\(Int(fontSize))")
+                            .frame(width: 40, alignment: .trailing)
+                            .monospacedDigit()
+                    }
+                }
+            } header: {
+                Text("Text Settings")
+            }
+            
+            Section {
+                LabeledContent("Position X") {
+                    HStack {
+                        Slider(value: $textPositionX, in: 0...1, step: 0.01)
+                        Text(String(format: "%.2f", textPositionX))
+                            .frame(width: 40, alignment: .trailing)
+                            .monospacedDigit()
                     }
                 }
                 
-                Picker("Background Scaling", selection: $defaultBackgroundScaling) {
+                LabeledContent("Position Y") {
+                    HStack {
+                        Slider(value: $textPositionY, in: 0...1, step: 0.01)
+                        Text(String(format: "%.2f", textPositionY))
+                            .frame(width: 40, alignment: .trailing)
+                            .monospacedDigit()
+                    }
+                }
+            } header: {
+                Text("Text Position")
+            } footer: {
+                Text("0.0 = top/left, 1.0 = bottom/right, 0.5 = center")
+                    .font(.caption)
+            }
+            
+            Section {
+                LabeledContent("Horizontal") {
+                    HStack {
+                        Slider(value: $horizontalPadding, in: 0...200, step: 1)
+                        Text("\(Int(horizontalPadding))")
+                            .frame(width: 40, alignment: .trailing)
+                            .monospacedDigit()
+                    }
+                }
+                
+                LabeledContent("Vertical") {
+                    HStack {
+                        Slider(value: $verticalPadding, in: 0...200, step: 1)
+                        Text("\(Int(verticalPadding))")
+                            .frame(width: 40, alignment: .trailing)
+                            .monospacedDigit()
+                    }
+                }
+            } header: {
+                Text("Text Padding")
+            }
+            
+            Section {
+                LabeledContent("Width") {
+                    HStack {
+                        TextField("Width", value: $canvasWidth, format: .number)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
+                    }
+                }
+                
+                LabeledContent("Height") {
+                    HStack {
+                        TextField("Height", value: $canvasHeight, format: .number)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
+                    }
+                }
+                
+                Picker("Background Scaling", selection: $backgroundScaling) {
                     ForEach(ThumbnailGenerator.BackgroundScaling.allCases) { scaling in
-                        Text(scaling.rawValue).tag(scaling)
+                        Text(scaling.rawValue).tag(scaling.rawValue)
                     }
                 }
             } header: {
-                Text("Canvas")
-                    .font(.headline)
+                Text("Canvas Settings")
             }
             
             Section {
-                Picker("Font", selection: $defaultFontName) {
-                    Text("Helvetica Bold").tag("Helvetica-Bold")
-                    Text("Arial Bold").tag("Arial-BoldMT")
-                    Text("Impact").tag("Impact")
-                    Text("Futura Bold").tag("Futura-Bold")
-                    Text("Menlo Bold").tag("Menlo-Bold")
-                    Text("Avenir Next Bold").tag("AvenirNext-Bold")
-                    Text("Gill Sans Bold").tag("GillSans-Bold")
-                }
+                ColorPicker("Font Color", selection: Binding(
+                    get: { Color(hex: fontColorHex) ?? .white },
+                    set: { fontColorHex = $0.toHexString() }
+                ))
                 
-                HStack {
-                    Text("Size")
-                    Spacer()
-                    Text("\(Int(defaultFontSize))")
-                        .foregroundColor(.secondary)
-                    Slider(value: $defaultFontSize, in: 24...200, step: 4)
-                        .frame(width: 300)
+                Toggle("Text Outline", isOn: $outlineEnabled)
+                
+                if outlineEnabled {
+                    ColorPicker("Outline Color", selection: Binding(
+                        get: { Color(hex: outlineColorHex) ?? .black },
+                        set: { outlineColorHex = $0.toHexString() }
+                    ))
                 }
             } header: {
-                Text("Typography")
-                    .font(.headline)
-            }
-            
-            Section {
-                HStack {
-                    Text("Font Color")
-                    Spacer()
-                    ColorPicker("", selection: $defaultFontColor, supportsOpacity: false)
-                        .labelsHidden()
-                }
-                
-                Toggle("Outline", isOn: $defaultOutlineEnabled)
-                
-                if defaultOutlineEnabled {
-                    HStack {
-                        Text("Outline Color")
-                        Spacer()
-                        ColorPicker("", selection: $defaultOutlineColor, supportsOpacity: false)
-                            .labelsHidden()
-                    }
-                    .padding(.leading, 16)
-                }
-            } header: {
-                Text("Colors")
-                    .font(.headline)
-            }
-            
-            Section {
-                Picker("Position", selection: $defaultTextPosition) {
-                    ForEach(ThumbnailGenerator.TextPosition.allCases) { position in
-                        Text(position.rawValue).tag(position)
-                    }
-                }
-                
-                HStack {
-                    Text("Horizontal Padding")
-                    Spacer()
-                    Text("\(Int(defaultHorizontalPadding))")
-                        .foregroundColor(.secondary)
-                    Slider(value: $defaultHorizontalPadding, in: 0...200, step: 5)
-                        .frame(width: 300)
-                }
-                
-                HStack {
-                    Text("Vertical Padding")
-                    Spacer()
-                    Text("\(Int(defaultVerticalPadding))")
-                        .foregroundColor(.secondary)
-                    Slider(value: $defaultVerticalPadding, in: 0...200, step: 5)
-                        .frame(width: 300)
-                }
-            } header: {
-                Text("Layout")
-                    .font(.headline)
+                Text("Color Settings")
             }
         }
         .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-    }
-    
-    // MARK: - Data Loading
-    
-    private func loadExistingData() {
-        guard let podcast = podcast else { return }
-        
-        name = podcast.name
-        description = podcast.podcastDescription ?? ""
-        defaultFontName = podcast.defaultFontName ?? "Helvetica-Bold"
-        defaultFontSize = podcast.defaultFontSize
-        defaultTextPosition = ThumbnailGenerator.TextPosition.fromRelativePosition(
-            x: podcast.defaultTextPositionX,
-            y: podcast.defaultTextPositionY
-        )
-        defaultHorizontalPadding = podcast.defaultHorizontalPadding
-        defaultVerticalPadding = podcast.defaultVerticalPadding
-        
-        // Canvas settings
-        let canvasSize = NSSize(width: podcast.defaultCanvasWidth, height: podcast.defaultCanvasHeight)
-        if canvasSize == ThumbnailGenerator.CanvasResolution.hd1080.size {
-            defaultCanvasResolution = .hd1080
-        } else if canvasSize == ThumbnailGenerator.CanvasResolution.hd720.size {
-            defaultCanvasResolution = .hd720
-        } else if canvasSize == ThumbnailGenerator.CanvasResolution.uhd4k.size {
-            defaultCanvasResolution = .uhd4k
-        } else if canvasSize == ThumbnailGenerator.CanvasResolution.square1080.size {
-            defaultCanvasResolution = .square1080
-        } else {
-            defaultCanvasResolution = .custom
-            defaultCustomWidth = "\(Int(podcast.defaultCanvasWidth))"
-            defaultCustomHeight = "\(Int(podcast.defaultCanvasHeight))"
-        }
-        
-        defaultBackgroundScaling = ThumbnailGenerator.BackgroundScaling.allCases.first {
-            $0.rawValue == podcast.defaultBackgroundScaling
-        } ?? .aspectFill
-        
-        // Colors
-        if let hex = podcast.defaultFontColorHex, let color = Color(hex: hex) {
-            defaultFontColor = color
-        }
-        defaultOutlineEnabled = podcast.defaultOutlineEnabled
-        if let hex = podcast.defaultOutlineColorHex, let color = Color(hex: hex) {
-            defaultOutlineColor = color
-        }
-        
-        if let artworkData = podcast.artworkData {
-            artworkImage = ImageUtilities.loadImage(from: artworkData)
-        }
-        
-        if let overlayData = podcast.defaultOverlayData {
-            defaultOverlayImage = ImageUtilities.loadImage(from: overlayData)
-        }
     }
     
     // MARK: - Image Selection
     
-    private func selectArtworkImage() {
+    private func selectArtwork() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.image]
         panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.image]
         panel.message = "Select podcast artwork"
         
         panel.begin { response in
-            if response == .OK, let url = panel.url {
-                if let image = NSImage(contentsOf: url) {
-                    self.artworkImage = image
-                }
+            guard response == .OK, let url = panel.url else { return }
+            if let image = NSImage(contentsOf: url) {
+                artworkImage = image
             }
         }
     }
     
-    private func selectOverlayImage() {
+    private func selectOverlay() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.image]
         panel.allowsMultipleSelection = false
-        panel.message = "Select default overlay image"
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.image]
+        panel.message = "Select default thumbnail overlay"
         
         panel.begin { response in
-            if response == .OK, let url = panel.url {
-                if let image = NSImage(contentsOf: url) {
-                    self.defaultOverlayImage = image
-                }
+            guard response == .OK, let url = panel.url else { return }
+            if let image = NSImage(contentsOf: url) {
+                overlayImage = image
             }
         }
     }
     
     // MARK: - Save
+
+    
+    
+    // MARK: - Save
     
     private func savePodcast() {
-        let trimmedName = name.trimmingCharacters(in: .whitespaces)
-        guard !trimmedName.isEmpty else {
-            errorMessage = "Podcast name is required"
-            return
-        }
-        
-        let podcastToSave: Podcast
-        if let existingPodcast = podcast {
-            podcastToSave = existingPodcast
-        } else {
-            podcastToSave = Podcast(name: trimmedName)
-            modelContext.insert(podcastToSave)
-        }
-        
-        podcastToSave.name = trimmedName
-        podcastToSave.podcastDescription = description.isEmpty ? nil : description
-        podcastToSave.defaultFontName = defaultFontName
-        podcastToSave.defaultFontSize = defaultFontSize
-        podcastToSave.defaultTextPositionX = defaultTextPosition.relativePosition.x
-        podcastToSave.defaultTextPositionY = defaultTextPosition.relativePosition.y
-        podcastToSave.defaultHorizontalPadding = defaultHorizontalPadding
-        podcastToSave.defaultVerticalPadding = defaultVerticalPadding
-        
-        // Canvas settings
-        if defaultCanvasResolution == .custom {
-            if let width = Double(defaultCustomWidth), let height = Double(defaultCustomHeight) {
-                podcastToSave.defaultCanvasWidth = width
-                podcastToSave.defaultCanvasHeight = height
-            } else {
-                podcastToSave.defaultCanvasWidth = 1920
-                podcastToSave.defaultCanvasHeight = 1080
-            }
-        } else {
-            let size = defaultCanvasResolution.size
-            podcastToSave.defaultCanvasWidth = size.width
-            podcastToSave.defaultCanvasHeight = size.height
-        }
-        podcastToSave.defaultBackgroundScaling = defaultBackgroundScaling.rawValue
-        
-        // Colors
-        podcastToSave.defaultFontColorHex = defaultFontColor.toHexString()
-        podcastToSave.defaultOutlineEnabled = defaultOutlineEnabled
-        podcastToSave.defaultOutlineColorHex = defaultOutlineColor.toHexString()
-        
-        // Process and save artwork
-        if let artworkImage = artworkImage {
-            podcastToSave.artworkData = ImageUtilities.processImageForStorage(artworkImage)
-        } else {
-            podcastToSave.artworkData = nil
-        }
-        
-        // Process and save default overlay
-        if let overlayImage = defaultOverlayImage {
-            // Preserve transparency for overlay images (save as PNG instead of JPEG)
-            podcastToSave.defaultOverlayData = ImageUtilities.processImageForStorage(overlayImage, preserveTransparency: true)
-        } else {
-            podcastToSave.defaultOverlayData = nil
-        }
-        
         do {
-            try modelContext.save()
+            // Process images
+            let artworkData = artworkImage.flatMap { ImageUtilities.processImageForStorage($0) }
+            let overlayData = overlayImage.flatMap { ImageUtilities.processImageForStorage($0) }
+            
+            if let existingPodcast = podcast {
+                // Update existing podcast
+                let updated = PodcastPOCO(
+                    id: existingPodcast.id,
+                    name: name,
+                    podcastDescription: podcastDescription.isEmpty ? nil : podcastDescription,
+                    artworkData: artworkData ?? existingPodcast.artworkData,
+                    defaultOverlayData: overlayData ?? existingPodcast.defaultOverlayData,
+                    defaultFontName: selectedFontName,
+                    defaultFontSize: fontSize,
+                    defaultTextPositionX: textPositionX,
+                    defaultTextPositionY: textPositionY,
+                    defaultHorizontalPadding: horizontalPadding,
+                    defaultVerticalPadding: verticalPadding,
+                    defaultCanvasWidth: canvasWidth,
+                    defaultCanvasHeight: canvasHeight,
+                    defaultBackgroundScaling: backgroundScaling,
+                    defaultFontColorHex: fontColorHex,
+                    defaultOutlineEnabled: outlineEnabled,
+                    defaultOutlineColorHex: outlineColorHex,
+                    createdAt: existingPodcast.createdAt
+                )
+                try store.updatePodcast(updated)
+            } else {
+                // Create new podcast
+                let podcast = PodcastPOCO(
+                    name: name,
+                    podcastDescription: podcastDescription.isEmpty ? nil : podcastDescription,
+                    artworkData: artworkData,
+                    defaultOverlayData: overlayData,
+                    defaultFontName: selectedFontName,
+                    defaultFontSize: fontSize,
+                    defaultTextPositionX: textPositionX,
+                    defaultTextPositionY: textPositionY,
+                    defaultHorizontalPadding: horizontalPadding,
+                    defaultVerticalPadding: verticalPadding,
+                    defaultCanvasWidth: canvasWidth,
+                    defaultCanvasHeight: canvasHeight,
+                    defaultBackgroundScaling: backgroundScaling,
+                    defaultFontColorHex: fontColorHex,
+                    defaultOutlineEnabled: outlineEnabled,
+                    defaultOutlineColorHex: outlineColorHex
+                )
+                try store.addPodcast(podcast)
+            }
             dismiss()
         } catch {
-            errorMessage = "Failed to save: \(error.localizedDescription)"
+            errorMessage = error.localizedDescription
         }
     }
 }
-
 

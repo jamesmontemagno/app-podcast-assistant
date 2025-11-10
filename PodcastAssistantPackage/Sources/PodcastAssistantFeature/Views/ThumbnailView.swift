@@ -1,564 +1,448 @@
 import SwiftUI
-import SwiftData
+import AppKit
 
-/// View for generating podcast thumbnails
-public struct ThumbnailView: View {
-    @Environment(\.modelContext) private var modelContext
-    let episode: Episode
-    
-    public init(episode: Episode) {
-        self.episode = episode
-    }
-    
-    public var body: some View {
-        ThumbnailViewContent(episode: episode, modelContext: modelContext)
-    }
-}
+// MARK: - Thumbnail Section
 
-/// Inner view that can use StateObject with injected modelContext
-private struct ThumbnailViewContent: View {
-    let episode: Episode
-    let modelContext: ModelContext
-    @StateObject private var viewModel: ThumbnailViewModel
+struct ThumbnailView: View {
+    let episode: EpisodePOCO
+    let podcast: PodcastPOCO
+    let store: PodcastLibraryStore
+    @Binding var viewModel: ThumbnailViewModel?
+    
     @State private var previewZoom: CGFloat = 1.0
     @State private var fitToWindow: Bool = true
-    @State private var showingUnsavedChangesAlert = false
     
-    init(episode: Episode, modelContext: ModelContext) {
+    init(episode: EpisodePOCO, podcast: PodcastPOCO, store: PodcastLibraryStore, viewModel: Binding<ThumbnailViewModel?>) {
         self.episode = episode
-        self.modelContext = modelContext
-        _viewModel = StateObject(wrappedValue: ThumbnailViewModel(
-            episode: episode,
-            context: modelContext
-        ))
+        self.podcast = podcast
+        self.store = store
+        self._viewModel = viewModel
     }
     
     var body: some View {
+        Group {
+            if let viewModel = viewModel {
+                contentView(viewModel: viewModel)
+            } else {
+                ProgressView("Loading...")
+                    .onAppear {
+                        self.viewModel = ThumbnailViewModel(episode: episode, store: store)
+                    }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func contentView(viewModel: ThumbnailViewModel) -> some View {
         GeometryReader { geometry in
-            HSplitView {
-                // Left Panel - Controls (30% of width, min 280, max 350)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        // Images Section
-                        GroupBox(label: Label("Images", systemImage: "photo")) {
-                            VStack(spacing: 12) {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text("Background Image")
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                    
-                                    HStack(spacing: 6) {
-                                        Button(action: viewModel.importBackgroundImage) {
-                                            Label(viewModel.backgroundImage == nil ? "Select" : "Change", systemImage: "photo")
-                                        }
-                                        .buttonStyle(.glass)
-                                        
-                                        Button(action: viewModel.pasteBackgroundFromClipboard) {
-                                            Label("Paste", systemImage: "doc.on.clipboard")
-                                        }
-                                        .buttonStyle(.glass)
-                                    }
-                                    
-                                    if viewModel.backgroundImage != nil {
-                                        HStack {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .foregroundColor(.green)
-                                            Text("Background loaded")
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                        }
-                                    }
-                                }
-                                
-                                Divider()
-                                
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text("Overlay Image (Optional)")
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                    
-                                    HStack(spacing: 6) {
-                                        Button(action: viewModel.importOverlayImage) {
-                                            Label(viewModel.overlayImage == nil ? "Select" : "Change", systemImage: "square.on.square")
-                                        }
-                                        .buttonStyle(.glass)
-                                        
-                                        Button(action: viewModel.pasteOverlayFromClipboard) {
-                                            Label("Paste", systemImage: "doc.on.clipboard")
-                                        }
-                                        .buttonStyle(.glass)
-                                        
-                                        if viewModel.overlayImage != nil {
-                                            Button(action: viewModel.removeOverlayImage) {
-                                                Label("Remove", systemImage: "trash")
-                                            }
-                                            .buttonStyle(.glass)
-                                            .foregroundColor(.red)
-                                        }
-                                    }
-                                    
-                                    if viewModel.overlayImage != nil {
-                                        HStack {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .foregroundColor(.green)
-                                            Text("Overlay loaded")
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                        }
-                                    }
-                                }
-                            }
-                            .padding(.vertical, 6)
-                        }
-                        
-                        // Canvas Settings Section
-                        GroupBox(label: Label("Canvas", systemImage: "rectangle.dashed")) {
-                            VStack(alignment: .leading, spacing: 10) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Resolution")
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                    Picker("Resolution", selection: $viewModel.selectedResolution) {
-                                        ForEach(ThumbnailGenerator.CanvasResolution.allCases) { resolution in
-                                            Text(resolution.rawValue).tag(resolution)
-                                        }
-                                    }
-                                    .labelsHidden()
-                                }
-                                
-                                if viewModel.selectedResolution == .custom {
-                                    HStack(spacing: 8) {
-                                        TextField("Width", text: $viewModel.customWidth)
-                                            .textFieldStyle(.roundedBorder)
-                                            .frame(width: 80)
-                                        Text("×")
-                                            .foregroundStyle(.secondary)
-                                        TextField("Height", text: $viewModel.customHeight)
-                                            .textFieldStyle(.roundedBorder)
-                                            .frame(width: 80)
-                                    }
-                                }
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Background Scaling")
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                    Picker("Scaling", selection: $viewModel.backgroundScaling) {
-                                        ForEach(ThumbnailGenerator.BackgroundScaling.allCases) { scaling in
-                                            Text(scaling.rawValue).tag(scaling)
-                                        }
-                                    }
-                                    .labelsHidden()
-                                }
-                            }
-                            .padding(.vertical, 6)
-                        }
-                        
-                        // Text & Styling Section
-                        GroupBox(label: Label("Text & Styling", systemImage: "textformat")) {
-                            VStack(alignment: .leading, spacing: 12) {
-                                // Episode Number
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Episode Number")
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                    TextField("e.g., EP 42 or 42", text: $viewModel.episodeNumber)
-                                        .textFieldStyle(.roundedBorder)
-                                }
-                                
-                                Divider()
-                                
-                                // Typography Section
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Typography")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .textCase(.uppercase)
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Font")
-                                            .font(.subheadline)
-                                            .fontWeight(.medium)
-                                        Picker("Font", selection: $viewModel.selectedFont) {
-                                            ForEach(viewModel.availableFonts, id: \.self) { font in
-                                                Text(font.replacingOccurrences(of: "-Bold", with: ""))
-                                                    .tag(font)
-                                            }
-                                        }
-                                        .labelsHidden()
-                                        
-                                        Button(action: viewModel.loadCustomFont) {
-                                            Label("Load Custom Font", systemImage: "plus.circle")
-                                                .font(.caption)
-                                        }
-                                        .buttonStyle(.glass)
-                                        .help("Load a custom .ttf or .otf font file")
-                                    }
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        HStack {
-                                            Text("Size")
-                                                .font(.subheadline)
-                                                .fontWeight(.medium)
-                                            Spacer()
-                                            Text("\(Int(viewModel.fontSize))")
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                        }
-                                        Slider(value: $viewModel.fontSize, in: 24...200, step: 4)
-                                    }
-                                }
-                                
-                                Divider()
-                                
-                                // Colors Section
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Colors")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .textCase(.uppercase)
-                                    
-                                    HStack {
-                                        Text("Font Color")
-                                            .font(.subheadline)
-                                            .fontWeight(.medium)
-                                        Spacer()
-                                        ColorPicker("", selection: $viewModel.fontColor, supportsOpacity: false)
-                                            .labelsHidden()
-                                    }
-                                    
-                                    HStack {
-                                        Toggle(isOn: $viewModel.outlineEnabled) {
-                                            Text("Outline")
-                                                .font(.subheadline)
-                                                .fontWeight(.medium)
-                                        }
-                                        .toggleStyle(.switch)
-                                    }
-                                    
-                                    if viewModel.outlineEnabled {
-                                        HStack {
-                                            Text("Outline Color")
-                                                .font(.subheadline)
-                                                .fontWeight(.medium)
-                                            Spacer()
-                                            ColorPicker("", selection: $viewModel.outlineColor, supportsOpacity: false)
-                                                .labelsHidden()
-                                        }
-                                        .padding(.leading, 8)
-                                    }
-                                }
-                                
-                                Divider()
-                                
-                                // Layout Section
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Layout")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .textCase(.uppercase)
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Position")
-                                            .font(.subheadline)
-                                            .fontWeight(.medium)
-                                        Picker("Position", selection: $viewModel.episodeNumberPosition) {
-                                            ForEach(ThumbnailGenerator.TextPosition.allCases) { position in
-                                                Text(position.rawValue).tag(position)
-                                            }
-                                        }
-                                        .labelsHidden()
-                                    }
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        HStack {
-                                            Text("H-Padding")
-                                                .font(.subheadline)
-                                                .fontWeight(.medium)
-                                            Spacer()
-                                            Text("\(Int(viewModel.horizontalPadding))")
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                        }
-                                        Slider(value: $viewModel.horizontalPadding, in: 0...200, step: 5)
-                                    }
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        HStack {
-                                            Text("V-Padding")
-                                                .font(.subheadline)
-                                                .fontWeight(.medium)
-                                            Spacer()
-                                            Text("\(Int(viewModel.verticalPadding))")
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                        }
-                                        Slider(value: $viewModel.verticalPadding, in: 0...200, step: 5)
-                                    }
-                                }
-                            }
-                            .padding(.vertical, 6)
-                        }
-                        
-                        // Messages (compact)
-                        if let error = viewModel.errorMessage {
-                            HStack(spacing: 6) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .font(.caption)
-                                    .foregroundColor(.red)
-                                Text(error)
-                                    .font(.caption2)
-                                    .foregroundColor(.red)
-                            }
-                            .padding(8)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.red.opacity(0.1))
-                            .cornerRadius(6)
-                        }
-                        
-                        if let success = viewModel.successMessage {
-                            HStack(spacing: 6) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.caption)
-                                    .foregroundColor(.green)
-                                Text(success)
-                                    .font(.caption2)
-                                    .foregroundColor(.green)
-                            }
-                            .padding(8)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.green.opacity(0.1))
-                            .cornerRadius(6)
-                        }
-                    }
-                    .padding()
-                }
-                .frame(minWidth: 280, idealWidth: 320, maxWidth: 350)
-                .background(Color(NSColor.controlBackgroundColor))
+            let totalWidth = geometry.size.width - 48
+            let leftWidth = totalWidth * 0.35
+            let rightWidth = totalWidth * 0.65
+            
+            HStack(spacing: 16) {
+                // Left Panel - Controls
+                leftPanel(viewModel: viewModel, width: leftWidth)
                 
-                // Right Panel - Preview (70% of width, flexible)
-                VStack(spacing: 0) {
-                    // Header with zoom controls
-                    HStack {
-                        Text("Preview")
-                            .font(.headline)
-                        
-                        Spacer()
-                        
-                        if viewModel.generatedThumbnail != nil {
-                            // Zoom controls
-                            HStack(spacing: 8) {
-                                Button {
-                                    fitToWindow.toggle()
-                                    if fitToWindow {
-                                        previewZoom = 1.0
-                                    }
-                                } label: {
-                                    Image(systemName: fitToWindow ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                                }
-                                .buttonStyle(.borderless)
-                                .help(fitToWindow ? "Manual zoom" : "Fit to window")
-                                
-                                if !fitToWindow {
-                                    Button {
-                                        previewZoom = max(0.25, previewZoom - 0.25)
-                                    } label: {
-                                        Image(systemName: "minus.magnifyingglass")
-                                    }
-                                    .buttonStyle(.borderless)
-                                    .disabled(previewZoom <= 0.25)
-                                    .help("Zoom out")
-                                    
-                                    Text("\(Int(previewZoom * 100))%")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .frame(minWidth: 40)
-                                    
-                                    Button {
-                                        previewZoom = min(4.0, previewZoom + 0.25)
-                                    } label: {
-                                        Image(systemName: "plus.magnifyingglass")
-                                    }
-                                    .buttonStyle(.borderless)
-                                    .disabled(previewZoom >= 4.0)
-                                    .help("Zoom in")
-                                    
-                                    Button {
-                                        previewZoom = 1.0
-                                    } label: {
-                                        Image(systemName: "arrow.counterclockwise")
-                                    }
-                                    .buttonStyle(.borderless)
-                                    .help("Reset zoom")
-                                }
-                            }
-                            
-                            Text("•")
-                                .foregroundStyle(.secondary)
-                            
-                            if let thumbnail = viewModel.generatedThumbnail {
-                                Text("\(Int(thumbnail.size.width)) × \(Int(thumbnail.size.height))")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color(NSColor.controlBackgroundColor))
-                    
-                    Divider()
-                    
-                    // Preview content
-                    if viewModel.isLoading {
-                        VStack(spacing: 16) {
-                            ProgressView()
-                                .scaleEffect(1.5)
-                            
-                            Text("Generating thumbnail...")
-                                .foregroundColor(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color(NSColor.textBackgroundColor).opacity(0.3))
-                    } else if let thumbnail = viewModel.generatedThumbnail {
-                        if fitToWindow {
-                            // Fit to window mode - fills available space
-                            GeometryReader { geometry in
-                                Image(nsImage: thumbnail)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(width: geometry.size.width, height: geometry.size.height)
-                            }
-                            .background(Color.black.opacity(0.05))
-                        } else {
-                            // Manual zoom mode - scrollable with zoom control
-                            ScrollView([.horizontal, .vertical]) {
-                                Image(nsImage: thumbnail)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .scaleEffect(previewZoom)
-                                    .padding()
-                            }
-                            .background(Color.black.opacity(0.05))
-                        }
-                    } else {
-                        VStack(spacing: 16) {
-                            Image(systemName: "photo.on.rectangle.angled")
-                                .font(.system(size: 64))
-                                .foregroundColor(.secondary)
-                            
-                            Text("Generated thumbnail will appear here")
-                                .foregroundColor(.secondary)
-                            
-                            Text("Select a background image and tap Generate")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color(NSColor.textBackgroundColor).opacity(0.3))
-                    }
-                }
-                .frame(minWidth: 400)
+                // Right Panel - Preview
+                rightPanel(viewModel: viewModel, width: rightWidth)
             }
-        }
-        .toolbar {
-            // Save/Discard buttons with unsaved changes indicator
-            ToolbarItemGroup(placement: .primaryAction) {
-                if viewModel.hasUnsavedChanges {
-                    HStack(spacing: 4) {
-                        Image(systemName: "circle.fill")
-                            .foregroundColor(.orange)
-                            .font(.system(size: 8))
-                            .help("Unsaved changes")
-                        
-                        Button(action: viewModel.discardChanges) {
-                            Label("Discard", systemImage: "arrow.uturn.backward")
-                        }
-                        .buttonStyle(.glass)
-                        .help("Discard changes")
-                        
-                        Button(action: viewModel.saveChanges) {
-                            Label("Save", systemImage: "square.and.arrow.down")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .help("Save changes")
-                    }
-                    
-                    Divider()
-                }
-            }
-            
-            ToolbarItem(placement: .primaryAction) {
-                Button(action: viewModel.generateThumbnail) {
-                    Label("Generate", systemImage: "wand.and.stars")
-                }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.glass)
-                .disabled(viewModel.backgroundImage == nil)
-                .help("Generate thumbnail")
-            }
-            
-            ToolbarItem(placement: .primaryAction) {
-                Spacer()
-            }
-            
-            ToolbarItem(placement: .primaryAction) {
-                Button(action: viewModel.exportThumbnail) {
-                    Label("Export", systemImage: "arrow.up.doc")
-                }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.glass)
-                .disabled(viewModel.generatedThumbnail == nil)
-                .help("Export thumbnail")
-            }
-            
-            ToolbarItem(placement: .primaryAction) {
-                Spacer()
-            }
-            
-            ToolbarItem(placement: .primaryAction) {
-                Button(action: viewModel.clear) {
-                    Label("Clear", systemImage: "trash")
-                }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.glass)
-                .help("Clear all")
-            }
-        }
-        .alert("Unsaved Changes", isPresented: $showingUnsavedChangesAlert) {
-            Button("Save") {
-                viewModel.saveChanges()
-            }
-            Button("Discard", role: .destructive) {
-                viewModel.discardChanges()
-            }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("You have unsaved changes. Do you want to save them before continuing?")
+            .padding(16)
         }
         .onAppear {
-            // Trigger initial generation with delay when view appears
-            viewModel.performInitialGeneration()
+            viewModel.loadInitialData()
         }
-        .onDisappear {
-            // Check for unsaved changes when view is about to disappear
-            if viewModel.hasUnsavedChanges {
-                showingUnsavedChangesAlert = true
+    }
+    
+    @ViewBuilder
+    private func leftPanel(viewModel: ThumbnailViewModel, width: CGFloat) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                imagesSection(viewModel: viewModel)
+                canvasSection(viewModel: viewModel)
+                textStylingSection(viewModel: viewModel)
+                messagesSection(viewModel: viewModel)
+            }
+            .padding(20)
+        }
+        .frame(width: width)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(12)
+    }
+    
+    @ViewBuilder
+    private func rightPanel(viewModel: ThumbnailViewModel, width: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("Preview")
+                    .font(.headline)
+                
+                Spacer()
+                
+                if viewModel.generatedThumbnail != nil {
+                    HStack(spacing: 8) {
+                        Button {
+                            fitToWindow.toggle()
+                            if fitToWindow {
+                                previewZoom = 1.0
+                            }
+                        } label: {
+                            Image(systemName: fitToWindow ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                        }
+                        .buttonStyle(.borderless)
+                        .help(fitToWindow ? "Manual zoom" : "Fit to window")
+                        
+                        if !fitToWindow {
+                            Button {
+                                previewZoom = max(0.25, previewZoom - 0.25)
+                            } label: {
+                                Image(systemName: "minus.magnifyingglass")
+                            }
+                            .buttonStyle(.borderless)
+                            
+                            Text("\(Int(previewZoom * 100))%")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Button {
+                                previewZoom = min(4.0, previewZoom + 0.25)
+                            } label: {
+                                Image(systemName: "plus.magnifyingglass")
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                    }
+                    
+                    Text("•")
+                        .foregroundStyle(.secondary)
+                    
+                    if let thumbnail = viewModel.generatedThumbnail {
+                        Text("\(Int(thumbnail.size.width)) × \(Int(thumbnail.size.height))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .padding(12)
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
+            
+            // Preview content
+            if viewModel.isLoading {
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                    Text("Generating thumbnail...")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.black.opacity(0.05))
+            } else if let thumbnail = viewModel.generatedThumbnail {
+                if fitToWindow {
+                    GeometryReader { geo in
+                        Image(nsImage: thumbnail)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: geo.size.width, height: geo.size.height)
+                    }
+                    .background(Color.black.opacity(0.05))
+                } else {
+                    ScrollView([.horizontal, .vertical]) {
+                        Image(nsImage: thumbnail)
+                            .resizable()
+                            .frame(width: thumbnail.size.width * previewZoom, height: thumbnail.size.height * previewZoom)
+                    }
+                    .background(Color.black.opacity(0.05))
+                }
+            } else {
+                VStack(spacing: 16) {
+                    Image(systemName: "photo.on.rectangle.angled")
+                        .font(.system(size: 60))
+                        .foregroundColor(.secondary)
+                    Text("Generated thumbnail will appear here")
+                        .foregroundColor(.secondary)
+                    Text("Select a background image and tap Generate")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.black.opacity(0.05))
             }
         }
-        .focusedSceneValue(\.thumbnailActions, ThumbnailActions(
-            importBackground: viewModel.importBackgroundImage,
-            importOverlay: viewModel.importOverlayImage,
-            pasteBackground: viewModel.pasteBackgroundFromClipboard,
-            pasteOverlay: viewModel.pasteOverlayFromClipboard,
-            generateThumbnail: viewModel.generateThumbnail,
-            exportThumbnail: viewModel.exportThumbnail,
-            clearThumbnail: viewModel.clear
-        ))
-        .focusedSceneValue(\.canPerformThumbnailActions, ThumbnailActionCapabilities(
-            canGenerate: viewModel.backgroundImage != nil,
-            canExport: viewModel.generatedThumbnail != nil,
-            canClear: viewModel.backgroundImage != nil || viewModel.overlayImage != nil || viewModel.generatedThumbnail != nil
-        ))
+        .frame(width: width)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(12)
+    }
+    
+    @ViewBuilder
+    private func imagesSection(viewModel: ThumbnailViewModel) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Images")
+                .font(.headline)
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Background Image")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                
+                HStack(spacing: 8) {
+                    Button(action: viewModel.importBackgroundImage) {
+                        Label(viewModel.backgroundImage == nil ? "Select" : "Change", systemImage: "photo")
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    Button(action: viewModel.pasteBackgroundFromClipboard) {
+                        Label("Paste", systemImage: "doc.on.clipboard")
+                    }
+                    .buttonStyle(.bordered)
+                }
+                
+                if viewModel.backgroundImage != nil {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text("Background loaded")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            
+            Divider()
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Overlay Image (Optional)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                
+                HStack(spacing: 8) {
+                    Button(action: viewModel.importOverlayImage) {
+                        Label(viewModel.overlayImage == nil ? "Select" : "Change", systemImage: "square.on.square")
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    Button(action: viewModel.pasteOverlayFromClipboard) {
+                        Label("Paste", systemImage: "doc.on.clipboard")
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    if viewModel.overlayImage != nil {
+                        Button(action: viewModel.removeOverlayImage) {
+                            Label("Remove", systemImage: "trash")
+                        }
+                        .buttonStyle(.bordered)
+                        .foregroundColor(.red)
+                    }
+                }
+                
+                if viewModel.overlayImage != nil {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text("Overlay loaded")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+        .cornerRadius(10)
+    }
+    
+    @ViewBuilder
+    private func canvasSection(viewModel: ThumbnailViewModel) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Canvas")
+                .font(.headline)
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Resolution")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Picker("Resolution", selection: Binding(get: { viewModel.selectedResolution }, set: { viewModel.selectedResolution = $0 })) {
+                    ForEach(ThumbnailGenerator.CanvasResolution.allCases) { resolution in
+                        Text(resolution.rawValue).tag(resolution)
+                    }
+                }
+                .labelsHidden()
+                
+                if viewModel.selectedResolution == .custom {
+                    HStack(spacing: 8) {
+                        TextField("Width", text: Binding(get: { viewModel.customWidth }, set: { viewModel.customWidth = $0 }))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
+                        Text("×")
+                            .foregroundStyle(.secondary)
+                        TextField("Height", text: Binding(get: { viewModel.customHeight }, set: { viewModel.customHeight = $0 }))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
+                    }
+                }
+                
+                Text("Background Scaling")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Picker("Scaling", selection: Binding(get: { viewModel.backgroundScaling }, set: { viewModel.backgroundScaling = $0 })) {
+                    ForEach(ThumbnailGenerator.BackgroundScaling.allCases) { scaling in
+                        Text(scaling.rawValue).tag(scaling)
+                    }
+                }
+                .labelsHidden()
+            }
+        }
+        .padding(16)
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+        .cornerRadius(10)
+    }
+    
+    @ViewBuilder
+    private func textStylingSection(viewModel: ThumbnailViewModel) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Text & Styling")
+                .font(.headline)
+            
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Episode Number")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    TextField("e.g., EP 42 or 42", text: Binding(get: { viewModel.episodeNumber }, set: { viewModel.episodeNumber = $0 }))
+                        .textFieldStyle(.roundedBorder)
+                }
+                
+                Divider()
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Font")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Picker("Font", selection: Binding(get: { viewModel.selectedFont }, set: { viewModel.selectedFont = $0 })) {
+                        ForEach(viewModel.availableFonts, id: \.self) { font in
+                            Text(font.replacingOccurrences(of: "-Bold", with: ""))
+                                .tag(font)
+                        }
+                    }
+                    .labelsHidden()
+                    
+                    HStack {
+                        Text("Size")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("\(Int(viewModel.fontSize))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Slider(value: Binding(get: { viewModel.fontSize }, set: { viewModel.fontSize = $0 }), in: 24...200, step: 4)
+                }
+                
+                Divider()
+                
+                HStack {
+                    Text("Font Color")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    ColorPicker("", selection: Binding(get: { viewModel.fontColor }, set: { viewModel.fontColor = $0 }), supportsOpacity: false)
+                        .labelsHidden()
+                }
+                
+                Toggle(isOn: Binding(get: { viewModel.outlineEnabled }, set: { viewModel.outlineEnabled = $0 })) {
+                    Text("Outline")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                
+                if viewModel.outlineEnabled {
+                    HStack {
+                        Text("Outline Color")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        ColorPicker("", selection: Binding(get: { viewModel.outlineColor }, set: { viewModel.outlineColor = $0 }), supportsOpacity: false)
+                            .labelsHidden()
+                    }
+                    .padding(.leading, 8)
+                }
+                
+                Divider()
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Position")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Picker("Position", selection: Binding(get: { viewModel.episodeNumberPosition }, set: { viewModel.episodeNumberPosition = $0 })) {
+                        ForEach(ThumbnailGenerator.TextPosition.allCases) { position in
+                            Text(position.rawValue).tag(position)
+                        }
+                    }
+                    .labelsHidden()
+                    
+                    HStack {
+                        Text("H-Padding")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("\(Int(viewModel.horizontalPadding))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Slider(value: Binding(get: { viewModel.horizontalPadding }, set: { viewModel.horizontalPadding = $0 }), in: 0...200, step: 5)
+                    
+                    HStack {
+                        Text("V-Padding")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("\(Int(viewModel.verticalPadding))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Slider(value: Binding(get: { viewModel.verticalPadding }, set: { viewModel.verticalPadding = $0 }), in: 0...200, step: 5)
+                }
+            }
+        }
+        .padding(16)
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+        .cornerRadius(10)
+    }
+    
+    @ViewBuilder
+    private func messagesSection(viewModel: ThumbnailViewModel) -> some View {
+        Group {
+            if let error = viewModel.errorMessage {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.red.opacity(0.1))
+                .cornerRadius(8)
+            }
+            
+            if let success = viewModel.successMessage {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                    Text(success)
+                        .font(.caption)
+                        .foregroundColor(.green)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(8)
+            }
+        }
     }
 }

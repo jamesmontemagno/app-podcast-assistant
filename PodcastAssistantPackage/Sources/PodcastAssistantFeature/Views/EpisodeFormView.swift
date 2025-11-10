@@ -1,176 +1,147 @@
 import SwiftUI
-import SwiftData
 
-/// Form view for creating or editing an episode
+/// Form for creating or editing an episode
 public struct EpisodeFormView: View {
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
-    // Parent podcast (required for new episodes)
-    public let podcast: Podcast
+    let episode: EpisodePOCO? // nil for new episode
+    let podcast: PodcastPOCO
+    let store: PodcastLibraryStore
     
-    // Editing existing episode (nil for new episode)
-    public let episode: Episode?
-    
-    // Form fields
     @State private var title: String = ""
-    @State private var episodeNumber: Int = 1
+    @State private var episodeNumber: String = ""
+    @State private var episodeDescription: String = ""
     @State private var publishDate: Date = Date()
-    
-    // UI state
     @State private var errorMessage: String?
     
-    public init(podcast: Podcast, episode: Episode? = nil) {
-        self.podcast = podcast
+    public init(episode: EpisodePOCO? = nil, podcast: PodcastPOCO, store: PodcastLibraryStore) {
         self.episode = episode
+        self.podcast = podcast
+        self.store = store
+        
+        if let episode = episode {
+            // Editing existing episode
+            _title = State(initialValue: episode.title)
+            _episodeNumber = State(initialValue: "\(episode.episodeNumber)")
+            _episodeDescription = State(initialValue: episode.episodeDescription ?? "")
+            _publishDate = State(initialValue: episode.publishDate)
+        } else {
+            // Creating new episode - auto-suggest next episode number
+            let existingEpisodes = store.getEpisodes(for: podcast.id)
+            if let maxNumber = existingEpisodes.map(\.episodeNumber).max() {
+                _episodeNumber = State(initialValue: "\(maxNumber + 1)")
+            } else {
+                _episodeNumber = State(initialValue: "1")
+            }
+        }
+    }
+    
+    private var isEditMode: Bool {
+        episode != nil
     }
     
     public var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack {
-                Image(systemName: episode == nil ? "plus.circle.fill" : "pencil.circle.fill")
-                    .foregroundColor(.blue)
-                    .font(.title2)
-                Text(episode == nil ? "New Episode" : "Edit Episode")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                Spacer()
-            }
-            .padding(20)
+        VStack(spacing: 20) {
+            Text(isEditMode ? "Edit Episode" : "New Episode")
+                .font(.title)
             
-            Divider()
+            Text("Podcast: \(podcast.name)")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             
-            // Form content
             Form {
-                Section("Episode Information") {
-                    TextField("Episode Title", text: $title)
-                    
-                    HStack {
-                        Text("Episode Number")
-                        Spacer()
-                        TextField("", value: $episodeNumber, format: .number)
-                            .frame(width: 80)
-                            .textFieldStyle(.roundedBorder)
-                        Stepper("", value: $episodeNumber, in: 1...9999)
-                            .labelsHidden()
-                    }
-                    
-                    DatePicker("Publish Date", selection: $publishDate, displayedComponents: [.date])
-                }
+                TextField("Episode Title", text: $title)
+                    .textFieldStyle(.roundedBorder)
                 
-                Section {
-                    Text("Default thumbnail settings will be copied from '\(podcast.name)'")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        if let fontName = podcast.defaultFontName {
-                            Text("Font: \(fontName), Size: \(Int(podcast.defaultFontSize))")
-                        }
-                        Text("Position: X=\(podcast.defaultTextPositionX, specifier: "%.2f"), Y=\(podcast.defaultTextPositionY, specifier: "%.2f")")
-                    }
+                TextField("Episode Number", text: $episodeNumber)
+                    .textFieldStyle(.roundedBorder)
+                
+                DatePicker("Release Date", selection: $publishDate, displayedComponents: [.date])
+                
+                TextField("Description (Optional)", text: $episodeDescription, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(3...6)
+            }
+            .padding()
+            
+            if let error = errorMessage {
+                Text(error)
+                    .foregroundStyle(.red)
                     .font(.caption)
-                    .foregroundColor(.secondary)
-                } header: {
-                    Text("Default Settings")
-                }
-            }
-            .formStyle(.grouped)
-            .scrollContentBackground(.hidden)
-            
-            // Error message
-            if let errorMessage = errorMessage {
-                Divider()
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.red)
-                    Text(errorMessage)
-                        .foregroundColor(.red)
-                        .font(.callout)
-                    Spacer()
-                }
-                .padding(16)
-                .background(Color.red.opacity(0.1))
             }
             
-            // Action buttons at bottom
-            Divider()
-            
-            HStack(spacing: 12) {
+            HStack {
                 Button("Cancel") {
                     dismiss()
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
                 .keyboardShortcut(.cancelAction)
                 
                 Spacer()
                 
-                Button("Save") {
+                Button(isEditMode ? "Save" : "Create") {
                     saveEpisode()
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
                 .keyboardShortcut(.defaultAction)
-                .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(title.isEmpty || episodeNumber.isEmpty)
             }
-            .padding(16)
-            .background(Color(NSColor.windowBackgroundColor))
+            .padding()
         }
-        .frame(minWidth: 450, idealWidth: 500, minHeight: 350, idealHeight: 400)
-        .onAppear {
-            loadExistingData()
-        }
+        .frame(width: 450, height: 350)
+        .padding()
     }
-    
-    // MARK: - Data Loading
-    
-    private func loadExistingData() {
-        if let episode = episode {
-            title = episode.title
-            episodeNumber = Int(episode.episodeNumber)
-            publishDate = episode.publishDate
-        } else {
-            // Suggest next episode number
-            let existingEpisodes = podcast.episodes
-            if let maxNumber = existingEpisodes.map({ $0.episodeNumber }).max() {
-                episodeNumber = Int(maxNumber) + 1
-            }
-        }
-    }
-    
-    // MARK: - Save
     
     private func saveEpisode() {
-        let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
-        guard !trimmedTitle.isEmpty else {
-            errorMessage = "Episode title is required"
+        guard let number = Int32(episodeNumber) else {
+            errorMessage = "Episode number must be a valid number"
             return
         }
         
-        let episodeToSave: Episode
-        if let existingEpisode = episode {
-            episodeToSave = existingEpisode
-        } else {
-            // SwiftData init automatically copies defaults from podcast
-            episodeToSave = Episode(
-                title: trimmedTitle,
-                episodeNumber: Int32(episodeNumber),
-                podcast: podcast
-            )
-            modelContext.insert(episodeToSave)
-        }
-        
-        episodeToSave.title = trimmedTitle
-        episodeToSave.episodeNumber = Int32(episodeNumber)
-        episodeToSave.publishDate = publishDate
-        
         do {
-            try modelContext.save()
+            if let existingEpisode = episode {
+                // Update existing episode
+                let updated = EpisodePOCO(
+                    id: existingEpisode.id,
+                    podcastID: podcast.id,
+                    title: title,
+                    episodeNumber: number,
+                    podcast: podcast,
+                    episodeDescription: episodeDescription.isEmpty ? nil : episodeDescription,
+                    transcriptInputText: existingEpisode.transcriptInputText,
+                    srtOutputText: existingEpisode.srtOutputText,
+                    createdAt: existingEpisode.createdAt,
+                    publishDate: publishDate,
+                    thumbnailBackgroundData: existingEpisode.thumbnailBackgroundData,
+                    thumbnailOverlayData: existingEpisode.thumbnailOverlayData,
+                    thumbnailOutputData: existingEpisode.thumbnailOutputData,
+                    fontName: existingEpisode.fontName,
+                    fontSize: existingEpisode.fontSize,
+                    textPositionX: existingEpisode.textPositionX,
+                    textPositionY: existingEpisode.textPositionY,
+                    horizontalPadding: existingEpisode.horizontalPadding,
+                    verticalPadding: existingEpisode.verticalPadding,
+                    canvasWidth: existingEpisode.canvasWidth,
+                    canvasHeight: existingEpisode.canvasHeight,
+                    backgroundScaling: existingEpisode.backgroundScaling,
+                    fontColorHex: existingEpisode.fontColorHex,
+                    outlineEnabled: existingEpisode.outlineEnabled,
+                    outlineColorHex: existingEpisode.outlineColorHex
+                )
+                try store.updateEpisode(updated)
+            } else {
+                // Create new episode
+                let newEpisode = EpisodePOCO(
+                    podcastID: podcast.id,
+                    title: title,
+                    episodeNumber: number,
+                    podcast: podcast,
+                    episodeDescription: episodeDescription.isEmpty ? nil : episodeDescription,
+                    publishDate: publishDate
+                )
+                try store.addEpisode(newEpisode, to: podcast)
+            }
             dismiss()
         } catch {
-            errorMessage = "Failed to save: \(error.localizedDescription)"
+            errorMessage = error.localizedDescription
         }
     }
 }

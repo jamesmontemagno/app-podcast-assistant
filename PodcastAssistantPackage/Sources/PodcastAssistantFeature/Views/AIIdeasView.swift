@@ -1,188 +1,98 @@
 import SwiftUI
-import SwiftData
 
-/// View for AI-powered content generation from episode transcripts
-public struct AIIdeasView: View {
-    @Environment(\.modelContext) private var modelContext
-    let episode: Episode
-    
-    public init(episode: Episode) {
-        self.episode = episode
-    }
-    
-    public var body: some View {
-        AIIdeasViewContent(episode: episode, modelContext: modelContext)
-    }
-}
+// MARK: - AI Ideas Section
 
-/// Inner view that can use StateObject with injected modelContext
-private struct AIIdeasViewContent: View {
-    let episode: Episode
-    let modelContext: ModelContext
+@available(macOS 26.0, *)
+struct AIIdeasView: View {
+    let episode: EpisodePOCO
+    let podcast: PodcastPOCO
+    let store: PodcastLibraryStore
     @StateObject private var viewModel: AIIdeasViewModel
     
-    init(episode: Episode, modelContext: ModelContext) {
+    init(episode: EpisodePOCO, podcast: PodcastPOCO, store: PodcastLibraryStore) {
         self.episode = episode
-        self.modelContext = modelContext
-        _viewModel = StateObject(wrappedValue: AIIdeasViewModel(
-            episode: episode,
-            context: modelContext
-        ))
+        self.podcast = podcast
+        self.store = store
+        _viewModel = StateObject(wrappedValue: AIIdeasViewModel(episode: episode, store: store))
     }
     
     var body: some View {
-        GeometryReader { geometry in
-            VStack(spacing: 0) {
-                if !viewModel.modelAvailable {
-                    // Show unavailable message
-                    unavailableView
-                } else if episode.hasTranscriptData == false {
-                    // Show no transcript message
-                    ContentUnavailableView(
-                        "No Transcript Available",
-                        systemImage: "doc.text.fill.badge.questionmark",
-                        description: Text("Add a transcript to this episode first to generate AI content ideas.")
-                    )
-                } else {
-                    // Main content
-                    ScrollView {
-                        VStack(spacing: 16) {
-                            // Title Suggestions Section
-                            titleSuggestionsSection
-                            
-                            Divider()
-                            
-                            // Description Generator Section
-                            descriptionSection
-                            
-                            Divider()
-                            
-                            // Social Posts Section
-                            socialPostsSection
-                            
-                            Divider()
-                            
-                            // Chapter Markers Section
-                            chaptersSection
-                        }
-                        .padding()
-                    }
-                    .frame(maxHeight: .infinity)
-                    
-                    // Error/Status Messages at bottom
-                    if let error = viewModel.errorMessage {
+        VStack(spacing: 0) {
+            if !viewModel.modelAvailable {
+                unavailableView
+            } else if !episode.hasTranscriptData {
+                ContentUnavailableView(
+                    "No Transcript Available",
+                    systemImage: "doc.text.fill.badge.questionmark",
+                    description: Text("Add a transcript to this episode first to generate AI content ideas.")
+                )
+            } else {
+                ScrollView {
+                    VStack(spacing: 16) {
+                        titleSuggestionsSection
                         Divider()
-                        HStack(spacing: 8) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.red)
-                            Text(error)
-                                .font(.callout)
-                                .foregroundColor(.red)
-                            Spacer()
-                            Button("Dismiss") {
-                                viewModel.errorMessage = nil
-                            }
-                            .buttonStyle(.bordered)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(Color.red.opacity(0.1))
+                        descriptionSection
+                        Divider()
+                        socialPostsSection
+                        Divider()
+                        chaptersSection
                     }
+                    .padding(20)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(12)
+                    .padding(16)
+                }
+                
+                if let error = viewModel.errorMessage {
+                    Divider()
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding()
+                    .background(Color.orange.opacity(0.1))
                 }
             }
         }
-        .toolbar {
-            if viewModel.modelAvailable && episode.hasTranscriptData {
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: {
-                        Task {
-                            await viewModel.generateAll()
-                        }
-                    }) {
-                        Label("Generate All", systemImage: "sparkles.rectangle.stack")
-                    }
-                    .labelStyle(.iconOnly)
-                    .applyLiquidGlassButtonStyle(prominent: false)
-                    .disabled(viewModel.isGeneratingAll)
-                    .help("Generate all AI content suggestions")
-                }
-            }
-        }
-        .focusedSceneValue(\.aiActions, viewModel.modelAvailable && episode.hasTranscriptData ? AIActions(
-            generateAll: viewModel.generateAll
-        ) : nil)
     }
-    
-    // MARK: - Unavailable View
     
     private var unavailableView: some View {
         ContentUnavailableView {
-            Label("Apple Intelligence Required", systemImage: "cpu.fill")
+            Label("Apple Intelligence Unavailable", systemImage: "exclamationmark.triangle")
         } description: {
-            VStack(spacing: 16) {
-                Text("AI Ideas requires Apple Intelligence to be enabled on your Mac.")
-                    .multilineTextAlignment(.center)
+            VStack(spacing: 12) {
+                Text("AI Ideas requires Apple Intelligence (macOS 26+)")
+                    .foregroundStyle(.secondary)
                 
-                Text("Requirements:")
-                    .font(.headline)
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                        Text("Mac with M1 chip or later")
-                    }
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                        Text("macOS 26.0 (Sequoia) or later")
-                    }
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                        Text("Apple Intelligence enabled in System Settings")
-                    }
-                }
-                .font(.subheadline)
-                
-                if let errorMessage = viewModel.errorMessage {
-                    Text(errorMessage)
+                if let error = viewModel.errorMessage {
+                    Text(error)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .padding(.top, 8)
                 }
             }
-        } actions: {
-            Link(destination: URL(string: "x-apple.systempreferences:com.apple.Siri-Settings.extension")!) {
-                Text("Open System Settings")
-            }
-            .buttonStyle(.borderedProminent)
         }
     }
-    
-    // MARK: - Title Suggestions Section
     
     private var titleSuggestionsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label("Title Suggestions", systemImage: "text.quote")
+                Label("Title Suggestions", systemImage: "textformat.size")
                     .font(.headline)
                 Spacer()
-                Button(action: {
-                    Task {
-                        await viewModel.generateTitles()
-                    }
-                }) {
+                Button {
+                    Task { await viewModel.generateTitles() }
+                } label: {
                     if viewModel.isGeneratingTitles {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                            .frame(width: 20, height: 20)
+                        ProgressView().controlSize(.small)
                         Text("Generating...")
                     } else {
                         Label("Generate", systemImage: "sparkles")
                     }
                 }
-                .applyLiquidGlassButtonStyle(prominent: true)
+                .buttonStyle(.borderedProminent)
                 .disabled(viewModel.isGeneratingTitles || viewModel.isGeneratingAll)
             }
             
@@ -195,44 +105,39 @@ private struct AIIdeasViewContent: View {
                     ForEach(Array(viewModel.titleSuggestions.enumerated()), id: \.offset) { index, title in
                         HStack(spacing: 12) {
                             Text("\(index + 1).")
-                                .font(.caption.bold())
+                                .font(.headline)
                                 .foregroundStyle(.secondary)
-                                .frame(width: 20, alignment: .trailing)
+                                .frame(width: 24)
                             
                             Text(title)
-                                .font(.body)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                             
                             Spacer()
                             
-                            Button(action: {
+                            Button {
                                 viewModel.applyTitle(title)
-                            }) {
-                                Label("Apply", systemImage: "checkmark.circle")
+                            } label: {
+                                Label("Apply", systemImage: "checkmark.circle.fill")
                                     .labelStyle(.iconOnly)
                             }
                             .buttonStyle(.bordered)
-                            .help("Use this as episode title")
+                            .help("Apply this title to episode")
                         }
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 12)
+                        .padding(8)
                         .background(Color(NSColor.controlBackgroundColor))
-                        .cornerRadius(8)
+                        .cornerRadius(6)
                     }
                 }
             }
         }
     }
     
-    // MARK: - Description Section
-    
     private var descriptionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Label("Episode Description", systemImage: "doc.text")
                     .font(.headline)
-                
                 Spacer()
-                
                 Picker("Length", selection: $viewModel.descriptionLength) {
                     ForEach(AIIdeasViewModel.DescriptionLength.allCases, id: \.self) { length in
                         Text(length.rawValue).tag(length)
@@ -240,23 +145,18 @@ private struct AIIdeasViewContent: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 200)
-                .disabled(viewModel.isGeneratingDescription || viewModel.isGeneratingAll)
                 
-                Button(action: {
-                    Task {
-                        await viewModel.generateDescription()
-                    }
-                }) {
+                Button {
+                    Task { await viewModel.generateDescription() }
+                } label: {
                     if viewModel.isGeneratingDescription {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                            .frame(width: 20, height: 20)
+                        ProgressView().controlSize(.small)
                         Text("Generating...")
                     } else {
                         Label("Generate", systemImage: "sparkles")
                     }
                 }
-                .applyLiquidGlassButtonStyle(prominent: true)
+                .buttonStyle(.borderedProminent)
                 .disabled(viewModel.isGeneratingDescription || viewModel.isGeneratingAll)
             }
             
@@ -266,23 +166,28 @@ private struct AIIdeasViewContent: View {
                     .font(.subheadline)
             } else {
                 VStack(alignment: .leading, spacing: 8) {
-                    TextEditor(text: .constant(viewModel.generatedDescription))
-                        .font(.body)
-                        .frame(minHeight: 120)
-                        .scrollContentBackground(.hidden)
-                        .background(Color(NSColor.textBackgroundColor))
-                        .cornerRadius(8)
+                    ScrollView {
+                        Text(viewModel.generatedDescription)
+                            .font(.body)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(height: 150)
+                    .padding(12)
+                    .background(Color(NSColor.textBackgroundColor))
+                    .cornerRadius(8)
                     
                     HStack {
-                        Text("\(viewModel.generatedDescription.split(separator: " ").count) words")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        Button {
+                            viewModel.copyToClipboard(viewModel.generatedDescription)
+                        } label: {
+                            Label("Copy", systemImage: "doc.on.doc")
+                        }
+                        .buttonStyle(.bordered)
                         
-                        Spacer()
-                        
-                        Button(action: {
+                        Button {
                             viewModel.applyDescription()
-                        }) {
+                        } label: {
                             Label("Apply to Episode", systemImage: "checkmark.circle.fill")
                         }
                         .buttonStyle(.borderedProminent)
@@ -292,29 +197,23 @@ private struct AIIdeasViewContent: View {
         }
     }
     
-    // MARK: - Social Posts Section
-    
     private var socialPostsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Label("Social Media Posts", systemImage: "megaphone")
                     .font(.headline)
                 Spacer()
-                Button(action: {
-                    Task {
-                        await viewModel.generateSocialPosts()
-                    }
-                }) {
+                Button {
+                    Task { await viewModel.generateSocialPosts() }
+                } label: {
                     if viewModel.isGeneratingSocial {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                            .frame(width: 20, height: 20)
+                        ProgressView().controlSize(.small)
                         Text("Generating...")
                     } else {
                         Label("Generate", systemImage: "sparkles")
                     }
                 }
-                .applyLiquidGlassButtonStyle(prominent: true)
+                .buttonStyle(.borderedProminent)
                 .disabled(viewModel.isGeneratingSocial || viewModel.isGeneratingAll)
             }
             
@@ -327,31 +226,27 @@ private struct AIIdeasViewContent: View {
                     ForEach(viewModel.socialPosts) { post in
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Label(post.platform.rawValue, systemImage: post.platform.icon)
-                                    .font(.subheadline.bold())
-                                
+                                Image(systemName: post.platform.rawValue == "Twitter/X" ? "xmark" : post.platform.rawValue == "LinkedIn" ? "briefcase" : "photo")
+                                    .foregroundStyle(.blue)
+                                Text(post.platform.rawValue)
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
                                 Spacer()
-                                
-                                Text("\(post.content.count) chars")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                
-                                Button(action: {
-                                    viewModel.applySocialPost(post)
-                                }) {
+                                Button {
+                                    viewModel.copyToClipboard(post.content)
+                                } label: {
                                     Label("Copy", systemImage: "doc.on.doc")
                                         .labelStyle(.iconOnly)
                                 }
-                                .buttonStyle(.bordered)
-                                .help("Copy to clipboard")
+                                .buttonStyle(.borderless)
                             }
                             
                             Text(post.content)
                                 .font(.body)
-                                .padding(12)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .textSelection(.enabled)
+                                .padding(8)
                                 .background(Color(NSColor.textBackgroundColor))
-                                .cornerRadius(8)
+                                .cornerRadius(6)
                         }
                         .padding(12)
                         .background(Color(NSColor.controlBackgroundColor))
@@ -362,95 +257,62 @@ private struct AIIdeasViewContent: View {
         }
     }
     
-    // MARK: - Chapters Section
-    
     private var chaptersSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label("Chapter Markers", systemImage: "list.bullet.indent")
+                Label("Chapter Markers", systemImage: "list.number")
                     .font(.headline)
                 Spacer()
-                Button(action: {
-                    Task {
-                        await viewModel.generateChapters()
-                    }
-                }) {
+                Button {
+                    Task { await viewModel.generateChapters() }
+                } label: {
                     if viewModel.isGeneratingChapters {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                            .frame(width: 20, height: 20)
+                        ProgressView().controlSize(.small)
                         Text("Generating...")
                     } else {
                         Label("Generate", systemImage: "sparkles")
                     }
                 }
-                .applyLiquidGlassButtonStyle(prominent: true)
+                .buttonStyle(.borderedProminent)
                 .disabled(viewModel.isGeneratingChapters || viewModel.isGeneratingAll)
             }
             
             if viewModel.chapterMarkers.isEmpty {
-                Text("Generate chapter markers with timestamps for major topic changes")
+                Text("Auto-detect chapter breaks with timestamps and descriptions")
                     .foregroundStyle(.secondary)
                     .font(.subheadline)
             } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(viewModel.chapterMarkers) { marker in
+                VStack(spacing: 8) {
+                    ForEach(Array(viewModel.chapterMarkers.enumerated()), id: \.offset) { index, chapter in
                         HStack(alignment: .top, spacing: 12) {
-                            // Timestamp
-                            Text(marker.timestamp)
+                            Text(chapter.timestamp)
                                 .font(.system(.body, design: .monospaced))
                                 .foregroundStyle(.secondary)
                                 .frame(width: 80, alignment: .leading)
                             
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(marker.title)
-                                    .font(.body.bold())
-                                
-                                Text(marker.summary)
+                                Text(chapter.title)
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                Text(chapter.summary)
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
                             
                             Spacer()
                         }
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 12)
+                        .padding(8)
                         .background(Color(NSColor.controlBackgroundColor))
-                        .cornerRadius(8)
+                        .cornerRadius(6)
                     }
                     
-                    // Apply button
-                    HStack {
-                        Spacer()
-                        Button(action: {
-                            viewModel.applyChaptersToDescription()
-                        }) {
-                            Label("Apply to Description", systemImage: "checkmark.circle.fill")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .help("Append chapter markers to episode description")
+                    Button {
+                        viewModel.copyChaptersAsYouTube()
+                    } label: {
+                        Label("Copy as YouTube Chapters", systemImage: "doc.on.doc")
                     }
-                    .padding(.top, 8)
+                    .buttonStyle(.bordered)
                 }
-            }
-        }
-    }
-}
-
-private extension View {
-    @ViewBuilder
-    func applyLiquidGlassButtonStyle(prominent: Bool) -> some View {
-        if #available(macOS 26.0, *) {
-            if prominent {
-                self.buttonStyle(.glassProminent)
-            } else {
-                self.buttonStyle(.glass)
-            }
-        } else {
-            if prominent {
-                self.buttonStyle(.borderedProminent)
-            } else {
-                self.buttonStyle(.bordered)
             }
         }
     }

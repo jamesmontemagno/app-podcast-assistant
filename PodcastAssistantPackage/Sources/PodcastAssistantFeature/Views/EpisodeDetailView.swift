@@ -2,8 +2,8 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
-/// Episode detail view with segmented control for different sections (POCO-based)
-public struct EpisodeDetailViewPOCO: View {
+/// Episode detail view with segmented control for different sections
+public struct EpisodeDetailView: View {
     let episode: EpisodePOCO
     let podcast: PodcastPOCO
     @ObservedObject var store: PodcastLibraryStore
@@ -15,7 +15,7 @@ public struct EpisodeDetailViewPOCO: View {
     @State private var showingTranscriptTranslation: Bool = false
     @State private var transcriptInputText: String = ""
     @State private var transcriptOutputText: String = ""
-    @State private var thumbnailViewModel: ThumbnailViewModelPOCO?
+    @State private var thumbnailViewModel: ThumbnailViewModel?
     
     public init(episode: EpisodePOCO, podcast: PodcastPOCO, store: PodcastLibraryStore) {
         self.episode = episode
@@ -57,7 +57,7 @@ public struct EpisodeDetailViewPOCO: View {
             Group {
                 switch selectedSection {
                 case .details:
-                    DetailsSection(
+                    DetailsView(
                         episode: episode,
                         podcast: podcast,
                         store: store,
@@ -65,7 +65,7 @@ public struct EpisodeDetailViewPOCO: View {
                         viewModel: $detailsViewModel
                     )
                 case .transcript:
-                    TranscriptSection(
+                    TranscriptView(
                         episode: episode,
                         store: store,
                         showingTranslation: $showingTranscriptTranslation,
@@ -73,10 +73,10 @@ public struct EpisodeDetailViewPOCO: View {
                         outputText: $transcriptOutputText
                     )
                 case .thumbnail:
-                    ThumbnailSectionPOCO(episode: episode, podcast: podcast, store: store, viewModel: $thumbnailViewModel)
+                    ThumbnailView(episode: episode, podcast: podcast, store: store, viewModel: $thumbnailViewModel)
                 case .aiIdeas:
                     if #available(macOS 26.0, *) {
-                        AIIdeasSectionPOCO(episode: episode, podcast: podcast, store: store)
+                        AIIdeasView(episode: episode, podcast: podcast, store: store)
                     } else {
                         ContentUnavailableView(
                             "AI Ideas Unavailable",

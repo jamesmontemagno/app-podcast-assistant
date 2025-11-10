@@ -9,7 +9,7 @@ class DetailsViewModel {
     var revert: () -> Void = {}
 }
 
-struct DetailsSection: View {
+struct DetailsView: View {
     let episode: EpisodePOCO
     let podcast: PodcastPOCO
     let store: PodcastLibraryStore

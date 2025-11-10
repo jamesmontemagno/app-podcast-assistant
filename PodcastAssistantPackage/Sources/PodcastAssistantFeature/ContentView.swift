@@ -44,21 +44,21 @@ public struct ContentView: View {
                 refreshPodcasts()
             }
         }) {
-            PodcastFormViewPOCO(store: libraryStore)
+            PodcastFormView(store: libraryStore)
         }
         .sheet(item: $editingPodcast, onDismiss: {
             Task { @MainActor in
                 refreshPodcasts()
             }
         }) { podcast in
-            PodcastFormViewPOCO(podcast: podcast, store: libraryStore)
+            PodcastFormView(podcast: podcast, store: libraryStore)
         }
         .sheet(isPresented: $showingEpisodeForm, onDismiss: {
             refreshEpisodesForSelection()
         }) {
             if let podcastID = selectedPodcastID,
                let podcast = libraryStore.getPodcast(with: podcastID) {
-                EpisodeFormViewPOCO(podcast: podcast, store: libraryStore)
+                EpisodeFormView(podcast: podcast, store: libraryStore)
             } else {
                 ContentUnavailableView(
                     "Select a Podcast",
@@ -71,7 +71,7 @@ public struct ContentView: View {
             refreshEpisodesForSelection()
         }) { episode in
             if let podcast = libraryStore.getPodcast(with: episode.podcastID) {
-                EpisodeFormViewPOCO(episode: episode, podcast: podcast, store: libraryStore)
+                EpisodeFormView(episode: episode, podcast: podcast, store: libraryStore)
             }
         }
         .sheet(isPresented: $showingSettings) {
@@ -353,7 +353,7 @@ public struct ContentView: View {
     private var detailContent: some View {
         if let episode = selectedEpisodeModel,
            let podcast = libraryStore.getPodcast(with: episode.podcastID) {
-            EpisodeDetailViewPOCO(episode: episode, podcast: podcast, store: libraryStore)
+            EpisodeDetailView(episode: episode, podcast: podcast, store: libraryStore)
                 .id("episode-\(episode.id)")
         } else {
             ContentUnavailableView(
