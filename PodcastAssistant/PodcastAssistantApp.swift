@@ -11,10 +11,6 @@ struct PodcastAssistantApp: App {
     @StateObject private var settingsViewModel = SettingsViewModel()
     
     init() {
-        // Apply saved theme preference
-        let viewModel = SettingsViewModel()
-        viewModel.applyCurrentTheme()
-        
         // Register all imported fonts on app launch
         Task { @MainActor in
             let fontManager = FontManager()
@@ -27,6 +23,10 @@ struct PodcastAssistantApp: App {
             ContentView()
                 .modelContainer(persistenceController.container)
                 .environmentObject(settingsViewModel)
+                .onAppear {
+                    // Apply saved theme after the app is fully initialized
+                    settingsViewModel.applyCurrentTheme()
+                }
         }
         .commands {
             EpisodeCommands()

@@ -72,6 +72,12 @@ public class SettingsViewModel: ObservableObject {
     
     /// Apply the theme to the app appearance
     private func applyTheme(_ theme: AppTheme) {
+        // Ensure NSApp is available before applying theme
+        guard NSApp.windows.isEmpty == false || NSApp.isActive else {
+            // App not fully initialized yet, theme will be applied on first window appearance
+            return
+        }
+        
         switch theme {
         case .system:
             NSApp.appearance = nil
