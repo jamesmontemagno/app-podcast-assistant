@@ -15,10 +15,11 @@ public struct TranscriptTranslationSheet: View {
     }
     
     public var body: some View {
-        VStack(spacing: 16) {
-            Text("Translate Transcript")
-                .font(.title2)
-                .fontWeight(.semibold)
+        VStack(spacing: 0) {
+            VStack(spacing: 16) {
+                Text("Translate Transcript")
+                    .font(.title2)
+                    .fontWeight(.semibold)
             
             // Language selection
             HStack {
@@ -157,8 +158,12 @@ public struct TranscriptTranslationSheet: View {
                 .keyboardShortcut(.cancelAction)
                 .disabled(viewModel.isTranslating)
             }
+            }
+            .padding(20)
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(12)
+            .padding(16)
         }
-        .padding()
         .frame(width: 600, height: 550)
     }
     

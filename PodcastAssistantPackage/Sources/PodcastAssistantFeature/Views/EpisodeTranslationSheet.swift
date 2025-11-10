@@ -16,22 +16,23 @@ public struct EpisodeTranslationSheet: View {
     }
     
     public var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Header
-            HStack {
-                Image(systemName: "globe")
-                    .foregroundColor(.blue)
-                    .font(.title2)
-                Text("Translate Episode")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                Spacer()
-                Button(!viewModel.translatedTitle.isEmpty || !viewModel.translatedDescription.isEmpty ? "Done" : "Close") {
-                    dismiss()
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 16) {
+                // Header
+                HStack {
+                    Image(systemName: "globe")
+                        .foregroundColor(.blue)
+                        .font(.title2)
+                    Text("Translate Episode")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Button(!viewModel.translatedTitle.isEmpty || !viewModel.translatedDescription.isEmpty ? "Done" : "Close") {
+                        dismiss()
+                    }
+                    .keyboardShortcut(.cancelAction)
+                    .disabled(viewModel.isTranslating)
                 }
-                .keyboardShortcut(.cancelAction)
-                .disabled(viewModel.isTranslating)
-            }
             
             Divider()
             
@@ -199,8 +200,12 @@ public struct EpisodeTranslationSheet: View {
             }
             
             Spacer()
+            }
+            .padding(20)
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(12)
+            .padding(16)
         }
-        .padding(24)
         .frame(width: 600, height: 500)
     }
     

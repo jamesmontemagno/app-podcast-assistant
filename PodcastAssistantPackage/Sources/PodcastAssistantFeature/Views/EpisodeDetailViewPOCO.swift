@@ -280,63 +280,72 @@ private struct DetailsSection: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                // Episode Title
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Episode Title", systemImage: "textformat")
-                        .font(.headline)
+                // Basic Information Section
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Basic Information")
+                        .font(.title3)
+                        .fontWeight(.semibold)
                     
+                    // Episode Title
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Title", systemImage: "textformat")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        
                         TextField("Enter episode title", text: $title, axis: .vertical)
-                        .textFieldStyle(.roundedBorder)
-                        .lineLimit(2...4)
-                        .onChange(of: title) { oldValue, newValue in
-                            if isInitialLoad { return }
-                            hasUnsavedChanges = true
-                        }
-                }
-                
-                Divider()
-                
-                // Episode Number
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Episode Number", systemImage: "number")
-                        .font(.headline)
-                    
-                    HStack {
-                        TextField("Number", text: $episodeNumber)
                             .textFieldStyle(.roundedBorder)
-                            .frame(width: 100)
-                            .onChange(of: episodeNumber) { _, _ in
+                            .lineLimit(2...4)
+                            .onChange(of: title) { oldValue, newValue in
                                 if isInitialLoad { return }
                                 hasUnsavedChanges = true
                             }
+                    }
+                    
+                    // Episode Number and Release Date (side by side)
+                    HStack(spacing: 16) {
+                        // Episode Number
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Episode Number", systemImage: "number")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            
+                            TextField("Number", text: $episodeNumber)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 100)
+                                .onChange(of: episodeNumber) { _, _ in
+                                    if isInitialLoad { return }
+                                    hasUnsavedChanges = true
+                                }
+                        }
+                        
+                        // Release Date
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Release Date", systemImage: "calendar")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            
+                            DatePicker("", selection: $publishDate, displayedComponents: [.date])
+                                .datePickerStyle(.compact)
+                                .labelsHidden()
+                                .onChange(of: publishDate) { _, _ in
+                                    if isInitialLoad { return }
+                                    hasUnsavedChanges = true
+                                }
+                        }
                         
                         Spacer()
                     }
                 }
+                .padding(16)
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                .cornerRadius(10)
                 
-                Divider()
-                
-                // Release Date
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Release Date", systemImage: "calendar")
-                        .font(.headline)
-                    
-                    DatePicker("Release Date", selection: $publishDate, displayedComponents: [.date])
-                        .datePickerStyle(.compact)
-                        .labelsHidden()
-                        .onChange(of: publishDate) { _, _ in
-                            if isInitialLoad { return }
-                            hasUnsavedChanges = true
-                        }
-                }
-                
-                Divider()
-                
-                // Episode Description
-                VStack(alignment: .leading, spacing: 8) {
+                // Episode Description Section
+                VStack(alignment: .leading, spacing: 16) {
                     HStack {
-                        Label("Description", systemImage: "doc.text")
-                            .font(.headline)
+                        Text("Description")
+                            .font(.title3)
+                            .fontWeight(.semibold)
                         
                         Spacer()
                         
@@ -367,91 +376,115 @@ private struct DetailsSection: View {
                         }
                     
                     if description.isEmpty {
-                        Text("Add a description for this episode. You can also generate one using AI Ideas.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        HStack(spacing: 8) {
+                            Image(systemName: "lightbulb.fill")
+                                .foregroundStyle(.blue)
+                            Text("Add a description for this episode. You can also generate one using the AI Ideas tab.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
+                .padding(16)
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                .cornerRadius(10)
                 
-                Divider()
-                
-                // Podcast Association
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Podcast", systemImage: "mic")
-                        .font(.headline)
+                // Podcast Association Section
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Podcast")
+                        .font(.title3)
+                        .fontWeight(.semibold)
                     
-                    HStack(spacing: 12) {
+                    HStack(spacing: 16) {
                         if let artworkData = podcast.artworkData,
                            let image = ImageUtilities.loadImage(from: artworkData) {
                             Image(nsImage: image)
                                 .resizable()
                                 .scaledToFit()
-                                .frame(width: 60, height: 60)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .frame(width: 80, height: 80)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                        } else {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(NSColor.separatorColor).opacity(0.3))
+                                .frame(width: 80, height: 80)
+                                .overlay(
+                                    Image(systemName: "mic.fill")
+                                        .foregroundStyle(.secondary)
+                                        .font(.title)
+                                )
                         }
                         
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 6) {
                             Text(podcast.name)
-                                .font(.body)
-                                .fontWeight(.medium)
+                                .font(.headline)
                             
                             if let podcastDescription = podcast.podcastDescription {
                                 Text(podcastDescription)
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
-                                    .lineLimit(2)
+                                    .lineLimit(3)
                             }
                         }
+                        
+                        Spacer()
                     }
-                    .padding(12)
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .cornerRadius(8)
                 }
+                .padding(16)
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                .cornerRadius(10)
                 
-                Divider()
-                
-                // Metadata
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Metadata", systemImage: "info.circle")
-                        .font(.headline)
+                // Episode Status Section
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Episode Status")
+                        .font(.title3)
+                        .fontWeight(.semibold)
                     
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
+                    VStack(spacing: 12) {
+                        // Status items in a grid-like layout
+                        HStack(spacing: 20) {
+                            StatusBadge(
+                                icon: "doc.text.fill",
+                                title: "Transcript",
+                                isComplete: episode.hasTranscriptData
+                            )
+                            
+                            StatusBadge(
+                                icon: "photo.fill",
+                                title: "Thumbnail",
+                                isComplete: episode.hasThumbnailOutput
+                            )
+                            
+                            StatusBadge(
+                                icon: "text.alignleft",
+                                title: "Description",
+                                isComplete: episode.episodeDescription != nil
+                            )
+                            
+                            Spacer()
+                        }
+                        
+                        Divider()
+                        
+                        // Metadata
+                        HStack(spacing: 8) {
+                            Image(systemName: "clock.fill")
+                                .foregroundStyle(.secondary)
+                                .font(.caption)
                             Text("Created:")
+                                .font(.caption)
                                 .foregroundStyle(.secondary)
                             Text(episode.createdAt, style: .date)
+                                .font(.caption)
                             Text(episode.createdAt, style: .time)
+                                .font(.caption)
+                            Spacer()
                         }
-                        .font(.caption)
-                        
-                        HStack {
-                            Text("Has Transcript:")
-                                .foregroundStyle(.secondary)
-                            Image(systemName: episode.hasTranscriptData ? "checkmark.circle.fill" : "xmark.circle")
-                                .foregroundStyle(episode.hasTranscriptData ? .green : .secondary)
-                        }
-                        .font(.caption)
-                        
-                        HStack {
-                            Text("Has Thumbnail:")
-                                .foregroundStyle(.secondary)
-                            Image(systemName: episode.hasThumbnailOutput ? "checkmark.circle.fill" : "xmark.circle")
-                                .foregroundStyle(episode.hasThumbnailOutput ? .green : .secondary)
-                        }
-                        .font(.caption)
-                        
-                        HStack {
-                            Text("Has AI Description:")
-                                .foregroundStyle(.secondary)
-                            Image(systemName: episode.episodeDescription != nil ? "checkmark.circle.fill" : "xmark.circle")
-                                .foregroundStyle(episode.episodeDescription != nil ? .green : .secondary)
-                        }
-                        .font(.caption)
                     }
-                    .padding(12)
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .cornerRadius(8)
                 }
+                .padding(16)
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                .cornerRadius(10)
                 
                 // Save confirmation
                 if showingSaveConfirmation {
@@ -467,7 +500,10 @@ private struct DetailsSection: View {
                     .cornerRadius(8)
                 }
             }
-            .padding()
+            .padding(20)
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(12)
+            .padding(16)
         }
         .onAppear {
             loadEpisodeData()
@@ -548,13 +584,11 @@ private struct TranscriptSection: View {
     
     var body: some View {
         GeometryReader { geometry in
-            HStack(spacing: 0) {
+            HStack(spacing: 16) {
                 // Left pane: Input
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Input Transcript")
                         .font(.headline)
-                        .padding(.horizontal)
-                        .padding(.top)
                     
                     ScrollView {
                         TextEditor(text: $inputText)
@@ -566,16 +600,15 @@ private struct TranscriptSection: View {
                     }
                     .background(Color(nsColor: .textBackgroundColor))
                 }
-                .frame(width: geometry.size.width / 2)
-                
-                Divider()
+                .padding(16)
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(12)
+                .frame(width: (geometry.size.width - 48) / 2)
                 
                 // Right pane: Output
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 12) {
                     Text("SRT Output")
                         .font(.headline)
-                        .padding(.horizontal)
-                        .padding(.top)
                     
                     ScrollView {
                         TextEditor(text: $outputText)
@@ -584,8 +617,12 @@ private struct TranscriptSection: View {
                     }
                     .background(Color(nsColor: .textBackgroundColor))
                 }
-                .frame(width: geometry.size.width / 2)
+                .padding(16)
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(12)
+                .frame(width: (geometry.size.width - 48) / 2)
             }
+            .padding(16)
         }
         .onAppear {
             inputText = episode.transcriptInputText ?? ""
@@ -606,6 +643,44 @@ private struct PlaceholderSection: View {
             systemImage: icon,
             description: Text("This section is coming soon")
         )
+    }
+}
+
+// MARK: - Status Badge
+
+private struct StatusBadge: View {
+    let icon: String
+    let title: String
+    let isComplete: Bool
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .fill(isComplete ? Color.green.opacity(0.15) : Color(NSColor.separatorColor).opacity(0.3))
+                    .frame(width: 48, height: 48)
+                
+                Image(systemName: icon)
+                    .foregroundStyle(isComplete ? .green : .secondary)
+                    .font(.title3)
+            }
+            
+            VStack(spacing: 2) {
+                Text(title)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                
+                HStack(spacing: 4) {
+                    Image(systemName: isComplete ? "checkmark.circle.fill" : "circle")
+                        .font(.caption2)
+                        .foregroundStyle(isComplete ? .green : .secondary)
+                    Text(isComplete ? "Ready" : "Pending")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .frame(width: 80)
     }
 }
 
@@ -646,7 +721,10 @@ private struct AIIdeasSectionPOCO: View {
                         Divider()
                         chaptersSection
                     }
-                    .padding()
+                    .padding(20)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(12)
+                    .padding(16)
                 }
                 
                 if let error = viewModel.errorMessage {

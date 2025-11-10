@@ -7,7 +7,14 @@ struct PodcastAssistantApp: App {
     // Hybrid Architecture: SwiftData for persistence, POCOs for UI binding
     let persistenceController = PersistenceController.shared
     
+    // Settings view model for theme management
+    @StateObject private var settingsViewModel = SettingsViewModel()
+    
     init() {
+        // Apply saved theme preference
+        let viewModel = SettingsViewModel()
+        viewModel.applyCurrentTheme()
+        
         // Register all imported fonts on app launch
         Task { @MainActor in
             let fontManager = FontManager()
@@ -19,6 +26,7 @@ struct PodcastAssistantApp: App {
         WindowGroup {
             ContentView()
                 .modelContainer(persistenceController.container)
+                .environmentObject(settingsViewModel)
         }
         .commands {
             EpisodeCommands()
