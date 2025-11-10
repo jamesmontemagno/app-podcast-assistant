@@ -68,6 +68,7 @@ struct ThumbnailView: View {
 private struct LeftPanelContent: View {
     @ObservedObject var viewModel: ThumbnailViewModel
     let width: CGFloat
+    @State private var showRemoveOverlayConfirmation = false
     
     var body: some View {
         ScrollView {
@@ -137,11 +138,23 @@ private struct LeftPanelContent: View {
                     .buttonStyle(.bordered)
                     
                     if viewModel.overlayImage != nil {
-                        Button(action: viewModel.removeOverlayImage) {
+                        Button {
+                            showRemoveOverlayConfirmation = true
+                        } label: {
                             Label("Remove", systemImage: "trash")
                         }
                         .buttonStyle(.bordered)
                         .foregroundColor(.red)
+                        .confirmationDialog(
+                            "Are you sure you want to remove the overlay image?",
+                            isPresented: $showRemoveOverlayConfirmation,
+                            titleVisibility: .visible
+                        ) {
+                            Button("Remove Overlay", role: .destructive) {
+                                viewModel.removeOverlayImage()
+                            }
+                            Button("Cancel", role: .cancel) { }
+                        }
                     }
                 }
                 
@@ -245,7 +258,11 @@ private struct LeftPanelContent: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
-                    Slider(value: $viewModel.fontSize, in: 24...200, step: 4)
+                    Slider(value: $viewModel.fontSize, in: 24...200, step: 4, onEditingChanged: { editing in
+                        if !editing {
+                            viewModel.onSliderEditingEnded()
+                        }
+                    })
                 }
                 
                 Divider()
@@ -299,7 +316,11 @@ private struct LeftPanelContent: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
-                    Slider(value: $viewModel.horizontalPadding, in: 0...200, step: 5)
+                    Slider(value: $viewModel.horizontalPadding, in: 0...200, step: 5, onEditingChanged: { editing in
+                        if !editing {
+                            viewModel.onSliderEditingEnded()
+                        }
+                    })
                     
                     HStack {
                         Text("V-Padding")
@@ -310,7 +331,11 @@ private struct LeftPanelContent: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
-                    Slider(value: $viewModel.verticalPadding, in: 0...200, step: 5)
+                    Slider(value: $viewModel.verticalPadding, in: 0...200, step: 5, onEditingChanged: { editing in
+                        if !editing {
+                            viewModel.onSliderEditingEnded()
+                        }
+                    })
                 }
             }
         }

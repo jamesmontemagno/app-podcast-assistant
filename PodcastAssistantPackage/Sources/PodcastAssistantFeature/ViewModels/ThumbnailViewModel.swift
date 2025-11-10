@@ -39,7 +39,6 @@ public class ThumbnailViewModel: ObservableObject {
     }
     @Published public var fontSize: Double = 72 {
         didSet { 
-            if !isRestoringState { pushUndoState() }
             scheduleGeneration() 
         }
     }
@@ -51,13 +50,11 @@ public class ThumbnailViewModel: ObservableObject {
     }
     @Published public var horizontalPadding: Double = 40 {
         didSet { 
-            if !isRestoringState { pushUndoState() }
             scheduleGeneration() 
         }
     }
     @Published public var verticalPadding: Double = 40 {
         didSet { 
-            if !isRestoringState { pushUndoState() }
             scheduleGeneration() 
         }
     }
@@ -92,6 +89,12 @@ public class ThumbnailViewModel: ObservableObject {
     @Published public var backgroundImage: NSImage? = nil
     @Published public var overlayImage: NSImage? = nil
     @Published public var canUndo: Bool = false
+    
+    /// Tracks whether there are unsaved changes
+    public var hasUnsavedChanges: Bool {
+        // If we have more than 1 item in undo stack, we have unsaved changes
+        return undoStack.count > 1
+    }
     
     // MARK: - Undo/Redo State
     
@@ -297,6 +300,13 @@ public class ThumbnailViewModel: ObservableObject {
             canUndo = undoStack.count > 1
             
             generateThumbnail()
+        }
+    }
+    
+    /// Called when slider editing ends to push undo state
+    public func onSliderEditingEnded() {
+        if !isRestoringState {
+            pushUndoState()
         }
     }
     

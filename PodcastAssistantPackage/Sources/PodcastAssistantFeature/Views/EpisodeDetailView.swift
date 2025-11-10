@@ -271,6 +271,7 @@ public struct EpisodeDetailView: View {
 // MARK: - Thumbnail Toolbar Buttons
 private struct ThumbnailToolbarButtons: View {
     @ObservedObject var viewModel: ThumbnailViewModel
+    @State private var showResetConfirmation = false
     
     var body: some View {
         Button {
@@ -299,8 +300,9 @@ private struct ThumbnailToolbarButtons: View {
         } label: {
             Label("Save", systemImage: "square.and.arrow.down")
         }
-        .help("Save thumbnail to episode")
-        .disabled(viewModel.generatedThumbnail == nil)
+        .keyboardShortcut("s", modifiers: .command)
+        .help("Save thumbnail to episode (⌘S)")
+        .disabled(viewModel.generatedThumbnail == nil || !viewModel.hasUnsavedChanges)
         
         Button {
             viewModel.exportThumbnail()
@@ -311,11 +313,23 @@ private struct ThumbnailToolbarButtons: View {
         .disabled(viewModel.generatedThumbnail == nil)
         
         Button {
-            viewModel.resetAll()
+            showResetConfirmation = true
         } label: {
             Label("Reset", systemImage: "arrow.counterclockwise")
         }
         .help("Reset all settings")
+        .confirmationDialog(
+            "Are you sure you want to reset all thumbnail settings to defaults?",
+            isPresented: $showResetConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Reset All Settings", role: .destructive) {
+                viewModel.resetAll()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will clear all images, colors, fonts, and other settings. This action cannot be undone.")
+        }
     }
 }
 
