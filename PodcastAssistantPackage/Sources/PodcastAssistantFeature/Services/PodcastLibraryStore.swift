@@ -11,18 +11,12 @@ public final class PodcastLibraryStore: ObservableObject {
         public let name: String
         public let podcastDescription: String?
         public let createdAt: Date
-        public let hasArtwork: Bool
-        let searchableName: String
-        public let episodeCount: Int
         
         init(podcast: Podcast) {
             id = podcast.id
             name = podcast.name
             podcastDescription = podcast.podcastDescription
             createdAt = podcast.createdAt
-            hasArtwork = podcast.artworkData != nil
-            searchableName = podcast.name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-            episodeCount = podcast.episodes.count
         }
     }
     
@@ -40,8 +34,8 @@ public final class PodcastLibraryStore: ObservableObject {
             title = episode.title
             episodeNumber = episode.episodeNumber
             publishDate = episode.publishDate
-            hasTranscript = episode.transcriptInputText != nil
-            hasThumbnail = episode.thumbnailOutputData != nil
+            hasTranscript = episode.hasTranscriptData
+            hasThumbnail = episode.hasThumbnailOutput
             searchableTitle = episode.title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
         }
     }
@@ -61,10 +55,18 @@ public final class PodcastLibraryStore: ObservableObject {
     
     @discardableResult
     public func refreshPodcasts(context: ModelContext) throws -> [PodcastSummary] {
-        let descriptor = FetchDescriptor<Podcast>(sortBy: [SortDescriptor(\Podcast.createdAt, order: .reverse)])
+        var descriptor = FetchDescriptor<Podcast>(sortBy: [SortDescriptor(\Podcast.createdAt, order: .reverse)])
+        descriptor.propertiesToFetch = [
+            \Podcast.id,
+            \Podcast.name,
+            \Podcast.podcastDescription,
+            \Podcast.createdAt
+        ]
         let fetched = try context.fetch(descriptor)
         let summaries = fetched.map(PodcastSummary.init)
-        podcasts = summaries
+        if podcasts != summaries {
+            podcasts = summaries
+        }
         pruneOrphanedEpisodeCaches()
         return summaries
     }
@@ -82,9 +84,38 @@ public final class PodcastLibraryStore: ObservableObject {
         }
         var descriptor = FetchDescriptor<Episode>(predicate: predicate)
         descriptor.sortBy = [SortDescriptor(\Episode.publishDate, order: .reverse)]
+        descriptor.propertiesToFetch = [
+            \Episode.id,
+            \Episode.title,
+            \Episode.episodeNumber,
+            \Episode.publishDate,
+            \Episode.hasTranscriptData,
+            \Episode.hasThumbnailOutput
+        ]
         let fetched = try context.fetch(descriptor)
+        var updatedDerivedFlags = false
+        for episode in fetched {
+            if episode.hasTranscriptData == false {
+                let hasTranscript = episode.transcriptInputText?.isEmpty == false
+                if hasTranscript {
+                    episode.hasTranscriptData = true
+                    updatedDerivedFlags = true
+                }
+            }
+            if episode.hasThumbnailOutput == false {
+                if episode.thumbnailOutputData != nil {
+                    episode.hasThumbnailOutput = true
+                    updatedDerivedFlags = true
+                }
+            }
+        }
+        if updatedDerivedFlags {
+            try context.save()
+        }
         let summaries = fetched.map(EpisodeSummary.init)
-        episodesCache[podcastID] = summaries
+        if episodesCache[podcastID] != summaries {
+            episodesCache[podcastID] = summaries
+        }
         return summaries
     }
     
@@ -119,7 +150,7 @@ public final class PodcastLibraryStore: ObservableObject {
     // MARK: - Helpers
     
     private func pruneOrphanedEpisodeCaches() {
-        let validIDs = Set(podcasts.map(\ .id))
+        let validIDs = Set(podcasts.map(\.id))
         episodesCache = episodesCache.filter { validIDs.contains($0.key) }
     }
 }

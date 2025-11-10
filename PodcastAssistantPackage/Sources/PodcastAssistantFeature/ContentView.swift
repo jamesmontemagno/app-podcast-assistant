@@ -20,6 +20,8 @@ public struct ContentView: View {
     @State private var episodeSearchText = ""
     @State private var episodeSortOption: EpisodeSortOption = .numberAscending
     @State private var filteredEpisodes: [PodcastLibraryStore.EpisodeSummary] = []
+    @State private var didPerformInitialSetup = false
+    @State private var searchDebounceTask: Task<Void, Never>?
     
     @AppStorage("lastSelectedPodcastID") private var lastSelectedPodcastID: String = ""
     
@@ -70,11 +72,17 @@ public struct ContentView: View {
             }
         }
         .onAppear {
+            guard didPerformInitialSetup == false else { return }
+            didPerformInitialSetup = true
             loadInitialData()
             restoreLastSelectedPodcast()
             updateFilteredEpisodes()
             registerImportedFonts()
             applyStoredTheme()
+        }
+        .onDisappear {
+            searchDebounceTask?.cancel()
+            searchDebounceTask = nil
         }
         .onChange(of: selectedPodcastID) { _, newPodcastID in
             var transaction = Transaction()
@@ -110,11 +118,7 @@ public struct ContentView: View {
             selectedDetailTab = .details
         }
         .onChange(of: episodeSearchText) { _, _ in
-            var transaction = Transaction()
-            transaction.disablesAnimations = true
-            withTransaction(transaction) {
-                updateFilteredEpisodes()
-            }
+            scheduleEpisodeFilterUpdate()
         }
         .onChange(of: episodeSortOption) { _, _ in
             var transaction = Transaction()
@@ -518,6 +522,24 @@ public struct ContentView: View {
         }
     }
     
+    private func scheduleEpisodeFilterUpdate() {
+        searchDebounceTask?.cancel()
+        searchDebounceTask = Task { @MainActor in
+            do {
+                try await Task.sleep(for: .milliseconds(200))
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                updateFilteredEpisodes()
+            }
+            searchDebounceTask = nil
+        }
+    }
+
     // MARK: - Delete Actions
     
     private func deletePodcast(_ podcast: Podcast) {
@@ -647,8 +669,8 @@ private struct EpisodeDetailView: View {
                             selectedTab = .transcript
                         } label: {
                             HStack {
-                                Image(systemName: episode.transcriptInputText != nil ? "checkmark.circle.fill" : "doc.text")
-                                    .foregroundStyle(episode.transcriptInputText != nil ? .green : .primary)
+                                Image(systemName: episode.hasTranscriptData ? "checkmark.circle.fill" : "doc.text")
+                                    .foregroundStyle(episode.hasTranscriptData ? .green : .primary)
                                 Text("Transcript")
                                 Spacer()
                                 if selectedTab == .transcript {
@@ -666,8 +688,8 @@ private struct EpisodeDetailView: View {
                             selectedTab = .thumbnail
                         } label: {
                             HStack {
-                                Image(systemName: episode.thumbnailOutputData != nil ? "checkmark.circle.fill" : "photo")
-                                    .foregroundStyle(episode.thumbnailOutputData != nil ? .blue : .primary)
+                                Image(systemName: episode.hasThumbnailOutput ? "checkmark.circle.fill" : "photo")
+                                    .foregroundStyle(episode.hasThumbnailOutput ? .blue : .primary)
                                 Text("Thumbnail")
                                 Spacer()
                                 if selectedTab == .thumbnail {

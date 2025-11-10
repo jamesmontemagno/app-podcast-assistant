@@ -169,16 +169,16 @@ public struct EpisodeDetailsView: View {
                         HStack {
                             Text("Has Transcript:")
                                 .foregroundStyle(.secondary)
-                            Image(systemName: episode.transcriptInputText != nil ? "checkmark.circle.fill" : "xmark.circle")
-                                .foregroundStyle(episode.transcriptInputText != nil ? .green : .secondary)
+                            Image(systemName: episode.hasTranscriptData ? "checkmark.circle.fill" : "xmark.circle")
+                                .foregroundStyle(episode.hasTranscriptData ? .green : .secondary)
                         }
                         .font(.caption)
                         
                         HStack {
                             Text("Has Thumbnail:")
                                 .foregroundStyle(.secondary)
-                            Image(systemName: episode.thumbnailOutputData != nil ? "checkmark.circle.fill" : "xmark.circle")
-                                .foregroundStyle(episode.thumbnailOutputData != nil ? .green : .secondary)
+                            Image(systemName: episode.hasThumbnailOutput ? "checkmark.circle.fill" : "xmark.circle")
+                                .foregroundStyle(episode.hasThumbnailOutput ? .green : .secondary)
                         }
                         .font(.caption)
                         

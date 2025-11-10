@@ -36,7 +36,7 @@ private struct AIIdeasViewContent: View {
                 if !viewModel.modelAvailable {
                     // Show unavailable message
                     unavailableView
-                } else if episode.transcriptInputText == nil || episode.transcriptInputText?.isEmpty == true {
+                } else if episode.hasTranscriptData == false {
                     // Show no transcript message
                     ContentUnavailableView(
                         "No Transcript Available",
@@ -92,7 +92,7 @@ private struct AIIdeasViewContent: View {
             }
         }
         .toolbar {
-            if viewModel.modelAvailable && episode.transcriptInputText != nil && !episode.transcriptInputText!.isEmpty {
+            if viewModel.modelAvailable && episode.hasTranscriptData {
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: {
                         Task {
@@ -108,7 +108,7 @@ private struct AIIdeasViewContent: View {
                 }
             }
         }
-        .focusedSceneValue(\.aiActions, viewModel.modelAvailable && episode.transcriptInputText != nil && !episode.transcriptInputText!.isEmpty ? AIActions(
+        .focusedSceneValue(\.aiActions, viewModel.modelAvailable && episode.hasTranscriptData ? AIActions(
             generateAll: viewModel.generateAll
         ) : nil)
     }
