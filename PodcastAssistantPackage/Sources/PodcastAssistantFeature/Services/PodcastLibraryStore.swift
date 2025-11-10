@@ -84,34 +84,17 @@ public final class PodcastLibraryStore: ObservableObject {
         }
         var descriptor = FetchDescriptor<Episode>(predicate: predicate)
         descriptor.sortBy = [SortDescriptor(\Episode.publishDate, order: .reverse)]
+        // Note: hasTranscriptData and hasThumbnailOutput are computed properties
+        // and cannot be included in propertiesToFetch
         descriptor.propertiesToFetch = [
             \Episode.id,
             \Episode.title,
             \Episode.episodeNumber,
             \Episode.publishDate,
-            \Episode.hasTranscriptData,
-            \Episode.hasThumbnailOutput
+            \Episode.transcriptInputText,
+            \Episode.thumbnailOutputData
         ]
         let fetched = try context.fetch(descriptor)
-        var updatedDerivedFlags = false
-        for episode in fetched {
-            if episode.hasTranscriptData == false {
-                let hasTranscript = episode.transcriptInputText?.isEmpty == false
-                if hasTranscript {
-                    episode.hasTranscriptData = true
-                    updatedDerivedFlags = true
-                }
-            }
-            if episode.hasThumbnailOutput == false {
-                if episode.thumbnailOutputData != nil {
-                    episode.hasThumbnailOutput = true
-                    updatedDerivedFlags = true
-                }
-            }
-        }
-        if updatedDerivedFlags {
-            try context.save()
-        }
         let summaries = fetched.map(EpisodeSummary.init)
         if episodesCache[podcastID] != summaries {
             episodesCache[podcastID] = summaries

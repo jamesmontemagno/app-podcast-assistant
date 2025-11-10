@@ -8,21 +8,22 @@ public final class Episode {
     public var title: String
     public var episodeNumber: Int32
     public var episodeDescription: String?
-    public var transcriptInputText: String? {
-        didSet {
-            hasTranscriptData = transcriptInputText?.isEmpty == false
-        }
-    }
+    public var transcriptInputText: String?
     public var srtOutputText: String?
     public var thumbnailBackgroundData: Data?
     public var thumbnailOverlayData: Data?
-    public var thumbnailOutputData: Data? {
-        didSet {
-            hasThumbnailOutput = thumbnailOutputData != nil
-        }
+    public var thumbnailOutputData: Data?
+    
+    /// True if transcriptInputText is non-empty
+    public var hasTranscriptData: Bool {
+        transcriptInputText?.isEmpty == false
     }
-    public var hasTranscriptData: Bool = false
-    public var hasThumbnailOutput: Bool = false
+    
+    /// True if thumbnailOutputData is present
+    public var hasThumbnailOutput: Bool {
+        thumbnailOutputData != nil
+    }
+    
     public var fontName: String?
     public var fontSize: Double
     public var textPositionX: Double
