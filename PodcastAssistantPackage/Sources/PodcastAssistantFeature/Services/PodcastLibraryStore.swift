@@ -98,6 +98,11 @@ public final class PodcastLibraryStore: ObservableObject {
         // Validate and update flags if needed (handles cases where didSet wasn't called)
         var needsSave = false
         for episode in fetched {
+            // Skip deleted episodes
+            if episode.isDeleted {
+                continue
+            }
+            
             // Only validate if we suspect the flag might be wrong
             if episode.hasTranscriptData == false {
                 // Fault in the property to check (unavoidable for validation)
@@ -121,7 +126,9 @@ public final class PodcastLibraryStore: ObservableObject {
             try context.save()
         }
         
-        let summaries = fetched.map(EpisodeSummary.init)
+        // Filter out deleted episodes before creating summaries
+        let validEpisodes = fetched.filter { !$0.isDeleted }
+        let summaries = validEpisodes.map(EpisodeSummary.init)
         if episodesCache[podcastID] != summaries {
             episodesCache[podcastID] = summaries
         }
@@ -144,7 +151,13 @@ public final class PodcastLibraryStore: ObservableObject {
         }
         var descriptor = FetchDescriptor<Podcast>(predicate: predicate)
         descriptor.fetchLimit = 1
-        return try context.fetch(descriptor).first
+        let result = try context.fetch(descriptor).first
+        
+        // Verify the object is valid and not deleted
+        if let podcast = result, !podcast.isDeleted {
+            return podcast
+        }
+        return nil
     }
     
     public func fetchEpisodeModel(with id: String, context: ModelContext) throws -> Episode? {
@@ -153,7 +166,13 @@ public final class PodcastLibraryStore: ObservableObject {
         }
         var descriptor = FetchDescriptor<Episode>(predicate: predicate)
         descriptor.fetchLimit = 1
-        return try context.fetch(descriptor).first
+        let result = try context.fetch(descriptor).first
+        
+        // Verify the object is valid and not deleted
+        if let episode = result, !episode.isDeleted {
+            return episode
+        }
+        return nil
     }
     
     // MARK: - Helpers

@@ -105,7 +105,7 @@ public struct ContentView: View {
             var transaction = Transaction()
             transaction.disablesAnimations = true
             withTransaction(transaction) {
-                if let model = loadEpisodeModel(with: newEpisodeID) {
+                if let model = loadEpisodeModel(with: newEpisodeID), !model.isDeleted {
                     selectedEpisodeModel = model
                 } else {
                     selectedEpisodeID = nil
@@ -125,6 +125,14 @@ public struct ContentView: View {
             transaction.disablesAnimations = true
             withTransaction(transaction) {
                 updateFilteredEpisodes()
+            }
+        }
+        .onChange(of: columnVisibility) { _, _ in
+            // Prevent view rebuilds during drawer animation
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                // No action needed, just suppress animations
             }
         }
     }
@@ -354,13 +362,13 @@ public struct ContentView: View {
     
     @ViewBuilder
     private var detailContent: some View {
-        if let episode = selectedEpisodeModel {
+        if let episode = selectedEpisodeModel, !episode.isDeleted {
             EpisodeDetailView(
                 episode: episode,
                 selectedTab: $selectedDetailTab,
                 showingEpisodeDetailEdit: $showingEpisodeDetailEdit
             )
-            .id(episode.id) // Force view recreation when episode changes
+            .id("episode-\(episode.id)") // Stable ID prevents recreation on column visibility changes
         } else {
             ContentUnavailableView(
                 "Select an Episode",
@@ -739,12 +747,16 @@ private struct EpisodeDetailView: View {
                 switch selectedTab {
                 case .details:
                     EpisodeDetailsView(episode: episode)
+                        .id("details-\(episode.id)")
                 case .transcript:
                     TranscriptView(episode: episode)
+                        .id("transcript-\(episode.id)")
                 case .thumbnail:
                     ThumbnailView(episode: episode)
+                        .id("thumbnail-\(episode.id)")
                 case .aiIdeas:
                     AIIdeasView(episode: episode)
+                        .id("aiideas-\(episode.id)")
                 }
             }
             .frame(minWidth: 500, idealWidth: 800, maxWidth: .infinity)
