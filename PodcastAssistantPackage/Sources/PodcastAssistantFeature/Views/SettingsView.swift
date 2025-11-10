@@ -1,25 +1,21 @@
 import SwiftUI
-import SwiftData
 
 /// Settings view for app-wide configuration
 public struct SettingsView: View {
-    @Environment(\.modelContext) private var modelContext
-    
     public init() {
     }
     
     public var body: some View {
-        SettingsContentView(modelContext: modelContext)
+        SettingsContentView()
     }
 }
 
 /// Internal content view that properly manages the view model
 private struct SettingsContentView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var viewModel: SettingsViewModel
+    @StateObject private var viewModel = SettingsViewModel()
     
-    init(modelContext: ModelContext) {
-        _viewModel = StateObject(wrappedValue: SettingsViewModel(modelContext: modelContext))
+    init() {
     }
     
     var body: some View {
@@ -61,11 +57,12 @@ private struct SettingsContentView: View {
                 }
                 .keyboardShortcut(.defaultAction)
                 .buttonStyle(.borderedProminent)
-                .padding()
+                .controlSize(.large)
             }
-            .background(Color(NSColor.controlBackgroundColor))
+            .padding(16)
+            .background(Color(NSColor.windowBackgroundColor))
         }
-        .frame(minWidth: 600, minHeight: 500)
+        .frame(minWidth: 600, idealWidth: 700, minHeight: 550, idealHeight: 600)
         .onAppear {
             viewModel.applyCurrentTheme()
         }

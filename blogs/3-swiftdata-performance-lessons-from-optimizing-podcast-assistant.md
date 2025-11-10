@@ -2,6 +2,24 @@
 
 I love building apps with SwiftData—the declarative persistence framework for SwiftUI feels like magic when everything just works. But recently, while working on [Podcast Assistant](https://github.com/jamesmontemagno/app-podcast-assistant), a macOS app for managing podcast transcripts and thumbnails, I hit a performance wall that taught me some valuable lessons about how SwiftData *actually* works under the hood.
 
+## What is SwiftData?
+
+SwiftData is Apple's modern persistence framework introduced at WWDC 2023. It's built on top of Core Data but designed from the ground up for Swift and SwiftUI, using modern language features like macros, generics, and property wrappers to make data persistence feel natural and type-safe.
+
+**Why use SwiftData?**
+- **Swift-first design:** Uses Swift macros (`@Model`) instead of Objective-C runtime magic
+- **Declarative syntax:** Define models with simple Swift classes, no manual NSManagedObject subclasses
+- **SwiftUI integration:** `@Query` property wrapper automatically binds models to views
+- **CloudKit sync ready:** Built-in support for iCloud synchronization with minimal configuration
+- **Type safety:** Predicates use Swift's `#Predicate` macro for compile-time checked queries
+- **Powerful relationships:** Cascade deletes, inverse relationships, and lazy loading built-in
+
+SwiftData makes persistence almost invisible—you annotate a class with `@Model`, inject a `ModelContext`, and your data just... persists. It's genuinely delightful when starting out. But as your app grows and you start working with larger datasets and complex models, you'll discover that this "magic" comes with performance implications if you're not careful about how you structure your fetches and data flow.
+
+Here's what I learned when Podcast Assistant started struggling, and the three optimizations that brought it back to buttery smoothness.
+
+## The Setup
+
 The app uses a master-detail NavigationSplitView: a sidebar showing podcasts and episodes, and a detail pane for editing transcripts and generating thumbnails. Simple enough, right? Except the sidebar was lagging every time I switched podcasts or searched episodes. Not "slightly sluggish"—full-on janky drawer animations and noticeable stutter when typing in the search field.
 
 Here's what I learned fixing it, and the three biggest wins that took the app from sluggish to buttery smooth.

@@ -4,18 +4,11 @@ import PodcastAssistantFeature
 @main
 @available(macOS 26.0, *)
 struct PodcastAssistantApp: App {
-    // Initialize SwiftData persistence
+    // Hybrid Architecture: SwiftData for persistence, POCOs for UI binding
     let persistenceController = PersistenceController.shared
     
-    // Environment for focused values
-    @FocusedValue(\.selectedEpisode) private var selectedEpisode
-    @FocusedValue(\.canPerformTranscriptActions) private var canPerformTranscriptActions
-    @FocusedValue(\.canPerformThumbnailActions) private var canPerformThumbnailActions
-    @FocusedValue(\.transcriptActions) private var transcriptActions
-    @FocusedValue(\.thumbnailActions) private var thumbnailActions
-    @FocusedValue(\.aiActions) private var aiActions
-    @FocusedValue(\.podcastActions) private var podcastActions
-    @FocusedValue(\.episodeActions) private var episodeActions
+    // Settings view model for theme management
+    @StateObject private var settingsViewModel = SettingsViewModel()
     
     init() {
         // Register all imported fonts on app launch
@@ -29,162 +22,233 @@ struct PodcastAssistantApp: App {
         WindowGroup {
             ContentView()
                 .modelContainer(persistenceController.container)
+                .environmentObject(settingsViewModel)
+                .onAppear {
+                    // Apply saved theme after the app is fully initialized
+                    settingsViewModel.applyCurrentTheme()
+                }
         }
         .commands {
-            // File Menu
-            CommandGroup(after: .newItem) {
-                Button("New Podcast...") {
-                    podcastActions?.createPodcast()
-                }
-                .keyboardShortcut("n", modifiers: [.command, .shift])
-                .disabled(podcastActions == nil)
-                
-                Button("New Episode...") {
-                    episodeActions?.createEpisode()
-                }
-                .keyboardShortcut("n", modifiers: [.command])
-                .disabled(episodeActions == nil)
-            }
-            
-            // Edit Menu
-            CommandGroup(after: .pasteboard) {
-                Divider()
-                
-                Button("Paste as Background Image") {
-                    thumbnailActions?.pasteBackground()
-                }
-                .keyboardShortcut("v", modifiers: [.command, .shift])
-                .disabled(selectedEpisode == nil)
-                
-                Button("Paste as Overlay Image") {
-                    thumbnailActions?.pasteOverlay()
-                }
-                .keyboardShortcut("v", modifiers: [.command, .option])
-                .disabled(selectedEpisode == nil)
-            }
-            
-            // Episode Menu
-            CommandMenu("Episode") {
-                Button("Edit Episode Details...") {
-                    episodeActions?.editEpisode()
-                }
-                .keyboardShortcut("e", modifiers: [.command])
-                .disabled(selectedEpisode == nil)
-                
-                Menu("Import") {
-                    Button("Import Transcript...") {
-                        transcriptActions?.importTranscript()
-                    }
-                    .keyboardShortcut("i", modifiers: [.command])
-                    .disabled(selectedEpisode == nil)
-                    
-                    Button("Import Thumbnail Background...") {
-                        thumbnailActions?.importBackground()
-                    }
-                    .keyboardShortcut("i", modifiers: [.command, .shift])
-                    .disabled(selectedEpisode == nil)
-                    
-                    Button("Import Thumbnail Overlay...") {
-                        thumbnailActions?.importOverlay()
-                    }
-                    .disabled(selectedEpisode == nil)
-                }
-                
-                Menu("Export") {
-                    Button("Export SRT...") {
-                        transcriptActions?.exportSRT()
-                    }
-                    .keyboardShortcut("e", modifiers: [.command, .shift])
-                    .disabled(selectedEpisode == nil || canPerformTranscriptActions?.canExport != true)
-                    
-                    Button("Export Translated SRT...") {
-                        transcriptActions?.exportTranslated()
-                    }
-                    .disabled(selectedEpisode == nil || canPerformTranscriptActions?.canExport != true)
-                    
-                    Button("Export Thumbnail...") {
-                        thumbnailActions?.exportThumbnail()
-                    }
-                    .keyboardShortcut("s", modifiers: [.command, .option])
-                    .disabled(selectedEpisode == nil || canPerformThumbnailActions?.canExport != true)
-                }
-                
-                Divider()
-                
-                Button("Convert Transcript to SRT") {
-                    transcriptActions?.convertToSRT()
-                }
-                .keyboardShortcut("r", modifiers: [.command])
-                .disabled(selectedEpisode == nil || canPerformTranscriptActions?.canConvert != true)
-                
-                Button("Clear Transcript") {
-                    transcriptActions?.clearTranscript()
-                }
-                .disabled(selectedEpisode == nil || canPerformTranscriptActions?.canClear != true)
-                
-                Divider()
-                
-                Button("Generate Thumbnail") {
-                    thumbnailActions?.generateThumbnail()
-                }
-                .keyboardShortcut("g", modifiers: [.command])
-                .disabled(selectedEpisode == nil || canPerformThumbnailActions?.canGenerate != true)
-                
-                Button("Clear Thumbnail") {
-                    thumbnailActions?.clearThumbnail()
-                }
-                .disabled(selectedEpisode == nil || canPerformThumbnailActions?.canClear != true)
-                
-                Divider()
-                
-                Button("Generate All AI Ideas") {
-                    Task {
-                        await aiActions?.generateAll()
-                    }
-                }
-                .keyboardShortcut("g", modifiers: [.command, .shift])
-                .disabled(selectedEpisode == nil || aiActions == nil)
-                
-                Divider()
-                
-                Button("Delete Episode") {
-                    episodeActions?.deleteEpisode()
-                }
-                .keyboardShortcut(.delete, modifiers: [.command])
-                .disabled(selectedEpisode == nil || episodeActions == nil)
-            }
-            
-            // View Menu additions
-            CommandGroup(after: .sidebar) {
-                Button("Details") {
-                    episodeActions?.showDetails()
-                }
-                .keyboardShortcut("1", modifiers: [.command])
-                .disabled(selectedEpisode == nil)
-                
-                Button("Transcript") {
-                    episodeActions?.showTranscript()
-                }
-                .keyboardShortcut("2", modifiers: [.command])
-                .disabled(selectedEpisode == nil)
-                
-                Button("Thumbnail") {
-                    episodeActions?.showThumbnail()
-                }
-                .keyboardShortcut("3", modifiers: [.command])
-                .disabled(selectedEpisode == nil)
-                
-                Button("AI Ideas") {
-                    episodeActions?.showAIIdeas()
-                }
-                .keyboardShortcut("4", modifiers: [.command])
-                .disabled(selectedEpisode == nil)
-            }
+            SaveCommands()
+            EpisodeCommands()
         }
-        
+        .defaultSize(width: 1200, height: 800)
+        #if os(macOS)
         Settings {
             SettingsView()
-                .modelContainer(persistenceController.container)
+        }
+        #endif
+    }
+}
+
+// MARK: - File Menu Save Commands
+
+struct SaveCommands: Commands {
+    @ObservedObject private var appState = AppState.shared
+    
+    var body: some Commands {
+        CommandGroup(replacing: .saveItem) {
+            Button("Save") {
+                switch appState.selectedEpisodeSection {
+                case .details:
+                    appState.episodeDetailActions?.save?()
+                case .thumbnail:
+                    appState.thumbnailActions?.saveThumbnail()
+                default:
+                    break
+                }
+            }
+            .keyboardShortcut("s", modifiers: .command)
+            .disabled(!canSave)
+        }
+    }
+    
+    private var canSave: Bool {
+        switch appState.selectedEpisodeSection {
+        case .details:
+            return appState.episodeDetailActions?.save != nil
+        case .thumbnail:
+            return appState.thumbnailCapabilities?.canSave == true
+        default:
+            return false
+        }
+    }
+}
+
+// MARK: - Episode Menu Commands
+
+struct EpisodeCommands: Commands {
+    @ObservedObject private var appState = AppState.shared
+    
+    var body: some Commands {
+        CommandMenu("Episode") {
+            // Save action (appears for Details section)
+            if appState.selectedEpisodeSection == .details {
+                Button("Save Episode") {
+                    appState.episodeDetailActions?.save?()
+                }
+                .disabled(appState.episodeDetailActions?.save == nil)
+                
+                Divider()
+            }
+            
+            // Translate action (appears for Details section on macOS 26+)
+            if appState.selectedEpisodeSection == .details {
+                Button("Translate Episode...") {
+                    appState.episodeDetailActions?.translate?()
+                }
+                .keyboardShortcut("t", modifiers: [.command, .shift])
+                .disabled(appState.episodeDetailActions?.translate == nil)
+                
+                Divider()
+            }
+            
+            // Section-specific actions will be added here
+            Group {
+                switch appState.selectedEpisodeSection {
+                case .details:
+                    detailsMenuItems
+                case .transcript:
+                    transcriptMenuItems
+                case .thumbnail:
+                    thumbnailMenuItems
+                case .aiIdeas:
+                    aiIdeasMenuItems
+                case .none:
+                    Text("No Episode Selected")
+                        .disabled(true)
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var detailsMenuItems: some View {
+        EmptyView()
+    }
+    
+    @ViewBuilder
+    private var transcriptMenuItems: some View {
+        Button("Import Transcript...") {
+            appState.transcriptActions?.importTranscript()
+        }
+        .keyboardShortcut("i", modifiers: [.command, .shift])
+        .disabled(appState.transcriptActions == nil)
+        
+        Divider()
+        
+        Button("Convert to SRT") {
+            appState.transcriptActions?.convertToSRT()
+        }
+        .keyboardShortcut("k", modifiers: [.command])
+        .disabled(appState.transcriptCapabilities?.canConvert != true)
+        
+        Button("Export SRT...") {
+            appState.transcriptActions?.exportSRT()
+        }
+        .keyboardShortcut("e", modifiers: [.command, .shift])
+        .disabled(appState.transcriptCapabilities?.canExport != true)
+        
+        Divider()
+        
+        if #available(macOS 26.0, *) {
+            Button("Translate Transcript...") {
+                appState.transcriptActions?.exportTranslated()
+            }
+            .keyboardShortcut("t", modifiers: [.command, .shift])
+            .disabled(appState.transcriptCapabilities?.canExport != true)
+            
+            Divider()
+        }
+        
+        Button("Clear All Transcript Data...") {
+            appState.transcriptActions?.clearTranscript()
+        }
+        .disabled(appState.transcriptCapabilities?.canClear != true)
+    }
+    
+    @ViewBuilder
+    private var thumbnailMenuItems: some View {
+        Button("Generate Thumbnail") {
+            appState.thumbnailActions?.generateThumbnail()
+        }
+        .keyboardShortcut("g", modifiers: [.command])
+        .disabled(appState.thumbnailCapabilities?.canGenerate != true)
+        
+        Button("Save Thumbnail") {
+            appState.thumbnailActions?.saveThumbnail()
+        }
+        .disabled(appState.thumbnailCapabilities?.canSave != true)
+        
+        Button("Export Thumbnail...") {
+            appState.thumbnailActions?.exportThumbnail()
+        }
+        .keyboardShortcut("e", modifiers: [.command, .shift])
+        .disabled(appState.thumbnailCapabilities?.canExport != true)
+        
+        Divider()
+        
+        Button("Import Background Image...") {
+            appState.thumbnailActions?.importBackground()
+        }
+        .disabled(appState.thumbnailActions == nil)
+        
+        Button("Import Overlay Image...") {
+            appState.thumbnailActions?.importOverlay()
+        }
+        .disabled(appState.thumbnailActions == nil)
+        
+        Divider()
+        
+        Button("Paste Background from Clipboard") {
+            appState.thumbnailActions?.pasteBackground()
+        }
+        .keyboardShortcut("v", modifiers: [.command, .option])
+        .disabled(appState.thumbnailActions == nil)
+        
+        Button("Paste Overlay from Clipboard") {
+            appState.thumbnailActions?.pasteOverlay()
+        }
+        .keyboardShortcut("v", modifiers: [.command, .option, .shift])
+        .disabled(appState.thumbnailActions == nil)
+        
+        Divider()
+        
+        Button("Reset All Settings...") {
+            appState.thumbnailActions?.clearThumbnail()
+        }
+        .disabled(appState.thumbnailCapabilities?.canClear != true)
+    }
+    
+    @ViewBuilder
+    private var aiIdeasMenuItems: some View {
+        if #available(macOS 26.0, *) {
+            Text("AI Ideas Section")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            
+            Text("Use the AI Ideas tab to generate:")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            
+            Text("• Title suggestions")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            
+            Text("• Episode descriptions")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            
+            Text("• Social media posts")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            
+            Text("• Chapter markers")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        } else {
+            Text("AI Ideas Require macOS 26+")
+                .disabled(true)
         }
     }
 }

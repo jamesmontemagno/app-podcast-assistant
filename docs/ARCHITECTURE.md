@@ -2,7 +2,7 @@
 
 ## System Architecture
 
-Podcast Assistant uses a **workspace + SPM package architecture** for clean code separation and modularity:
+Podcast Assistant uses a **hybrid POCO + SwiftData architecture** with clean separation between UI and persistence layers:
 
 ```
 PodcastAssistant/                          # App shell (minimal)
@@ -10,75 +10,101 @@ PodcastAssistant/                          # App shell (minimal)
 
 PodcastAssistantPackage/                   # All feature code
 └── Sources/PodcastAssistantFeature/
-    ├── Models/                            # SwiftData models
-    ├── Services/                          # Business logic
+    ├── Models/
+    │   ├── POCOs/                        # UI layer (fast, simple)
+    │   ├── SwiftData/                    # Persistence layer
+    │   └── Supporting/                    # Helper models
+    ├── Services/
+    │   ├── Data/                         # PodcastLibraryStore (POCO ↔ SwiftData)
+    │   ├── UI/                           # UI services
+    │   └── Utilities/                     # Business logic
     ├── ViewModels/                        # @MainActor state management
-    └── Views/                             # SwiftUI views
+    └── Views/
+        ├── Forms/                         # Modal create/edit forms
+        ├── Sections/                      # Main content tabs
+        └── Sheets/                        # Action popups
 ```
 
 ### Key Architectural Principles
 
 1. **Workspace-first development** - Always open `PodcastAssistant.xcworkspace`, never `.xcodeproj`
 2. **Public API pattern** - All types in the package exposed to the app target must be `public` with `public init()`
-3. **MVVM pattern** - Service → ViewModel → View separation
-4. **SwiftData persistence** - Local storage, CloudKit-ready (see `PersistenceController.swift` to enable)
+3. **POCO pattern** - Views and ViewModels use POCOs, never SwiftData models
+4. **Hybrid persistence** - POCOs in memory, SwiftData for database (see `POCO_ARCHITECTURE.md`)
+5. **Organized structure** - Logical folder nesting (see `FOLDER_STRUCTURE.md`)
 
 ## Application Flow
 
 ### Three-Column Master-Detail Navigation
 
 ```
-Sidebar (Podcasts)  →  Middle (Episodes)  →  Detail (Transcript/Thumbnail)
-     ↓                        ↓                         ↓
-    @Query              podcast.episodes         TranscriptView
-  (Podcasts)          (sorted by createdAt)      ThumbnailView
+Sidebar (Podcasts)  →  Middle (Episodes)  →  Detail (Sections)
+     ↓                        ↓                    ↓
+store.podcasts      store.episodes[podcastID]  TranscriptView
+ [PodcastPOCO]         [EpisodePOCO]           ThumbnailView
+                                               AIIdeasView
 ```
 
 #### Column 1: Podcast Sidebar
-- Displays all podcasts with artwork thumbnails using `@Query`
-- Create/Edit/Delete podcast operations
-- Persists last selected podcast ID (String) in UserDefaults
-- Auto-selects first podcast on launch if no saved selection
+- Displays `store.podcasts` array (POCOs, not SwiftData)
+- Create/Edit/Delete via PodcastLibraryStore
+- Persists last selected podcast ID in UserDefaults
+- Auto-selects first podcast on launch
 
 #### Column 2: Episode List
-- Shows episodes from selected podcast's array (native SwiftData array)
-- Create/Edit/Delete episode operations
-- Episode number auto-increment suggestion
+- Shows `store.episodes[selectedPodcastID]` (POCOs)
+- Lazy-loaded when podcast selected
+- Create/Edit/Delete via PodcastLibraryStore
 - Visual indicators for transcript/thumbnail completion
 
 #### Column 3: Detail Pane
-- Segmented control for Transcript/Thumbnail/AI Ideas tabs
-- Episode-scoped editing (all changes auto-save to Core Data)
+- Tab selection for Transcript/Thumbnail/AI Ideas/Details
+- Episode-scoped editing (POCOs updated, saved to SwiftData via store)
 - Real-time preview for thumbnail generation
 - AI-powered content generation (macOS 26+)
 - Episode translation support (macOS 26+)
 - File import/export operations
 
-### Data Flow
+### Data Flow (POCO Pattern)
 
 ```
-User Action → ViewModel → SwiftData Model → ModelContext Save → UI Update (automatic)
-                ↑                                                    ↓
-                └──────────── @Published / objectWillChange ─────────┘
+User Action → ViewModel → POCO Update → Store.updateEpisode() → SwiftData Save → POCO Array Update → UI Refresh
+                ↑                                                                         ↓
+                └────────────────────── @Published triggers ──────────────────────────────┘
 ```
+
+**Key Difference:** ViewModels work with POCOs, PodcastLibraryStore handles SwiftData persistence.
 
 ## Core Components
 
-### SwiftData Stack
+### POCO + SwiftData Hybrid Stack
 
-**Models:**
-- `Podcast` - @Model with podcast metadata, artwork, default thumbnail settings
-- `Episode` - @Model with episode data, transcript text, thumbnail images, settings
+**See `POCO_ARCHITECTURE.md` for complete details.**
 
-**Relationships:**
-- `Podcast.episodes: [Episode]` with `@Relationship(deleteRule: .cascade, inverse: \Episode.podcast)`
-- `Episode.podcast: Podcast?` (inverse relationship)
+**POCOs (UI Layer):**
+- `PodcastPOCO` - Simple class with podcast data
+- `EpisodePOCO` - Simple class with episode data
+- Used in all Views and ViewModels
+- Fast, predictable, testable
 
-**PersistenceController:**
-- Singleton pattern for shared SwiftData stack
-- `ModelContainer` with local-only storage (CloudKit disabled)
-- CloudKit-ready schema - see class documentation for enabling
-- Preview support with in-memory store
+**SwiftData (Persistence Layer):**
+- `Podcast` - @Model with all properties mirroring PodcastPOCO
+- `Episode` - @Model with all properties mirroring EpisodePOCO
+- Cascade delete relationship (podcast → episodes)
+- CloudKit-ready schema
+
+**PodcastLibraryStore (Bridge):**
+- `@Published` arrays of POCOs for UI binding
+- Fetches from SwiftData, converts to POCOs
+- Updates SwiftData when POCOs change
+- Central CRUD operations
+- Singleton pattern with ModelContext
+
+**Benefits:**
+- ✅ No SwiftData quirks in UI (no `@Query`, no faulting)
+- ✅ Fast UI performance (simple objects)
+- ✅ Reliable persistence (SwiftData + SQLite)
+- ✅ Easy testing (POCOs don't need ModelContext)
 
 ### Services Layer
 
@@ -116,141 +142,125 @@ User Action → ViewModel → SwiftData Model → ModelContext Save → UI Updat
 
 ### ViewModels
 
-#### TranscriptViewModel
-- Accepts `Episode` and `NSManagedObjectContext` dependencies
-- Computed properties read/write directly to Core Data
-- Automatic context saving after changes
-- File import/export via NSOpenPanel/NSSavePanel
-- Translation export with language selection sheet (macOS 14+)
+**Pattern:** ViewModels own POCO references, call store for persistence
 
 #### ThumbnailViewModel
-- Episode-bound with Core Data context
-- Lazy-loaded images from Data blobs
-- Real-time thumbnail generation on property changes
-- Persists generated thumbnails to episode
-- Loading state management for smooth UI (300ms delay)
-- Background processing with progress indicators
+- Accepts `EpisodePOCO` and `PodcastLibraryStore` dependencies
+- Computed properties read/write to POCO
+- Auto-generation with debouncing (150ms)
+- Calls `store.updateEpisode()` to persist changes
+- No ModelContext needed
+
+```swift
+@MainActor
+public final class ThumbnailViewModel: ObservableObject {
+    @Published public var episode: EpisodePOCO
+    private let store: PodcastLibraryStore
+    
+    public var backgroundImage: NSImage? {
+        get { /* read from episode.thumbnailBackgroundData */ }
+        set { 
+            episode.thumbnailBackgroundData = processedData
+            try? store.updateEpisode(episode)  // Persist
+        }
+    }
+}
+```
 
 #### AIIdeasViewModel (macOS 26+)
 - Apple Intelligence integration for content generation
 - Generates titles, descriptions, social posts, chapter markers
-- In-memory state (not persisted to Core Data)
+- In-memory state (not persisted)
 - Uses SystemLanguageModel for on-device AI
-- Model availability checking
 - Transcript cleaning and preparation
-- Copy-to-clipboard functionality for generated content
 
 #### EpisodeTranslationViewModel (macOS 26+)
-- Manages episode title and description translation
-- Language availability and status tracking
-- Translation pack installation detection
-- Uses TranslationService for on-device translation
-- Error handling for missing language packs
-- Clipboard integration for translated content
-
-#### SettingsViewModel
-- ObservableObject managing app-wide settings
-- Theme selection (System/Light/Dark)
-- Font import/removal management
-- File picker dialogs for font selection
-- NSApp.appearance updates for immediate theme changes
-- Success/error message handling with auto-dismiss
+- Episode title/description translation
+- Language availability tracking
+- Uses TranslationService (macOS Translation API)
+- Copy-to-clipboard workflow (not persisted)
 
 ### Views
 
+**See `FOLDER_STRUCTURE.md` for complete organization and `UI_DESIGN_PATTERNS.md` for design system.**
+
 #### ContentView (Main Navigation)
-- `NavigationSplitView` with three columns
-- `@FetchRequest` for podcast list
-- Selection binding with UserDefaults persistence
-- Empty state placeholders for each column
+- NavigationSplitView with three columns
+- `@StateObject` for PodcastLibraryStore
+- Loads initial data on appear: `store.loadInitialData(context: modelContext)`
+- Injects store via `.environmentObject()`
 - Settings button with sheet presentation
-- Font auto-registration on app launch
-- Theme restoration from AppSettings
 
-#### PodcastFormView
-- Create/edit podcast metadata
-- Image upload with automatic processing
-- Default thumbnail settings configuration
-- Sheet presentation for modal workflow
+#### Forms/ (Modal Create/Edit)
+- **PodcastFormView** - Create/edit podcast with tabbed interface
+- **EpisodeFormView** - Create/edit episodes
+- Pattern: Local copy editing, save to store on submit
+- Design: VStack(spacing: 0), dividers, .borderedProminent buttons
 
-#### EpisodeFormView
-- Create/edit episode details
-- Auto-increment episode number suggestion
-- Copies podcast defaults on creation
-- Minimal form (title + number only)
+#### Sections/ (Main Detail Pane Tabs)
+- **TranscriptView** - Side-by-side transcript conversion
+- **ThumbnailView** - Three-column thumbnail generation
+- **AIIdeasView** - Four-section AI content creation
+- **DetailsView** - Episode metadata display
+- Pattern: Accept EpisodePOCO, use ViewModels for state
 
-#### TranscriptView
-- Episode-scoped transcript editing
-- Side-by-side input/output layout
-- File import/export operations
-- Real-time conversion feedback
-
-#### ThumbnailView
-- Episode-scoped thumbnail generation
-- Three-column layout (controls, preview, export)
-- Real-time preview updates
-- Image clipboard paste support
-- Lazy loading with spinner during generation
-
-#### AIIdeasView (macOS 26+)
-- Four-section layout for content generation
-- Title suggestions with refresh and copy
-- Description generator with length options
-- Social media posts for multiple platforms
-- Chapter markers with timestamps
-- "Generate All" batch operation
-- Model availability checking
-- Requires transcript to function
-
-#### EpisodeDetailEditView
-- Edit episode title and description
-- Translation button integration
-- Sheet presentation for episode translation
-- Save/cancel workflow
-
-#### SettingsView
-- Three-section tabbed interface
-- About section with app info and GitHub link
-- Appearance section with theme picker
-- Font Management section with import/remove
-- Two-part structure for StateObject initialization
-- Hover states and visual feedback
-- Auto-dismissing success messages
+#### Sheets/ (Action Popups)
+- **EpisodeTranslationSheet** - Translate episode metadata
+- **TranscriptTranslationSheet** - Translate SRT files
+- Pattern: Temporary UI for one-time actions, copy-to-clipboard
 
 ## File Organization
 
+**See `FOLDER_STRUCTURE.md` for complete details.**
+
 ```
 Models/
-├── Podcast.swift                           # @Model definition with all properties
-├── Episode.swift                           # @Model definition with custom init
-├── AppSettings.swift                       # @Model for app-wide settings
-├── TranscriptEntry.swift                   # Legacy model (used for SRT)
-└── SRTDocument.swift                       # FileDocument for export
+├── POCOs/                                  # UI-layer simple classes
+│   ├── EpisodePOCO.swift
+│   └── PodcastPOCO.swift
+├── SwiftData/                              # Database models
+│   ├── Episode.swift
+│   └── Podcast.swift
+└── Supporting/                              # Helper models
+    ├── AppSettings.swift                   # App-wide settings (@Model)
+    ├── MenuActions.swift                   # Menu commands
+    ├── SRTDocument.swift                   # File document
+    └── TranscriptEntry.swift               # SRT entry
 
 Services/
-├── PersistenceController.swift             # Core Data stack management
-├── TranscriptConverter.swift               # Format detection & conversion
-├── TranslationService.swift                # SRT & episode translation (macOS 26+)
-├── ThumbnailGenerator.swift                # Image compositing
-├── ImageUtilities.swift                    # Image processing
-└── FontManager.swift                       # Custom font management
+├── Data/                                   # Data management
+│   ├── PersistenceController.swift         # SwiftData stack
+│   └── PodcastLibraryStore.swift           # POCO/SwiftData bridge
+├── UI/                                     # UI services
+│   └── ThumbnailGenerator.swift            # Image composition
+└── Utilities/                               # Business logic
+    ├── ColorExtensions.swift               # Color utilities
+    ├── FontManager.swift                   # Font management
+    ├── ImageUtilities.swift                # Image processing
+    ├── TranscriptCleaner.swift             # Preprocessing
+    ├── TranscriptConverter.swift           # Format conversion
+    └── TranslationService.swift            # Translation API
 
-ViewModels/
-├── TranscriptViewModel.swift               # Transcript conversion state
-├── ThumbnailViewModel.swift                # Thumbnail generation state
-├── AIIdeasViewModel.swift                  # AI content generation (macOS 26+)
-├── EpisodeTranslationViewModel.swift       # Episode translation (macOS 26+)
-└── SettingsViewModel.swift                 # App settings management
+ViewModels/                                  # State management
+├── AIIdeasViewModel.swift
+├── EpisodeTranslationViewModel.swift
+├── SettingsViewModel.swift
+└── ThumbnailViewModel.swift
 
-Views/
-├── ContentView.swift                       # Main navigation container
-├── PodcastFormView.swift                   # Podcast create/edit form
-├── EpisodeFormView.swift                   # Episode create/edit form
-├── EpisodeDetailEditView.swift             # Episode detail editor with translation
-├── TranscriptView.swift                    # Transcript editor
-├── ThumbnailView.swift                     # Thumbnail generator
-├── AIIdeasView.swift                       # AI content generation (macOS 26+)
-└── SettingsView.swift                      # Settings modal
+Views/                                       # UI layer
+├── Forms/                                  # Modal create/edit
+│   ├── EpisodeFormView.swift
+│   └── PodcastFormView.swift
+├── Sections/                               # Detail pane tabs
+│   ├── AIIdeasView.swift
+│   ├── DetailsView.swift
+│   ├── ThumbnailView.swift
+│   └── TranscriptView.swift
+├── Sheets/                                 # Action popups
+│   ├── EpisodeTranslationSheet.swift
+│   └── TranscriptTranslationSheet.swift
+├── EpisodeDetailView.swift                # Detail coordinator
+└── SettingsView.swift                     # Settings modal
 ```
 
 ## Build Configuration
@@ -295,13 +305,29 @@ xcodebuild -workspace PodcastAssistant.xcworkspace \
 
 ### Unit Tests
 - `PodcastAssistantFeatureTests/` - Swift Testing framework
-- Tests for `TranscriptConverter` format detection
-- Tests for image processing utilities
-- Core Data stack validation
+- Tests for POCOs (no ModelContext needed!)
+- Tests for services (TranscriptConverter, ImageUtilities)
+- Tests for ViewModels with mock store
+
+**Benefits of POCO architecture:**
+```swift
+@Test func testEpisodeCreation() {
+    let podcast = PodcastPOCO(name: "Test")
+    let episode = EpisodePOCO(
+        podcastID: podcast.id,
+        title: "Episode 1",
+        episodeNumber: 1,
+        podcast: podcast
+    )
+    
+    #expect(episode.fontSize == podcast.defaultFontSize)
+    // No ModelContext needed! ✅
+}
+```
 
 ### Preview Support
-- `PersistenceController.preview` - In-memory Core Data store
-- Sample data generation for SwiftUI previews
+- `PersistenceController.preview` - In-memory SwiftData store
+- Sample POCO data generation for previews
 - Isolated testing environment
 
 ## Future Enhancements
@@ -345,3 +371,29 @@ xcodebuild -workspace PodcastAssistant.xcworkspace \
 - Custom color schemes
 - Font categories/tags
 - Export/import settings profiles
+
+## Documentation
+
+### Core Documentation
+- **`POCO_ARCHITECTURE.md`** - Hybrid POCO/SwiftData pattern explained
+- **`FOLDER_STRUCTURE.md`** - File organization and where to add code
+- **`UI_DESIGN_PATTERNS.md`** - Consistent design system and components
+- **`ARCHITECTURE.md`** (this file) - System overview
+
+### Feature Documentation
+- **`AI_IDEAS.md`** - AI content generation features (macOS 26+)
+- **`TRANSLATION.md`** - SRT and episode translation features (macOS 26+)
+- **`SETTINGS.md`** - Settings and customization options
+- **`SETTINGS_UI.md`** - Settings UI mockups and layout
+
+## Summary
+
+**Podcast Assistant Architecture:**
+- ✅ **POCO Pattern** - Fast UI with simple objects
+- ✅ **SwiftData Persistence** - Reliable database storage
+- ✅ **Clean Separation** - POCOs for UI, SwiftData for persistence
+- ✅ **Organized Structure** - Logical folder nesting
+- ✅ **Consistent Design** - Polished UI patterns throughout
+- ✅ **CloudKit-Ready** - Can enable iCloud sync without changing UI code
+
+**Read the detailed docs** for complete information on each aspect of the architecture.

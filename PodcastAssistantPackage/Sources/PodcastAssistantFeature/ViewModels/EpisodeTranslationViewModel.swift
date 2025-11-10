@@ -14,6 +14,7 @@ public final class EpisodeTranslationViewModel: ObservableObject {
     @Published public var isShowingErrorAlert: Bool = false
     
     private let translationService: TranslationService?
+    private var translationTask: Task<Void, Never>?
     
     public init() {
         self.translationService = TranslationService()
@@ -59,19 +60,54 @@ public final class EpisodeTranslationViewModel: ObservableObject {
         }
         isTranslating = true
         errorMessage = nil
-        defer { isTranslating = false }
-        do {
-            translatedTitle = try await service.translateTextBlock(title, to: language)
-            if let desc = description, !desc.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                translatedDescription = try await service.translateTextBlock(desc, to: language)
-            } else {
-                translatedDescription = ""
+        
+        translationTask = Task {
+            do {
+                let translatedTitleResult = try await service.translateTextBlock(title, to: language)
+                
+                guard !Task.isCancelled else {
+                    isTranslating = false
+                    errorMessage = "Translation cancelled"
+                    return
+                }
+                
+                translatedTitle = translatedTitleResult
+                
+                if let desc = description, !desc.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    let translatedDescResult = try await service.translateTextBlock(desc, to: language)
+                    
+                    guard !Task.isCancelled else {
+                        isTranslating = false
+                        errorMessage = "Translation cancelled"
+                        return
+                    }
+                    
+                    translatedDescription = translatedDescResult
+                } else {
+                    translatedDescription = ""
+                }
+                
+                isTranslating = false
+                isShowingErrorAlert = false
+                
+            } catch {
+                guard !Task.isCancelled else {
+                    isTranslating = false
+                    errorMessage = "Translation cancelled"
+                    return
+                }
+                errorMessage = error.localizedDescription
+                isShowingErrorAlert = true
+                isTranslating = false
             }
-            isShowingErrorAlert = false
-        } catch {
-            errorMessage = error.localizedDescription
-            isShowingErrorAlert = true
         }
+    }
+    
+    public func cancel() {
+        translationTask?.cancel()
+        translationTask = nil
+        isTranslating = false
+        errorMessage = "Translation cancelled"
     }
     
     public func clearResults() {

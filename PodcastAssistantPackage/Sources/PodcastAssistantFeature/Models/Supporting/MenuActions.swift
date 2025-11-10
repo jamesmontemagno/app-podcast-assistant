@@ -34,6 +34,14 @@ public struct ThumbnailActionCapabilitiesKey: FocusedValueKey {
     public typealias Value = ThumbnailActionCapabilities
 }
 
+public struct SelectedEpisodeSectionKey: FocusedValueKey {
+    public typealias Value = EpisodeSection
+}
+
+public struct EpisodeDetailActionsKey: FocusedValueKey {
+    public typealias Value = EpisodeDetailActions
+}
+
 extension FocusedValues {
     public var selectedEpisode: SelectedEpisodeKey.Value? {
         get { self[SelectedEpisodeKey.self] }
@@ -74,6 +82,16 @@ extension FocusedValues {
         get { self[ThumbnailActionCapabilitiesKey.self] }
         set { self[ThumbnailActionCapabilitiesKey.self] = newValue }
     }
+    
+    public var selectedEpisodeSection: SelectedEpisodeSectionKey.Value? {
+        get { self[SelectedEpisodeSectionKey.self] }
+        set { self[SelectedEpisodeSectionKey.self] = newValue }
+    }
+    
+    public var episodeDetailActions: EpisodeDetailActionsKey.Value? {
+        get { self[EpisodeDetailActionsKey.self] }
+        set { self[EpisodeDetailActionsKey.self] = newValue }
+    }
 }
 
 // MARK: - Action Protocols
@@ -106,6 +124,7 @@ public struct ThumbnailActions {
     public let pasteBackground: () -> Void
     public let pasteOverlay: () -> Void
     public let generateThumbnail: () -> Void
+    public let saveThumbnail: () -> Void
     public let exportThumbnail: () -> Void
     public let clearThumbnail: () -> Void
     
@@ -115,6 +134,7 @@ public struct ThumbnailActions {
         pasteBackground: @escaping () -> Void,
         pasteOverlay: @escaping () -> Void,
         generateThumbnail: @escaping () -> Void,
+        saveThumbnail: @escaping () -> Void,
         exportThumbnail: @escaping () -> Void,
         clearThumbnail: @escaping () -> Void
     ) {
@@ -123,6 +143,7 @@ public struct ThumbnailActions {
         self.pasteBackground = pasteBackground
         self.pasteOverlay = pasteOverlay
         self.generateThumbnail = generateThumbnail
+        self.saveThumbnail = saveThumbnail
         self.exportThumbnail = exportThumbnail
         self.clearThumbnail = clearThumbnail
     }
@@ -186,12 +207,41 @@ public struct TranscriptActionCapabilities {
 
 public struct ThumbnailActionCapabilities {
     public let canGenerate: Bool
+    public let canSave: Bool
     public let canExport: Bool
     public let canClear: Bool
     
-    public init(canGenerate: Bool, canExport: Bool, canClear: Bool) {
+    public init(canGenerate: Bool, canSave: Bool, canExport: Bool, canClear: Bool) {
         self.canGenerate = canGenerate
+        self.canSave = canSave
         self.canExport = canExport
         self.canClear = canClear
+    }
+}
+
+// MARK: - Episode Section
+
+public enum EpisodeSection {
+    case details
+    case transcript
+    case thumbnail
+    case aiIdeas
+}
+
+// MARK: - Episode Detail Actions
+
+public struct EpisodeDetailActions {
+    public let save: (() -> Void)?
+    public let revert: (() -> Void)?
+    public let translate: (() -> Void)?
+    
+    public init(
+        save: (() -> Void)? = nil,
+        revert: (() -> Void)? = nil,
+        translate: (() -> Void)? = nil
+    ) {
+        self.save = save
+        self.revert = revert
+        self.translate = translate
     }
 }

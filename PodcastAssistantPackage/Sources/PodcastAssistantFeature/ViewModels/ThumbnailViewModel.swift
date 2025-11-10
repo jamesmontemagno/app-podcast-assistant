@@ -1,147 +1,136 @@
 import Foundation
 import SwiftUI
 import AppKit
-import SwiftData
 
-/// ViewModel for thumbnail generation functionality
-/// Binds directly to SwiftData Episode model
+/// ViewModel for thumbnail generation
 @MainActor
 public class ThumbnailViewModel: ObservableObject {
+    // MARK: - Published Properties
+    
     @Published public var fontColor: Color = .white {
-        didSet {
-            markDirty()
-            if appSettings?.autoUpdateThumbnail == true {
-                scheduleDebouncedGeneration()
-            }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
         }
     }
     @Published public var outlineEnabled: Bool = true {
-        didSet {
-            markDirty()
-            if appSettings?.autoUpdateThumbnail == true {
-                scheduleDebouncedGeneration()
-            }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
         }
     }
     @Published public var outlineColor: Color = .black {
-        didSet {
-            markDirty()
-            if appSettings?.autoUpdateThumbnail == true {
-                scheduleDebouncedGeneration()
-            }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
         }
     }
     @Published public var episodeNumber: String = "" {
-        didSet {
-            markDirty()
-            if appSettings?.autoUpdateThumbnail == true {
-                scheduleDebouncedGeneration()
-            }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
         }
     }
     @Published public var selectedFont: String = "Helvetica-Bold" {
-        didSet {
-            markDirty()
-            if appSettings?.autoUpdateThumbnail == true {
-                scheduleDebouncedGeneration()
-            }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
         }
     }
     @Published public var fontSize: Double = 72 {
-        didSet {
-            markDirty()
-            if appSettings?.autoUpdateThumbnail == true {
-                scheduleDebouncedGeneration()
-            }
+        didSet { 
+            scheduleGeneration() 
         }
     }
     @Published public var episodeNumberPosition: ThumbnailGenerator.TextPosition = .topRight {
-        didSet {
-            markDirty()
-            if appSettings?.autoUpdateThumbnail == true {
-                scheduleDebouncedGeneration()
-            }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
         }
     }
     @Published public var horizontalPadding: Double = 40 {
-        didSet {
-            markDirty()
-            if appSettings?.autoUpdateThumbnail == true {
-                scheduleDebouncedGeneration()
-            }
+        didSet { 
+            scheduleGeneration() 
         }
     }
     @Published public var verticalPadding: Double = 40 {
-        didSet {
-            markDirty()
-            if appSettings?.autoUpdateThumbnail == true {
-                scheduleDebouncedGeneration()
-            }
+        didSet { 
+            scheduleGeneration() 
         }
     }
     @Published public var selectedResolution: ThumbnailGenerator.CanvasResolution = .hd1080 {
-        didSet {
-            markDirty()
-            if appSettings?.autoUpdateThumbnail == true {
-                scheduleDebouncedGeneration()
-            }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
         }
     }
     @Published public var customWidth: String = "1920" {
-        didSet {
-            markDirty()
-            if appSettings?.autoUpdateThumbnail == true {
-                scheduleDebouncedGeneration()
-            }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
         }
     }
     @Published public var customHeight: String = "1080" {
-        didSet {
-            markDirty()
-            if appSettings?.autoUpdateThumbnail == true {
-                scheduleDebouncedGeneration()
-            }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
         }
     }
     @Published public var backgroundScaling: ThumbnailGenerator.BackgroundScaling = .aspectFill {
-        didSet {
-            markDirty()
-            if appSettings?.autoUpdateThumbnail == true {
-                scheduleDebouncedGeneration()
-            }
+        didSet { 
+            if !isRestoringState { pushUndoState() }
+            scheduleGeneration() 
         }
     }
     @Published public var generatedThumbnail: NSImage?
     @Published public var errorMessage: String?
     @Published public var successMessage: String?
     @Published public var isLoading: Bool = false
-    
-    // Cached images - loaded lazily to prevent blocking on init
     @Published public var backgroundImage: NSImage? = nil
     @Published public var overlayImage: NSImage? = nil
+    @Published public var canUndo: Bool = false
     
-    // Dirty state tracking
-    @Published public var hasUnsavedChanges: Bool = false
+    /// Tracks whether there are unsaved changes
+    public var hasUnsavedChanges: Bool {
+        // If we have more than 1 item in undo stack, we have unsaved changes
+        return undoStack.count > 1
+    }
     
+    // MARK: - Undo/Redo State
+    
+    private struct StateSnapshot {
+        let fontColor: Color
+        let outlineEnabled: Bool
+        let outlineColor: Color
+        let episodeNumber: String
+        let selectedFont: String
+        let fontSize: Double
+        let episodeNumberPosition: ThumbnailGenerator.TextPosition
+        let horizontalPadding: Double
+        let verticalPadding: Double
+        let selectedResolution: ThumbnailGenerator.CanvasResolution
+        let customWidth: String
+        let customHeight: String
+        let backgroundScaling: ThumbnailGenerator.BackgroundScaling
+        let backgroundImage: NSImage?
+        let overlayImage: NSImage?
+    }
+    
+    private var undoStack: [StateSnapshot] = []
+    private var isRestoringState = false
+    
+    // MARK: - Dependencies
+    
+    private let episode: EpisodePOCO
+    private let store: PodcastLibraryStore
     private let generator = ThumbnailGenerator()
-    private let fontManager: FontManager
-    private var hasLoadedImages = false
+    private let fontManager = FontManager()
     
-    // SwiftData episode
-    public let episode: Episode
-    private let context: ModelContext
-    private var appSettings: AppSettings?
-    
-    // Debouncing for thumbnail generation only (no auto-save)
     private var debounceTask: Task<Void, Never>?
-    private var renderTask: Task<Void, Never>?
-    private var currentGenerationID = UUID()
-    
-    // Cache last generation parameters to avoid redundant work
-    private var lastGenerationHash: Int = 0
+    private var hasInitializedFromEpisode = false
     
     public var availableFonts: [String] {
-        var fonts = [
+        [
             "Helvetica-Bold",
             "Arial-BoldMT",
             "Futura-Bold",
@@ -149,342 +138,242 @@ public class ThumbnailViewModel: ObservableObject {
             "Menlo-Bold",
             "AvenirNext-Bold",
             "GillSans-Bold"
-        ]
-        
-        // Add imported fonts from AppSettings
-        if let settings = appSettings {
-            fonts.append(contentsOf: settings.importedFonts)
-        }
-        
-        return fonts.sorted()
+        ].sorted()
     }
     
-    public init(episode: Episode, context: ModelContext, fontManager: FontManager = FontManager()) {
+    // MARK: - Initialization
+    
+    public init(episode: EpisodePOCO, store: PodcastLibraryStore) {
         self.episode = episode
-        self.context = context
-        self.fontManager = fontManager
-        
-        // Font color
-        if let hex = episode.fontColorHex, let color = Color(hex: hex) {
-            self.fontColor = color
-        }
-        self.outlineEnabled = episode.outlineEnabled
-        if let hex = episode.outlineColorHex, let color = Color(hex: hex) {
-            self.outlineColor = color
-        }
-        
-        // Load AppSettings
-        loadSettings()
-        
-        // Initialize episodeNumber from episode
+        self.store = store
         self.episodeNumber = "\(episode.episodeNumber)"
-        
-        // Initialize font settings from episode
-        if let fontName = episode.fontName {
-            self.selectedFont = fontName
-        }
-        self.fontSize = episode.fontSize
-        
-        // Initialize position from episode
-        self.episodeNumberPosition = ThumbnailGenerator.TextPosition.fromRelativePosition(
-            x: episode.textPositionX,
-            y: episode.textPositionY
-        )
-        
-        // Initialize padding from episode
-        self.horizontalPadding = episode.horizontalPadding
-        self.verticalPadding = episode.verticalPadding
-        
-        // Initialize canvas size from episode
-        let canvasSize = NSSize(width: episode.canvasWidth, height: episode.canvasHeight)
-        if canvasSize == ThumbnailGenerator.CanvasResolution.hd1080.size {
-            self.selectedResolution = .hd1080
-        } else if canvasSize == ThumbnailGenerator.CanvasResolution.hd720.size {
-            self.selectedResolution = .hd720
-        } else if canvasSize == ThumbnailGenerator.CanvasResolution.uhd4k.size {
-            self.selectedResolution = .uhd4k
-        } else if canvasSize == ThumbnailGenerator.CanvasResolution.square1080.size {
-            self.selectedResolution = .square1080
-        } else {
-            self.selectedResolution = .custom
-            self.customWidth = "\(Int(episode.canvasWidth))"
-            self.customHeight = "\(Int(episode.canvasHeight))"
-        }
-        
-        // Initialize background scaling from episode
-        self.backgroundScaling = ThumbnailGenerator.BackgroundScaling.allCases.first {
-            $0.rawValue == episode.backgroundScaling
-        } ?? .aspectFill
     }
     
-    deinit {
-        // Cancel any pending tasks when view model is deallocated
-        debounceTask?.cancel()
-        renderTask?.cancel()
-    }
+    // MARK: - Data Loading
     
-    /// Mark that there are unsaved changes
-    private func markDirty() {
-        hasUnsavedChanges = true
-    }
-    
-    /// Loads images from SwiftData asynchronously (called once on view appear)
-    private func loadImagesIfNeeded() async {
-        guard !hasLoadedImages else { return }
-        hasLoadedImages = true
+    public func loadInitialData() {
+        guard !hasInitializedFromEpisode else { return }
+        hasInitializedFromEpisode = true
         
-        // Load images off main thread to prevent UI blocking
-        let bgData = episode.thumbnailBackgroundData
-        let overlayData = episode.thumbnailOverlayData
+        isRestoringState = true // Prevent undo tracking during initial load
         
-        await Task.detached {
-            let bgImage = bgData.flatMap { ImageUtilities.loadImage(from: $0) }
-            let ovImage = overlayData.flatMap { ImageUtilities.loadImage(from: $0) }
-            
-            await MainActor.run {
-                self.backgroundImage = bgImage
-                self.overlayImage = ovImage
-            }
-        }.value
-    }
-    
-    /// Performs initial thumbnail generation with a delay to allow UI to settle
-    public func performInitialGeneration() {
         Task { @MainActor in
-            // Load images from SwiftData first (off main thread)
-            await loadImagesIfNeeded()
+            // Load saved settings from episode
+            if let hex = episode.fontColorHex, let color = Color(hex: hex) {
+                fontColor = color
+            }
+            outlineEnabled = episode.outlineEnabled
+            if let hex = episode.outlineColorHex, let color = Color(hex: hex) {
+                outlineColor = color
+            }
             
-            // Give the UI time to load and render
-            try? await Task.sleep(nanoseconds: 300_000_000) // 300ms delay
-            self.requestGeneration(force: true, showSuccessFeedback: false)
+            if let fontName = episode.fontName {
+                selectedFont = fontName
+            }
+            fontSize = episode.fontSize
+            
+            episodeNumberPosition = ThumbnailGenerator.TextPosition.fromRelativePosition(
+                x: episode.textPositionX,
+                y: episode.textPositionY
+            )
+            
+            horizontalPadding = episode.horizontalPadding
+            verticalPadding = episode.verticalPadding
+            
+            // Load canvas size
+            let canvasSize = NSSize(width: episode.canvasWidth, height: episode.canvasHeight)
+            if canvasSize == ThumbnailGenerator.CanvasResolution.hd1080.size {
+                selectedResolution = .hd1080
+            } else if canvasSize == ThumbnailGenerator.CanvasResolution.hd720.size {
+                selectedResolution = .hd720
+            } else if canvasSize == ThumbnailGenerator.CanvasResolution.uhd4k.size {
+                selectedResolution = .uhd4k
+            } else if canvasSize == ThumbnailGenerator.CanvasResolution.square1080.size {
+                selectedResolution = .square1080
+            } else {
+                selectedResolution = .custom
+                customWidth = "\(Int(episode.canvasWidth))"
+                customHeight = "\(Int(episode.canvasHeight))"
+            }
+            
+            backgroundScaling = ThumbnailGenerator.BackgroundScaling.allCases.first {
+                $0.rawValue == episode.backgroundScaling
+            } ?? .aspectFill
+            
+            // Load images
+            if let bgData = episode.thumbnailBackgroundData {
+                backgroundImage = ImageUtilities.loadImage(from: bgData)
+            }
+            
+            if let overlayData = episode.thumbnailOverlayData {
+                overlayImage = ImageUtilities.loadImage(from: overlayData)
+            }
+            
+            if let outputData = episode.thumbnailOutputData {
+                generatedThumbnail = ImageUtilities.loadImage(from: outputData)
+            }
+            
+            isRestoringState = false // Re-enable undo tracking
+            captureInitialSnapshot() // Capture the initial state
+            
+            // Generate if we have background image but no output
+            if backgroundImage != nil && generatedThumbnail == nil {
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                generateThumbnail()
+            }
         }
     }
     
-    /// Schedule a debounced thumbnail generation (800ms delay to wait for user to finish adjusting)
-    private func scheduleDebouncedGeneration() {
-        // Cancel any existing debounce task
-        debounceTask?.cancel()
-        renderTask?.cancel()
-        
-        // Create a new task that waits before generating
-        debounceTask = Task { @MainActor [weak self] in
-            // Wait for 150ms - if another change happens, this task gets cancelled
-            try? await Task.sleep(nanoseconds: 150_000_000)
-
-            // Check if we were cancelled
-            guard !Task.isCancelled else { return }
-
-            guard let viewModel = self else { return }
-            // Generate the thumbnail (with caching to skip redundant work)
-            viewModel.generateThumbnailIfNeeded()
-        }
-    }
+    // MARK: - Undo/Redo Management
     
-    /// Save changes to SwiftData
-    public func saveChanges() {
-        let thumbnailWrapper = generatedThumbnail.map { ImageBox(image: $0) }
-        let hadThumbnail = thumbnailWrapper != nil
-        let preserveTransparency = overlayImage != nil
-
-        Task.detached(priority: .userInitiated) { [weak self] in
-            let processedData = thumbnailWrapper.flatMap { box in
-                ImageUtilities.processImageForStorage(box.image, preserveTransparency: preserveTransparency)
-            }
-
-            await MainActor.run { [weak self] in
-                self?.applySaveResult(processedData: processedData, hadThumbnail: hadThumbnail)
-            }
-        }
-    }
-
-    @MainActor
-    private func applySaveResult(processedData: Data?, hadThumbnail: Bool) {
-        if hadThumbnail && processedData == nil {
-            errorMessage = "Failed to prepare thumbnail for saving"
-            successMessage = nil
-            return
-        }
-
-        // Update all episode properties from current ViewModel state
-        episode.fontColorHex = fontColor.toHexString()
-        episode.outlineEnabled = outlineEnabled
-        episode.outlineColorHex = outlineColor.toHexString()
-        episode.fontName = selectedFont
-        episode.fontSize = fontSize
-        episode.textPositionX = episodeNumberPosition.relativePosition.x
-        episode.textPositionY = episodeNumberPosition.relativePosition.y
-        episode.horizontalPadding = horizontalPadding
-        episode.verticalPadding = verticalPadding
-        
-        // Update canvas size
-        if selectedResolution != .custom {
-            let size = selectedResolution.size
-            episode.canvasWidth = size.width
-            episode.canvasHeight = size.height
-        } else {
-            if let width = Double(customWidth) {
-                episode.canvasWidth = width
-            }
-            if let height = Double(customHeight) {
-                episode.canvasHeight = height
-            }
-        }
-        
-        episode.backgroundScaling = backgroundScaling.rawValue
-        
-        // Save background image if changed
-        if let bgImage = backgroundImage {
-            episode.thumbnailBackgroundData = ImageUtilities.processImageForStorage(bgImage)
-        }
-        
-        // Save overlay image if changed
-        if let ovImage = overlayImage {
-            episode.thumbnailOverlayData = ImageUtilities.processImageForStorage(ovImage, preserveTransparency: true)
-        } else {
-            episode.thumbnailOverlayData = nil
-        }
-
-        if let data = processedData {
-            episode.thumbnailOutputData = data
-        }
-
-        do {
-            if context.hasChanges {
-                try context.save()
-            }
-            hasUnsavedChanges = false
-            successMessage = "Changes saved successfully"
-            errorMessage = nil
-        } catch {
-            errorMessage = "Failed to save changes: \(error.localizedDescription)"
-        }
-    }
-    
-    /// Discard unsaved changes
-    public func discardChanges() {
-        context.rollback()
-        hasUnsavedChanges = false
-        // Reload values from episode
-        reloadFromEpisode()
-    }
-    
-    /// Reload all values from the episode model
-    private func reloadFromEpisode() {
-        episodeNumber = "\(episode.episodeNumber)"
-        selectedFont = episode.fontName ?? "Helvetica-Bold"
-        fontSize = episode.fontSize
-        horizontalPadding = episode.horizontalPadding
-        verticalPadding = episode.verticalPadding
-        
-        if let hex = episode.fontColorHex, let color = Color(hex: hex) {
-            fontColor = color
-        }
-        outlineEnabled = episode.outlineEnabled
-        if let hex = episode.outlineColorHex, let color = Color(hex: hex) {
-            outlineColor = color
-        }
-        
-        episodeNumberPosition = ThumbnailGenerator.TextPosition.fromRelativePosition(
-            x: episode.textPositionX,
-            y: episode.textPositionY
+    private func captureInitialSnapshot() {
+        let snapshot = StateSnapshot(
+            fontColor: fontColor,
+            outlineEnabled: outlineEnabled,
+            outlineColor: outlineColor,
+            episodeNumber: episodeNumber,
+            selectedFont: selectedFont,
+            fontSize: fontSize,
+            episodeNumberPosition: episodeNumberPosition,
+            horizontalPadding: horizontalPadding,
+            verticalPadding: verticalPadding,
+            selectedResolution: selectedResolution,
+            customWidth: customWidth,
+            customHeight: customHeight,
+            backgroundScaling: backgroundScaling,
+            backgroundImage: backgroundImage,
+            overlayImage: overlayImage
         )
-        
-        let canvasSize = NSSize(width: episode.canvasWidth, height: episode.canvasHeight)
-        if canvasSize == ThumbnailGenerator.CanvasResolution.hd1080.size {
-            selectedResolution = .hd1080
-        } else if canvasSize == ThumbnailGenerator.CanvasResolution.hd720.size {
-            selectedResolution = .hd720
-        } else if canvasSize == ThumbnailGenerator.CanvasResolution.uhd4k.size {
-            selectedResolution = .uhd4k
-        } else if canvasSize == ThumbnailGenerator.CanvasResolution.square1080.size {
-            selectedResolution = .square1080
-        } else {
-            selectedResolution = .custom
-            customWidth = "\(Int(episode.canvasWidth))"
-            customHeight = "\(Int(episode.canvasHeight))"
-        }
-        
-        backgroundScaling = ThumbnailGenerator.BackgroundScaling.allCases.first {
-            $0.rawValue == episode.backgroundScaling
-        } ?? .aspectFill
-        
-        requestGeneration(force: true, showSuccessFeedback: false)
+        undoStack = [snapshot] // Start with initial state
+        canUndo = false
     }
     
-    /// Imports a background image
+    private func pushUndoState() {
+        let snapshot = StateSnapshot(
+            fontColor: fontColor,
+            outlineEnabled: outlineEnabled,
+            outlineColor: outlineColor,
+            episodeNumber: episodeNumber,
+            selectedFont: selectedFont,
+            fontSize: fontSize,
+            episodeNumberPosition: episodeNumberPosition,
+            horizontalPadding: horizontalPadding,
+            verticalPadding: verticalPadding,
+            selectedResolution: selectedResolution,
+            customWidth: customWidth,
+            customHeight: customHeight,
+            backgroundScaling: backgroundScaling,
+            backgroundImage: backgroundImage,
+            overlayImage: overlayImage
+        )
+        undoStack.append(snapshot)
+        canUndo = undoStack.count > 1
+    }
+    
+    public func undo() {
+        guard undoStack.count > 1 else { return }
+        
+        // Remove current state
+        undoStack.removeLast()
+        
+        // Restore previous state
+        if let previousState = undoStack.last {
+            isRestoringState = true
+            
+            fontColor = previousState.fontColor
+            outlineEnabled = previousState.outlineEnabled
+            outlineColor = previousState.outlineColor
+            episodeNumber = previousState.episodeNumber
+            selectedFont = previousState.selectedFont
+            fontSize = previousState.fontSize
+            episodeNumberPosition = previousState.episodeNumberPosition
+            horizontalPadding = previousState.horizontalPadding
+            verticalPadding = previousState.verticalPadding
+            selectedResolution = previousState.selectedResolution
+            customWidth = previousState.customWidth
+            customHeight = previousState.customHeight
+            backgroundScaling = previousState.backgroundScaling
+            backgroundImage = previousState.backgroundImage
+            overlayImage = previousState.overlayImage
+            
+            isRestoringState = false
+            canUndo = undoStack.count > 1
+            
+            generateThumbnail()
+        }
+    }
+    
+    /// Called when slider editing ends to push undo state
+    public func onSliderEditingEnded() {
+        if !isRestoringState {
+            pushUndoState()
+        }
+    }
+    
+    private func clearUndoStack() {
+        captureInitialSnapshot()
+    }
+    
+    // MARK: - Image Import/Paste
+    
     public func importBackgroundImage() {
         selectImage { [weak self] image in
             guard let self = self else { return }
+            if !self.isRestoringState { self.pushUndoState() }
             self.backgroundImage = image
             if image != nil {
-                self.markDirty()
+                self.successMessage = "Background image loaded"
+                self.errorMessage = nil
+                self.generateThumbnail()
             }
-            self.successMessage = "Background image loaded"
-            self.errorMessage = nil
-            // Immediate generation for image imports
-            self.debounceTask?.cancel()
-            self.generateThumbnail()
         }
     }
     
-    /// Imports an overlay image
     public func importOverlayImage() {
         selectImage { [weak self] image in
             guard let self = self else { return }
+            if !self.isRestoringState { self.pushUndoState() }
             self.overlayImage = image
             if image != nil {
-                self.markDirty()
+                self.successMessage = "Overlay image loaded"
+                self.errorMessage = nil
+                self.generateThumbnail()
             }
-            self.successMessage = "Overlay image loaded"
-            self.errorMessage = nil
-            // Immediate generation for image imports
-            self.debounceTask?.cancel()
-            self.generateThumbnail()
         }
     }
     
-    /// Removes the overlay image
     public func removeOverlayImage() {
+        if !isRestoringState { pushUndoState() }
         overlayImage = nil
-        markDirty()
         successMessage = "Overlay removed"
         errorMessage = nil
-        // Immediate generation for removals
-        debounceTask?.cancel()
         generateThumbnail()
     }
     
-    /// Pastes image from clipboard for background
     public func pasteBackgroundFromClipboard() {
         if let image = getImageFromClipboard() {
+            if !isRestoringState { pushUndoState() }
             backgroundImage = image
-            markDirty()
             successMessage = "Background pasted from clipboard"
             errorMessage = nil
-            // Immediate generation for image pastes
-            debounceTask?.cancel()
             generateThumbnail()
         } else {
             errorMessage = "No image found in clipboard"
         }
     }
     
-    /// Pastes image from clipboard for overlay
     public func pasteOverlayFromClipboard() {
         if let image = getImageFromClipboard() {
+            if !isRestoringState { pushUndoState() }
             overlayImage = image
-            markDirty()
             successMessage = "Overlay pasted from clipboard"
             errorMessage = nil
-            // Immediate generation for image pastes
-            debounceTask?.cancel()
             generateThumbnail()
         } else {
             errorMessage = "No image found in clipboard"
         }
     }
     
-    /// Gets image from clipboard
     private func getImageFromClipboard() -> NSImage? {
         let pasteboard = NSPasteboard.general
         if let imageData = pasteboard.data(forType: .tiff),
@@ -497,88 +386,6 @@ public class ThumbnailViewModel: ObservableObject {
         return nil
     }
     
-    /// Loads a custom font from file
-    public func loadCustomFont() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-        panel.allowedContentTypes = [.init(filenameExtension: "ttf")!, .init(filenameExtension: "otf")!]
-        panel.message = "Select a font file (.ttf or .otf)"
-        
-        panel.begin { [weak self] response in
-            guard let self = self else { return }
-            if response == .OK, let url = panel.url {
-                Task { @MainActor in
-                    self.registerCustomFont(from: url)
-                }
-            }
-        }
-    }
-    
-    /// Load or create AppSettings
-    private func loadSettings() {
-        let descriptor = FetchDescriptor<AppSettings>()
-        
-        do {
-            let allSettings = try context.fetch(descriptor)
-            
-            if let existingSettings = allSettings.first {
-                appSettings = existingSettings
-            } else {
-                // Create new settings
-                let newSettings = AppSettings()
-                context.insert(newSettings)
-                try context.save()
-                appSettings = newSettings
-            }
-        } catch {
-            print("Error loading settings: \(error)")
-            // Create fallback settings
-            let newSettings = AppSettings()
-            context.insert(newSettings)
-            appSettings = newSettings
-        }
-    }
-    
-    /// Registers a custom font and saves it to global AppSettings
-    private func registerCustomFont(from url: URL) {
-        // Start accessing security-scoped resource
-        guard url.startAccessingSecurityScopedResource() else {
-            errorMessage = "Failed to access font file: Permission denied"
-            return
-        }
-        defer {
-            url.stopAccessingSecurityScopedResource()
-        }
-        
-        do {
-            let fontName = try fontManager.importFont(from: url)
-            
-            // Add to AppSettings imported fonts list if not already present
-            guard let settings = appSettings else {
-                errorMessage = "Settings not available"
-                return
-            }
-            
-            if !settings.importedFonts.contains(fontName) {
-                settings.importedFonts.append(fontName)
-                settings.importedFonts.sort()
-                settings.updatedAt = Date()
-                try context.save()
-            }
-            
-            let displayName = fontManager.getDisplayName(for: fontName)
-            selectedFont = fontName
-            successMessage = "Font '\(displayName)' loaded and added to global fonts"
-            errorMessage = nil
-            objectWillChange.send() // Refresh available fonts list
-        } catch {
-            errorMessage = "Failed to load font: \(error.localizedDescription)"
-        }
-    }
-    
-    /// Generic image selection helper
     private func selectImage(completion: @escaping (NSImage?) -> Void) {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
@@ -590,7 +397,6 @@ public class ThumbnailViewModel: ObservableObject {
         panel.begin { response in
             if response == .OK, let url = panel.url {
                 Task { @MainActor in
-                    // Start accessing security-scoped resource
                     guard url.startAccessingSecurityScopedResource() else {
                         self.errorMessage = "Failed to access file: Permission denied"
                         completion(nil)
@@ -611,77 +417,76 @@ public class ThumbnailViewModel: ObservableObject {
         }
     }
     
-    /// Generates the thumbnail with caching to avoid redundant work
-    private func generateThumbnailIfNeeded() {
-        requestGeneration(force: false, showSuccessFeedback: false)
+    // MARK: - Thumbnail Generation
+    
+    private func scheduleGeneration() {
+        guard hasInitializedFromEpisode else { return }
+        
+        debounceTask?.cancel()
+        debounceTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            guard !Task.isCancelled else { return }
+            self?.generateThumbnail()
+        }
     }
     
-    /// Calculate hash of current generation parameters to detect changes
-    private func calculateGenerationHash() -> Int {
-        var hasher = Hasher()
-        hasher.combine(episodeNumber)
-        hasher.combine(selectedFont)
-        hasher.combine(fontSize)
-        hasher.combine(episodeNumberPosition.rawValue)
-        hasher.combine(horizontalPadding)
-        hasher.combine(verticalPadding)
-        hasher.combine(selectedResolution.rawValue)
-        hasher.combine(customWidth)
-        hasher.combine(customHeight)
-        hasher.combine(backgroundScaling.rawValue)
-        hasher.combine(fontColor.description)
-        hasher.combine(outlineEnabled)
-        hasher.combine(outlineColor.description)
-        // Note: We don't hash images as they're expensive to compare
-        return hasher.finalize()
-    }
-    
-    /// Generates the thumbnail on demand (used by toolbar button)
     public func generateThumbnail() {
-        markDirty()
-        requestGeneration(force: true, showSuccessFeedback: true)
-    }
-
-    private func requestGeneration(force: Bool, showSuccessFeedback: Bool) {
-        guard let snapshot = makeSnapshot() else {
-            renderTask?.cancel()
-            currentGenerationID = UUID()
+        guard let background = backgroundImage else {
             generatedThumbnail = nil
             isLoading = false
             return
         }
-
-        let currentHash = calculateGenerationHash()
-        if !force && currentHash == lastGenerationHash {
-            return
+        
+        isLoading = true
+        errorMessage = nil
+        
+        let canvasSize = determineCanvasSize()
+        let fontColorNS = NSColor(fontColor)
+        let outlineColorNS = NSColor(outlineColor)
+        let outlineEnabledValue = outlineEnabled
+        let fontSizeValue = fontSize
+        let selectedFontValue = selectedFont
+        let episodeNumberValue = episodeNumber
+        let positionValue = episodeNumberPosition
+        let horizontalPaddingValue = horizontalPadding
+        let verticalPaddingValue = verticalPadding
+        let backgroundScalingValue = backgroundScaling
+        let overlayValue = overlayImage
+        
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
+            
+            let image = await Task.detached(priority: .userInitiated) {
+                let generator = ThumbnailGenerator()
+                
+                return generator.generateThumbnail(
+                    backgroundImage: background,
+                    overlayImage: overlayValue,
+                    episodeNumber: episodeNumberValue,
+                    fontName: selectedFontValue,
+                    fontSize: CGFloat(fontSizeValue),
+                    position: positionValue,
+                    horizontalPadding: CGFloat(horizontalPaddingValue),
+                    verticalPadding: CGFloat(verticalPaddingValue),
+                    canvasSize: canvasSize,
+                    backgroundScaling: backgroundScalingValue,
+                    fontColor: fontColorNS,
+                    outlineEnabled: outlineEnabledValue,
+                    outlineColor: outlineColorNS
+                )
+            }.value
+            
+            self.isLoading = false
+            if let image = image {
+                self.generatedThumbnail = image
+                self.successMessage = "Thumbnail generated successfully!"
+            } else {
+                self.generatedThumbnail = nil
+                self.errorMessage = "Failed to generate thumbnail"
+            }
         }
-        lastGenerationHash = currentHash
-
-        startRender(with: snapshot, showSuccessFeedback: showSuccessFeedback)
     }
-
-    private func makeSnapshot() -> ThumbnailRenderSnapshot? {
-        guard let background = backgroundImage else {
-            return nil
-        }
-
-        return ThumbnailRenderSnapshot(
-            backgroundImage: background,
-            overlayImage: overlayImage,
-            episodeNumber: episodeNumber,
-            fontName: selectedFont,
-            fontSize: CGFloat(fontSize),
-            position: episodeNumberPosition,
-            horizontalPadding: CGFloat(horizontalPadding),
-            verticalPadding: CGFloat(verticalPadding),
-            canvasSize: determineCanvasSize(),
-            backgroundScaling: backgroundScaling,
-            fontColor: NSColor(fontColor),
-            outlineEnabled: outlineEnabled,
-            outlineColor: NSColor(outlineColor)
-        )
-    }
-
+    
     private func determineCanvasSize() -> NSSize {
         if selectedResolution == .custom {
             if let width = Double(customWidth), let height = Double(customHeight) {
@@ -691,76 +496,76 @@ public class ThumbnailViewModel: ObservableObject {
         }
         return selectedResolution.size
     }
-
-    private func startRender(with snapshot: ThumbnailRenderSnapshot, showSuccessFeedback: Bool) {
-        renderTask?.cancel()
-        let generationID = UUID()
-        currentGenerationID = generationID
-        isLoading = true
-        errorMessage = nil
-
-        renderTask = Task.detached(priority: .userInitiated) { [weak self, snapshot, showSuccessFeedback, generationID] in
-            if Task.isCancelled { return }
-
-            let image: NSImage? = autoreleasepool {
-                ThumbnailGenerator().generateThumbnail(
-                    backgroundImage: snapshot.backgroundImage,
-                    overlayImage: snapshot.overlayImage,
-                    episodeNumber: snapshot.episodeNumber,
-                    fontName: snapshot.fontName,
-                    fontSize: snapshot.fontSize,
-                    position: snapshot.position,
-                    horizontalPadding: snapshot.horizontalPadding,
-                    verticalPadding: snapshot.verticalPadding,
-                    canvasSize: snapshot.canvasSize,
-                    backgroundScaling: snapshot.backgroundScaling,
-                    fontColor: snapshot.fontColor,
-                    outlineEnabled: snapshot.outlineEnabled,
-                    outlineColor: snapshot.outlineColor
-                )
-            }
-
-            if Task.isCancelled { return }
-
+    
+    // MARK: - Save & Export
+    
+    public func saveToEpisode() {
+        guard let thumbnail = generatedThumbnail else {
+            errorMessage = "No thumbnail to save"
+            return
+        }
+        
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self = self else { return }
+            
+            let preserveTransparency = await self.overlayImage != nil
+            let bgImage = await self.backgroundImage
+            let ovImage = await self.overlayImage
+            
+            let thumbnailData = ImageUtilities.processImageForStorage(thumbnail, preserveTransparency: preserveTransparency)
+            let backgroundData = bgImage.map { ImageUtilities.processImageForStorage($0) }
+            let overlayData = ovImage.map { ImageUtilities.processImageForStorage($0, preserveTransparency: true) }
+            
             await MainActor.run { [weak self] in
-                guard
-                    let strongSelf = self,
-                    strongSelf.currentGenerationID == generationID
-                else { return }
-                strongSelf.isLoading = false
-                strongSelf.renderTask = nil
-
-                if let image = image {
-                    strongSelf.generatedThumbnail = image
-                    if showSuccessFeedback {
-                        strongSelf.successMessage = "Thumbnail generated successfully!"
-                    }
+                guard let self = self else { return }
+                
+                // Update episode POCO
+                self.episode.thumbnailOutputData = thumbnailData
+                if let bgData = backgroundData {
+                    self.episode.thumbnailBackgroundData = bgData
+                }
+                if let ovData = overlayData {
+                    self.episode.thumbnailOverlayData = ovData
+                }
+                
+                // Save settings
+                self.episode.fontColorHex = self.fontColor.toHexString()
+                self.episode.outlineEnabled = self.outlineEnabled
+                self.episode.outlineColorHex = self.outlineColor.toHexString()
+                self.episode.fontName = self.selectedFont
+                self.episode.fontSize = self.fontSize
+                self.episode.textPositionX = self.episodeNumberPosition.relativePosition.x
+                self.episode.textPositionY = self.episodeNumberPosition.relativePosition.y
+                self.episode.horizontalPadding = self.horizontalPadding
+                self.episode.verticalPadding = self.verticalPadding
+                
+                if self.selectedResolution != .custom {
+                    let size = self.selectedResolution.size
+                    self.episode.canvasWidth = size.width
+                    self.episode.canvasHeight = size.height
                 } else {
-                    strongSelf.generatedThumbnail = nil
-                    strongSelf.errorMessage = "Failed to generate thumbnail"
-                    strongSelf.successMessage = nil
+                    if let width = Double(self.customWidth) {
+                        self.episode.canvasWidth = width
+                    }
+                    if let height = Double(self.customHeight) {
+                        self.episode.canvasHeight = height
+                    }
+                }
+                
+                self.episode.backgroundScaling = self.backgroundScaling.rawValue
+                
+                do {
+                    try self.store.updateEpisode(self.episode)
+                    self.successMessage = "Thumbnail saved to episode"
+                    self.errorMessage = nil
+                    self.clearUndoStack() // Clear undo history after successful save
+                } catch {
+                    self.errorMessage = "Failed to save: \(error.localizedDescription)"
                 }
             }
         }
     }
-
-    private struct ThumbnailRenderSnapshot: @unchecked Sendable {
-        let backgroundImage: NSImage
-        let overlayImage: NSImage?
-        let episodeNumber: String
-        let fontName: String
-        let fontSize: CGFloat
-        let position: ThumbnailGenerator.TextPosition
-        let horizontalPadding: CGFloat
-        let verticalPadding: CGFloat
-        let canvasSize: NSSize
-        let backgroundScaling: ThumbnailGenerator.BackgroundScaling
-        let fontColor: NSColor
-        let outlineEnabled: Bool
-        let outlineColor: NSColor
-    }
     
-    /// Exports the generated thumbnail
     public func exportThumbnail() {
         guard let thumbnail = generatedThumbnail else {
             errorMessage = "No thumbnail to export"
@@ -781,35 +586,54 @@ public class ThumbnailViewModel: ObservableObject {
                     let format: ThumbnailGenerator.ImageFormat = url.pathExtension.lowercased() == "jpg" || url.pathExtension.lowercased() == "jpeg" ? .jpeg(quality: 0.9) : .png
                     
                     if self.generator.saveImage(thumbnail, to: url, format: format) {
-                        self.successMessage = "Thumbnail saved successfully"
+                        self.successMessage = "Thumbnail exported successfully"
                         self.errorMessage = nil
                     } else {
-                        self.errorMessage = "Failed to save thumbnail"
+                        self.errorMessage = "Failed to export thumbnail"
                     }
                 }
             }
         }
     }
     
-    /// Clears all fields
-    public func clear() {
+    /// Resets all settings and images to default state
+    public func resetAll() {
+        // Cancel any pending debounce tasks
+        debounceTask?.cancel()
+        debounceTask = nil
+        
+        isRestoringState = true
+        
+        // Reset images
         backgroundImage = nil
         overlayImage = nil
         generatedThumbnail = nil
-        episode.thumbnailBackgroundData = nil
-        episode.thumbnailOverlayData = nil
-        episode.thumbnailOutputData = nil
-        markDirty()
+        
+        // Reset to default settings
+        fontColor = .white
+        outlineEnabled = true
+        outlineColor = .black
+        selectedFont = "Helvetica-Bold"
+        fontSize = 72
+        episodeNumberPosition = .topRight
+        horizontalPadding = 40
+        verticalPadding = 40
+        selectedResolution = .hd1080
+        customWidth = "1920"
+        customHeight = "1080"
+        backgroundScaling = .aspectFill
+        
+        // Reset episode number to current episode
+        episodeNumber = "\(episode.episodeNumber)"
+        
+        isRestoringState = false
+        
+        // Clear messages
         errorMessage = nil
-        successMessage = nil
-        debounceTask?.cancel()
-        renderTask?.cancel()
-        currentGenerationID = UUID()
-        lastGenerationHash = 0
-        isLoading = false
-    }
-    
-    private struct ImageBox: @unchecked Sendable {
-        let image: NSImage
+        successMessage = "Settings reset to defaults"
+        
+        // Clear initialization flag and undo stack
+        hasInitializedFromEpisode = false
+        clearUndoStack()
     }
 }

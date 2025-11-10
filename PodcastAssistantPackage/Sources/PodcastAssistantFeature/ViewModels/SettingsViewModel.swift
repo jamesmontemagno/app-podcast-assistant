@@ -1,29 +1,53 @@
 import Foundation
 import SwiftUI
-import SwiftData
 import AppKit
 import UniformTypeIdentifiers
 
 /// ViewModel for managing app settings
 @MainActor
 public class SettingsViewModel: ObservableObject {
-    // MARK: - Published Properties
+    // MARK: - Published Properties (backed by UserDefaults via @AppStorage)
     
-    @Published public var importedFonts: [String] = []
-    @Published public var selectedTheme: AppTheme = .system
-    @Published public var autoUpdateThumbnail: Bool = false {
-        didSet {
-            saveSettings()
-        }
-    }
+    @AppStorage("importedFonts") private var importedFontsJSON: String = "[]"
+    @AppStorage("selectedTheme") private var selectedThemeRaw: String = AppTheme.system.rawValue
+    @AppStorage("autoUpdateThumbnail") public var autoUpdateThumbnail: Bool = false
+    
     @Published public var errorMessage: String?
     @Published public var successMessage: String?
+    
+    // MARK: - Computed Properties
+    
+    public var importedFonts: [String] {
+        get {
+            guard let data = importedFontsJSON.data(using: .utf8),
+                  let fonts = try? JSONDecoder().decode([String].self, from: data) else {
+                return []
+            }
+            return fonts
+        }
+        set {
+            guard let data = try? JSONEncoder().encode(newValue),
+                  let json = String(data: data, encoding: .utf8) else {
+                return
+            }
+            importedFontsJSON = json
+            objectWillChange.send()
+        }
+    }
+    
+    public var selectedTheme: AppTheme {
+        get {
+            return AppTheme(rawValue: selectedThemeRaw) ?? .system
+        }
+        set {
+            selectedThemeRaw = newValue.rawValue
+            objectWillChange.send()
+        }
+    }
     
     // MARK: - Dependencies
     
     private let fontManager: FontManager
-    private let modelContext: ModelContext
-    private var settings: AppSettings?
     
     // MARK: - Constants
     
@@ -34,63 +58,8 @@ public class SettingsViewModel: ObservableObject {
     
     // MARK: - Initialization
     
-    public init(modelContext: ModelContext, fontManager: FontManager = FontManager()) {
-        self.modelContext = modelContext
+    public init(fontManager: FontManager = FontManager()) {
         self.fontManager = fontManager
-        
-        // Load or create settings
-        loadSettings()
-    }
-    
-    // MARK: - Settings Management
-    
-    private func loadSettings() {
-        let descriptor = FetchDescriptor<AppSettings>()
-        
-        do {
-            let allSettings = try modelContext.fetch(descriptor)
-            
-            if let existingSettings = allSettings.first {
-                settings = existingSettings
-                importedFonts = existingSettings.importedFonts
-                selectedTheme = existingSettings.appTheme
-                autoUpdateThumbnail = existingSettings.autoUpdateThumbnail
-            } else {
-                // Create new settings
-                let newSettings = AppSettings()
-                modelContext.insert(newSettings)
-                try modelContext.save()
-                settings = newSettings
-                importedFonts = []
-                selectedTheme = .system
-                autoUpdateThumbnail = false
-            }
-        } catch {
-            print("Error loading settings: \(error)")
-            // Create fallback settings
-            let newSettings = AppSettings()
-            modelContext.insert(newSettings)
-            settings = newSettings
-            importedFonts = []
-            selectedTheme = .system
-            autoUpdateThumbnail = false
-        }
-    }
-    
-    private func saveSettings() {
-        guard let settings = settings else { return }
-        
-        settings.importedFonts = importedFonts
-        settings.appTheme = selectedTheme
-        settings.autoUpdateThumbnail = autoUpdateThumbnail
-        settings.updatedAt = Date()
-        
-        do {
-            try modelContext.save()
-        } catch {
-            print("Error saving settings: \(error)")
-            errorMessage = "Failed to save settings: \(error.localizedDescription)"
-        }
     }
     
     // MARK: - Theme Management
@@ -98,12 +67,17 @@ public class SettingsViewModel: ObservableObject {
     /// Update the app theme
     public func updateTheme(_ theme: AppTheme) {
         selectedTheme = theme
-        saveSettings()
         applyTheme(theme)
     }
     
     /// Apply the theme to the app appearance
     private func applyTheme(_ theme: AppTheme) {
+        // Ensure NSApp is available before applying theme
+        guard NSApp.windows.isEmpty == false || NSApp.isActive else {
+            // App not fully initialized yet, theme will be applied on first window appearance
+            return
+        }
+        
         switch theme {
         case .system:
             NSApp.appearance = nil
@@ -152,16 +126,17 @@ public class SettingsViewModel: ObservableObject {
             let fontName = try fontManager.importFont(from: url)
             
             // Check if this font is already in our imported fonts list
-            if importedFonts.contains(fontName) {
+            var currentFonts = importedFonts
+            if currentFonts.contains(fontName) {
                 let displayName = fontManager.getDisplayName(for: fontName)
                 errorMessage = "Font '\(displayName)' is already imported"
                 return
             }
             
             // Add to imported fonts list
-            importedFonts.append(fontName)
-            importedFonts.sort()
-            saveSettings()
+            currentFonts.append(fontName)
+            currentFonts.sort()
+            importedFonts = currentFonts
             
             let displayName = fontManager.getDisplayName(for: fontName)
             successMessage = "Successfully imported '\(displayName)'"
@@ -186,8 +161,9 @@ public class SettingsViewModel: ObservableObject {
             try fontManager.removeFont(fontName)
             
             // Remove from list
-            importedFonts.removeAll { $0 == fontName }
-            saveSettings()
+            var currentFonts = importedFonts
+            currentFonts.removeAll { $0 == fontName }
+            importedFonts = currentFonts
             
             successMessage = "Font removed successfully"
             
