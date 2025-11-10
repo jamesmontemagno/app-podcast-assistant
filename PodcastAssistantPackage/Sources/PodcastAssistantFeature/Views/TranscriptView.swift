@@ -6,17 +6,32 @@ import SwiftData
 public struct TranscriptView: View {
     @Environment(\.modelContext) private var modelContext
     let episode: Episode
-    @StateObject private var viewModel: TranscriptViewModel
     
     public init(episode: Episode) {
         self.episode = episode
-        _viewModel = StateObject(wrappedValue: TranscriptViewModel(
-            episode: episode,
-            context: PersistenceController.shared.container.mainContext
-        ))
     }
     
     public var body: some View {
+        TranscriptViewContent(episode: episode, modelContext: modelContext)
+    }
+}
+
+/// Inner view that can use StateObject with injected modelContext
+private struct TranscriptViewContent: View {
+    let episode: Episode
+    let modelContext: ModelContext
+    @StateObject private var viewModel: TranscriptViewModel
+    
+    init(episode: Episode, modelContext: ModelContext) {
+        self.episode = episode
+        self.modelContext = modelContext
+        _viewModel = StateObject(wrappedValue: TranscriptViewModel(
+            episode: episode,
+            context: modelContext
+        ))
+    }
+    
+    var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
                 // Content - Side by Side Layout with proportional sizing

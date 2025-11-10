@@ -5,20 +5,35 @@ import SwiftData
 public struct ThumbnailView: View {
     @Environment(\.modelContext) private var modelContext
     let episode: Episode
+    
+    public init(episode: Episode) {
+        self.episode = episode
+    }
+    
+    public var body: some View {
+        ThumbnailViewContent(episode: episode, modelContext: modelContext)
+    }
+}
+
+/// Inner view that can use StateObject with injected modelContext
+private struct ThumbnailViewContent: View {
+    let episode: Episode
+    let modelContext: ModelContext
     @StateObject private var viewModel: ThumbnailViewModel
     @State private var previewZoom: CGFloat = 1.0
     @State private var fitToWindow: Bool = true
     @State private var showingUnsavedChangesAlert = false
     
-    public init(episode: Episode) {
+    init(episode: Episode, modelContext: ModelContext) {
         self.episode = episode
+        self.modelContext = modelContext
         _viewModel = StateObject(wrappedValue: ThumbnailViewModel(
             episode: episode,
-            context: PersistenceController.shared.container.mainContext
+            context: modelContext
         ))
     }
     
-    public var body: some View {
+    var body: some View {
         GeometryReader { geometry in
             HSplitView {
                 // Left Panel - Controls (30% of width, min 280, max 350)

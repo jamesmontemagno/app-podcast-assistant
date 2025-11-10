@@ -6,36 +6,135 @@ import AppKit
 public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     
-    @Query(sort: [SortDescriptor(\Podcast.createdAt)])
-    private var podcasts: [Podcast]
-    
+    @StateObject private var libraryStore = PodcastLibraryStore()
     @State private var selectedPodcastID: String?
-    @State private var selectedEpisode: Episode?
+    @State private var selectedEpisodeID: String?
+    @State private var selectedEpisodeModel: Episode?
     @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var showingPodcastForm = false
     @State private var showingEpisodeForm = false
     @State private var editingPodcast: Podcast?
-    @State private var editingEpisode: Episode?
     @State private var showingEpisodeDetailEdit = false
     @State private var selectedDetailTab: DetailTab = .details
     @State private var showingSettings = false
     @State private var episodeSearchText = ""
     @State private var episodeSortOption: EpisodeSortOption = .numberAscending
+    @State private var filteredEpisodes: [PodcastLibraryStore.EpisodeSummary] = []
+    @State private var didPerformInitialSetup = false
+    @State private var searchDebounceTask: Task<Void, Never>?
     
     @AppStorage("lastSelectedPodcastID") private var lastSelectedPodcastID: String = ""
     
-    private var selectedPodcast: Podcast? {
-        guard let id = selectedPodcastID else { return nil }
-        return podcasts.first { $0.id == id }
+    private var podcasts: [PodcastLibraryStore.PodcastSummary] {
+        libraryStore.podcasts
     }
     
     public init() {}
     
     public var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            // MARK: - Sidebar: Podcast Selector + Episode List
+            sidebarContent
+        } detail: {
+            detailContent
+        }
+        .frame(minWidth: 800, minHeight: 700)
+        .focusedSceneValue(\.selectedEpisode, selectedEpisodeModel)
+        .focusedSceneValue(\.podcastActions, PodcastActions(
+            createPodcast: { showingPodcastForm = true }
+        ))
+        .focusedSceneValue(\.episodeActions, EpisodeActions(
+            createEpisode: { 
+                if selectedPodcastID != nil {
+                    showingEpisodeForm = true
+                }
+            },
+            editEpisode: { 
+                if selectedEpisodeModel != nil {
+                    showingEpisodeDetailEdit = true
+                }
+            },
+            deleteEpisode: { 
+                if let episode = selectedEpisodeModel {
+                    deleteEpisode(episode)
+                }
+            },
+            showDetails: { selectedDetailTab = .details },
+            showTranscript: { selectedDetailTab = .transcript },
+            showThumbnail: { selectedDetailTab = .thumbnail },
+            showAIIdeas: { selectedDetailTab = .aiIdeas }
+        ))
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+        }
+        .sheet(isPresented: $showingEpisodeDetailEdit) {
+            if let selectedEpisode = selectedEpisodeModel {
+                EpisodeDetailEditView(episode: selectedEpisode)
+            }
+        }
+        .onAppear {
+            guard didPerformInitialSetup == false else { return }
+            didPerformInitialSetup = true
+            loadInitialData()
+            restoreLastSelectedPodcast()
+            updateFilteredEpisodes()
+            registerImportedFonts()
+            applyStoredTheme()
+        }
+        .onDisappear {
+            searchDebounceTask?.cancel()
+            searchDebounceTask = nil
+        }
+        .onChange(of: selectedPodcastID) { _, newPodcastID in
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                if let id = newPodcastID {
+                    lastSelectedPodcastID = id
+                }
+                // Clear episode selection when podcast changes
+                selectedEpisodeID = nil
+                selectedEpisodeModel = nil
+                updateFilteredEpisodes()
+            }
+        }
+        .onChange(of: selectedEpisodeID) { _, newEpisodeID in
+            guard let newEpisodeID else {
+                selectedEpisodeModel = nil
+                return
+            }
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                if let model = loadEpisodeModel(with: newEpisodeID) {
+                    selectedEpisodeModel = model
+                } else {
+                    selectedEpisodeID = nil
+                    selectedEpisodeModel = nil
+                }
+            }
+        }
+        .onChange(of: selectedEpisodeModel) { _, _ in
+            // Reset to details tab when episode changes
+            selectedDetailTab = .details
+        }
+        .onChange(of: episodeSearchText) { _, _ in
+            scheduleEpisodeFilterUpdate()
+        }
+        .onChange(of: episodeSortOption) { _, _ in
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                updateFilteredEpisodes()
+            }
+        }
+    }
+    
+    // MARK: - View Components
+    
+    @ViewBuilder
+    private var sidebarContent: some View {
             VStack(spacing: 0) {
-                // Podcast selector and management
+                // Step 1: Podcast header
                 VStack(spacing: 12) {
                     HStack {
                         Text("Podcast")
@@ -52,6 +151,7 @@ public struct ContentView: View {
                         .help("Create new podcast")
                     }
                     
+                    // Step 2: Podcast picker
                     if podcasts.isEmpty {
                         Text("No podcasts")
                             .foregroundStyle(.secondary)
@@ -62,29 +162,21 @@ public struct ContentView: View {
                             Picker("Select Podcast", selection: $selectedPodcastID) {
                                 Text("Select a podcast...").tag(nil as String?)
                                 ForEach(podcasts) { podcast in
-                                    HStack {
-                                        if let artworkData = podcast.artworkData,
-                                           let image = ImageUtilities.loadImage(from: artworkData) {
-                                            Image(nsImage: image)
-                                                .resizable()
-                                                .frame(width: 20, height: 20)
-                                                .clipShape(RoundedRectangle(cornerRadius: 4))
-                                        }
-                                        Text(podcast.name)
-                                    }
-                                    .tag(podcast.id as String?)
+                                    Text(podcast.name).tag(podcast.id as String?)
                                 }
                             }
+                            .pickerStyle(.menu)
                             .labelsHidden()
+                            .id("podcast-picker")
                             
-                            if selectedPodcast != nil {
+                            if let podcastID = selectedPodcastID {
                                 Menu {
                                     Button("Edit Podcast") {
-                                        editingPodcast = selectedPodcast
+                                        editingPodcast = loadPodcastModel(with: podcastID)
                                     }
                                     Divider()
                                     Button("Delete Podcast", role: .destructive) {
-                                        if let podcast = selectedPodcast {
+                                        if let podcast = loadPodcastModel(with: podcastID) {
                                             deletePodcast(podcast)
                                         }
                                     }
@@ -100,16 +192,59 @@ public struct ContentView: View {
                 }
                 .padding()
                 .background(Color(NSColor.controlBackgroundColor))
+                .animation(nil, value: selectedPodcastID)
                 
                 Divider()
                 
-                // Episode list
-                if let podcast = selectedPodcast {
-                    VStack(spacing: 0) {
+                // Step 3: Episode list header
+                if selectedPodcastID != nil {
+                    VStack(spacing: 8) {
                         HStack {
                             Text("Episodes")
                                 .font(.headline)
                             Spacer()
+                            
+                            // Sort menu
+                            Menu {
+                                Button {
+                                    episodeSortOption = .numberAscending
+                                } label: {
+                                    Label("Number (Low to High)", systemImage: episodeSortOption == .numberAscending ? "checkmark" : "")
+                                }
+                                Button {
+                                    episodeSortOption = .numberDescending
+                                } label: {
+                                    Label("Number (High to Low)", systemImage: episodeSortOption == .numberDescending ? "checkmark" : "")
+                                }
+                                Divider()
+                                Button {
+                                    episodeSortOption = .titleAscending
+                                } label: {
+                                    Label("Title (A to Z)", systemImage: episodeSortOption == .titleAscending ? "checkmark" : "")
+                                }
+                                Button {
+                                    episodeSortOption = .titleDescending
+                                } label: {
+                                    Label("Title (Z to A)", systemImage: episodeSortOption == .titleDescending ? "checkmark" : "")
+                                }
+                                Divider()
+                                Button {
+                                    episodeSortOption = .dateAscending
+                                } label: {
+                                    Label("Date (Oldest First)", systemImage: episodeSortOption == .dateAscending ? "checkmark" : "")
+                                }
+                                Button {
+                                    episodeSortOption = .dateDescending
+                                } label: {
+                                    Label("Date (Newest First)", systemImage: episodeSortOption == .dateDescending ? "checkmark" : "")
+                                }
+                            } label: {
+                                Label("Sort", systemImage: "arrow.up.arrow.down")
+                                    .labelStyle(.iconOnly)
+                            }
+                            .buttonStyle(.glass)
+                            .help("Sort episodes")
+                            
                             Button {
                                 showingEpisodeForm = true
                             } label: {
@@ -119,225 +254,243 @@ public struct ContentView: View {
                             .buttonStyle(.glass)
                             .help("Create new episode")
                         }
-                        .padding()
-                        .background(Color(NSColor.controlBackgroundColor))
                         
-                        Divider()
-                        
-                        // Search and Sort
-                        VStack(spacing: 8) {
+                        // Search field
+                        HStack {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundStyle(.secondary)
                             TextField("Search episodes...", text: $episodeSearchText)
-                                .textFieldStyle(.roundedBorder)
-                            
-                            HStack {
-                                Text("Sort by:")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                
-                                Picker("Sort", selection: $episodeSortOption) {
-                                    Text("Number ↑").tag(EpisodeSortOption.numberAscending)
-                                    Text("Number ↓").tag(EpisodeSortOption.numberDescending)
-                                    Text("Title A-Z").tag(EpisodeSortOption.titleAscending)
-                                    Text("Title Z-A").tag(EpisodeSortOption.titleDescending)
-                                    Text("Newest").tag(EpisodeSortOption.dateDescending)
-                                    Text("Oldest").tag(EpisodeSortOption.dateAscending)
+                                .textFieldStyle(.plain)
+                            if !episodeSearchText.isEmpty {
+                                Button {
+                                    episodeSearchText = ""
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundStyle(.secondary)
                                 }
-                                .pickerStyle(.menu)
-                                .labelsHidden()
-                                
-                                Spacer()
-                                
-                                if !episodeSearchText.isEmpty {
-                                    Button {
-                                        episodeSearchText = ""
-                                    } label: {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .help("Clear search")
-                                }
+                                .buttonStyle(.plain)
                             }
                         }
-                        .padding(.horizontal)
-                        .padding(.vertical, 8)
+                        .padding(6)
                         .background(Color(NSColor.controlBackgroundColor))
-                        
-                        Divider()
-                        
-                        if podcast.episodes.isEmpty {
-                            VStack {
-                                ContentUnavailableView(
-                                    "No Episodes",
-                                    systemImage: "waveform.slash",
-                                    description: Text("Create an episode for this podcast")
-                                )
-                                .frame(maxHeight: 300)
-                                Spacer()
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                        } else {
-                            let filteredEpisodes = filterAndSortEpisodes(podcast.episodes)
-                            
-                            if filteredEpisodes.isEmpty {
-                                VStack {
-                                    ContentUnavailableView(
-                                        "No Matching Episodes",
-                                        systemImage: "magnifyingglass",
-                                        description: Text("Try adjusting your search")
-                                    )
-                                    .frame(maxHeight: 300)
-                                    Spacer()
-                                }
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                            } else {
-                                List(selection: $selectedEpisode) {
-                                    ForEach(filteredEpisodes) { episode in
-                                        EpisodeRow(episode: episode)
-                                            .tag(episode)
-                                            .contextMenu {
-                                                Button("Edit") {
-                                                    editingEpisode = episode
-                                                }
-                                                Button("Delete", role: .destructive) {
-                                                    deleteEpisode(episode)
-                                                }
-                                            }
-                                    }
-                                }
-                            }
-                        }
+                        .cornerRadius(6)
                     }
-                    .frame(maxHeight: .infinity)
-                    .sheet(isPresented: $showingEpisodeForm) {
-                        EpisodeFormView(podcast: podcast)
-                    }
-                    .sheet(item: $editingEpisode) { episode in
-                        EpisodeFormView(podcast: podcast, episode: episode)
-                    }
-                } else {
-                    VStack {
-                        ContentUnavailableView(
-                            "Select a Podcast",
-                            systemImage: "mic.slash",
-                            description: Text("Choose a podcast from the dropdown above")
-                        )
-                        .frame(maxHeight: 300)
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                }
-                
-                // Settings button at bottom
-                VStack(spacing: 0) {
+                    .padding()
+                    .animation(nil, value: episodeSearchText)
+                    .animation(nil, value: episodeSortOption)
+                    
                     Divider()
                     
-                    Button {
-                        showingSettings = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "gear")
-                            Text("Settings")
-                            Spacer()
+                    // Step 4: Episode list
+                    List(filteredEpisodes, id: \.id) { summary in
+                        EpisodeRowContent(
+                            episode: summary,
+                            isSelected: selectedEpisodeID == summary.id
+                        )
+                        .onTapGesture {
+                            var transaction = Transaction()
+                            transaction.disablesAnimations = true
+                            withTransaction(transaction) {
+                                selectedEpisodeID = summary.id
+                            }
                         }
-                        .padding()
-                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .help("App settings")
+                    .listStyle(.sidebar)
+                    .environment(\.defaultMinListRowHeight, 50)
+                    .id("episode-list")
+                    .animation(nil, value: selectedEpisodeID)
                 }
+                
+                Spacer()
+                
+                // Step 5: Settings button at bottom
+                Divider()
+                
+                Button {
+                    showingSettings = true
+                } label: {
+                    HStack {
+                        Image(systemName: "gear")
+                        Text("Settings")
+                        Spacer()
+                    }
+                    .padding()
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Open settings")
             }
             .navigationSplitViewColumnWidth(min: 250, ideal: 300, max: 400)
-            .sheet(isPresented: $showingPodcastForm) {
+            .sheet(isPresented: $showingPodcastForm, onDismiss: {
+                refreshPodcasts()
+                if !podcasts.isEmpty && selectedPodcastID == nil {
+                    selectedPodcastID = podcasts.first?.id
+                }
+            }) {
                 PodcastFormView()
             }
-            .sheet(item: $editingPodcast) { podcast in
+            .sheet(item: $editingPodcast, onDismiss: {
+                refreshPodcasts()
+            }) { podcast in
                 PodcastFormView(podcast: podcast)
             }
-        } detail: {
-            // MARK: - Detail Pane: Episode Detail
-            if let episode = selectedEpisode {
-                EpisodeDetailView(
-                    episode: episode,
-                    selectedTab: $selectedDetailTab,
-                    showingEpisodeDetailEdit: $showingEpisodeDetailEdit
-                )
-                .id(episode.id) // Force view recreation when episode changes
-                .sheet(isPresented: $showingEpisodeDetailEdit) {
-                    if let selectedEpisode = selectedEpisode {
-                        EpisodeDetailEditView(episode: selectedEpisode)
-                    }
+            .sheet(isPresented: $showingEpisodeForm, onDismiss: {
+                refreshEpisodesForSelection()
+            }) {
+                if let podcastID = selectedPodcastID,
+                   let podcast = loadPodcastModel(with: podcastID) {
+                    EpisodeFormView(podcast: podcast)
+                } else {
+                    ContentUnavailableView(
+                        "Select a Podcast",
+                        systemImage: "exclamationmark.triangle",
+                        description: Text("Choose a podcast before creating an episode")
+                    )
                 }
-            } else {
-                ContentUnavailableView(
-                    "Select an Episode",
-                    systemImage: "waveform",
-                    description: Text("Choose an episode from the sidebar to view its details")
-                )
             }
-        }
-        .frame(minWidth: 800, minHeight: 700)
-        .focusedSceneValue(\.selectedEpisode, selectedEpisode)
-        .focusedSceneValue(\.podcastActions, PodcastActions(
-            createPodcast: { showingPodcastForm = true }
-        ))
-        .focusedSceneValue(\.episodeActions, EpisodeActions(
-            createEpisode: { 
-                if selectedPodcast != nil {
-                    showingEpisodeForm = true
-                }
-            },
-            editEpisode: { 
-                if selectedEpisode != nil {
-                    showingEpisodeDetailEdit = true
-                }
-            },
-            deleteEpisode: { 
-                if let episode = selectedEpisode {
-                    deleteEpisode(episode)
-                }
-            },
-            showDetails: { selectedDetailTab = .details },
-            showTranscript: { selectedDetailTab = .transcript },
-            showThumbnail: { selectedDetailTab = .thumbnail },
-            showAIIdeas: { selectedDetailTab = .aiIdeas }
-        ))
-        .sheet(isPresented: $showingSettings) {
-            SettingsView()
-        }
-        .onAppear {
-            restoreLastSelectedPodcast()
-            registerImportedFonts()
-            applyStoredTheme()
-        }
-        .onChange(of: selectedPodcastID) { _, newPodcastID in
-            if let id = newPodcastID {
-                lastSelectedPodcastID = id
-                // Clear episode selection when podcast changes
-                selectedEpisode = nil
-            }
-        }
-        .onChange(of: selectedEpisode) { _, _ in
-            // Reset to details tab when episode changes
-            selectedDetailTab = .details
+    }
+    
+
+    
+    @ViewBuilder
+    private var detailContent: some View {
+        if let episode = selectedEpisodeModel {
+            EpisodeDetailView(
+                episode: episode,
+                selectedTab: $selectedDetailTab,
+                showingEpisodeDetailEdit: $showingEpisodeDetailEdit
+            )
+            .id(episode.id) // Force view recreation when episode changes
+        } else {
+            ContentUnavailableView(
+                "Select an Episode",
+                systemImage: "waveform",
+                description: Text("Choose an episode from the sidebar to view its details")
+            )
         }
     }
     
-    // MARK: - Podcast Selection
+    // MARK: - Podcast & Episode Selection
+    
+    private func loadInitialData() {
+        do {
+            try libraryStore.loadInitialData(context: modelContext)
+        } catch {
+            print("Error loading podcasts: \(error)")
+        }
+    }
     
     private func restoreLastSelectedPodcast() {
         guard selectedPodcastID == nil else { return }
-        
-        // Try to restore last selected podcast
-        if !lastSelectedPodcastID.isEmpty,
-           podcasts.contains(where: { $0.id == lastSelectedPodcastID }) {
-            selectedPodcastID = lastSelectedPodcastID
+        guard !podcasts.isEmpty else { return }
+        if let last = podcasts.first(where: { $0.id == lastSelectedPodcastID }) {
+            selectedPodcastID = last.id
+        } else {
+            selectedPodcastID = podcasts.first?.id
+        }
+    }
+    
+    private func updateFilteredEpisodes() {
+        guard let podcastID = selectedPodcastID else {
+            filteredEpisodes = []
             return
         }
-        
-        // Fallback to first podcast
-        selectedPodcastID = podcasts.first?.id
+        do {
+            try libraryStore.ensureEpisodes(for: podcastID, context: modelContext)
+            let source = libraryStore.episodes(for: podcastID)
+            let normalizedQuery = episodeSearchText
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            var working = source
+            if !normalizedQuery.isEmpty {
+                working = working.filter { $0.searchableTitle.contains(normalizedQuery) }
+            }
+            filteredEpisodes = sortEpisodes(working)
+            if let selectedID = selectedEpisodeID,
+               filteredEpisodes.contains(where: { $0.id == selectedID }) == false {
+                selectedEpisodeID = nil
+                selectedEpisodeModel = nil
+            }
+        } catch {
+            print("Error updating episodes: \(error)")
+            filteredEpisodes = []
+        }
+    }
+    
+    private func sortEpisodes(_ episodes: [PodcastLibraryStore.EpisodeSummary]) -> [PodcastLibraryStore.EpisodeSummary] {
+        episodes.sorted { lhs, rhs in
+            switch episodeSortOption {
+            case .numberAscending:
+                return lhs.episodeNumber < rhs.episodeNumber
+            case .numberDescending:
+                return lhs.episodeNumber > rhs.episodeNumber
+            case .titleAscending:
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            case .titleDescending:
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedDescending
+            case .dateAscending:
+                return lhs.publishDate < rhs.publishDate
+            case .dateDescending:
+                return lhs.publishDate > rhs.publishDate
+            }
+        }
+    }
+    
+    private func refreshEpisodesForSelection() {
+        guard let podcastID = selectedPodcastID else {
+            filteredEpisodes = []
+            return
+        }
+        do {
+            try libraryStore.refreshEpisodes(for: podcastID, context: modelContext)
+            updateFilteredEpisodes()
+        } catch {
+            print("Error refreshing episodes: \(error)")
+        }
+    }
+    
+    private func refreshPodcasts() {
+        do {
+            try libraryStore.refreshPodcasts(context: modelContext)
+            validateSelectionsAfterPodcastRefresh()
+            updateFilteredEpisodes()
+        } catch {
+            print("Error refreshing podcasts: \(error)")
+        }
+    }
+    
+    private func validateSelectionsAfterPodcastRefresh() {
+        guard !podcasts.isEmpty else {
+            selectedPodcastID = nil
+            selectedEpisodeID = nil
+            selectedEpisodeModel = nil
+            filteredEpisodes = []
+            return
+        }
+        if let currentID = selectedPodcastID,
+           podcasts.contains(where: { $0.id == currentID }) == false {
+            selectedPodcastID = podcasts.first?.id
+        } else if selectedPodcastID == nil {
+            selectedPodcastID = podcasts.first?.id
+        }
+    }
+    
+    private func loadPodcastModel(with id: String) -> Podcast? {
+        do {
+            return try libraryStore.fetchPodcastModel(with: id, context: modelContext)
+        } catch {
+            print("Error loading podcast model: \(error)")
+            return nil
+        }
+    }
+    
+    private func loadEpisodeModel(with id: String) -> Episode? {
+        do {
+            return try libraryStore.fetchEpisodeModel(with: id, context: modelContext)
+        } catch {
+            print("Error loading episode model: \(error)")
+            return nil
+        }
     }
     
     private func registerImportedFonts() {
@@ -369,37 +522,27 @@ public struct ContentView: View {
         }
     }
     
-    // MARK: - Episode Filtering and Sorting
-    
-    private func filterAndSortEpisodes(_ episodes: [Episode]) -> [Episode] {
-        var filtered = episodes
-        
-        // Apply search filter
-        if !episodeSearchText.isEmpty {
-            filtered = filtered.filter { episode in
-                episode.title.localizedCaseInsensitiveContains(episodeSearchText)
+    private func scheduleEpisodeFilterUpdate() {
+        searchDebounceTask?.cancel()
+        searchDebounceTask = Task { @MainActor in
+            do {
+                try await Task.sleep(for: .milliseconds(200))
+            } catch is CancellationError {
+                return
+            } catch {
+                print("Unexpected error during Task.sleep: \(error)")
+                return
             }
-        }
-        
-        // Apply sorting
-        return filtered.sorted { episode1, episode2 in
-            switch episodeSortOption {
-            case .numberAscending:
-                return episode1.episodeNumber < episode2.episodeNumber
-            case .numberDescending:
-                return episode1.episodeNumber > episode2.episodeNumber
-            case .titleAscending:
-                return episode1.title.localizedCaseInsensitiveCompare(episode2.title) == .orderedAscending
-            case .titleDescending:
-                return episode1.title.localizedCaseInsensitiveCompare(episode2.title) == .orderedDescending
-            case .dateAscending:
-                return episode1.publishDate < episode2.publishDate
-            case .dateDescending:
-                return episode1.publishDate > episode2.publishDate
+            guard !Task.isCancelled else { return }
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                updateFilteredEpisodes()
             }
+            searchDebounceTask = nil
         }
     }
-    
+
     // MARK: - Delete Actions
     
     private func deletePodcast(_ podcast: Podcast) {
@@ -407,10 +550,12 @@ public struct ContentView: View {
         
         do {
             try modelContext.save()
-            // Clear selection if deleted podcast was selected
+            refreshPodcasts()
             if selectedPodcastID == podcast.id {
                 selectedPodcastID = nil
-                selectedEpisode = nil
+                selectedEpisodeID = nil
+                selectedEpisodeModel = nil
+                filteredEpisodes = []
             }
         } catch {
             print("Error deleting podcast: \(error)")
@@ -422,52 +567,14 @@ public struct ContentView: View {
         
         do {
             try modelContext.save()
-            // Clear selection if deleted episode was selected
-            if selectedEpisode?.id == episode.id {
-                selectedEpisode = nil
+            if selectedEpisodeID == episode.id {
+                selectedEpisodeID = nil
+                selectedEpisodeModel = nil
             }
+            refreshEpisodesForSelection()
         } catch {
             print("Error deleting episode: \(error)")
         }
-    }
-}
-
-// MARK: - Supporting Views
-
-/// Row view for displaying an episode in the sidebar
-private struct EpisodeRow: View {
-    let episode: Episode
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // Episode number badge
-            Text("\(episode.episodeNumber)")
-                .font(.caption.bold())
-                .foregroundStyle(.white)
-                .frame(width: 28, height: 28)
-                .background(Color.accentColor)
-                .clipShape(Circle())
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(episode.title)
-                    .font(.body)
-                    .lineLimit(1)
-                
-                HStack(spacing: 8) {
-                    if episode.transcriptInputText != nil {
-                        Label("Transcript", systemImage: "doc.text.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.green)
-                    }
-                    if episode.thumbnailOutputData != nil {
-                        Label("Thumbnail", systemImage: "photo.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.blue)
-                    }
-                }
-            }
-        }
-        .padding(.vertical, 4)
     }
 }
 
@@ -565,8 +672,8 @@ private struct EpisodeDetailView: View {
                             selectedTab = .transcript
                         } label: {
                             HStack {
-                                Image(systemName: episode.transcriptInputText != nil ? "checkmark.circle.fill" : "doc.text")
-                                    .foregroundStyle(episode.transcriptInputText != nil ? .green : .primary)
+                                Image(systemName: episode.hasTranscriptData ? "checkmark.circle.fill" : "doc.text")
+                                    .foregroundStyle(episode.hasTranscriptData ? .green : .primary)
                                 Text("Transcript")
                                 Spacer()
                                 if selectedTab == .transcript {
@@ -584,8 +691,8 @@ private struct EpisodeDetailView: View {
                             selectedTab = .thumbnail
                         } label: {
                             HStack {
-                                Image(systemName: episode.thumbnailOutputData != nil ? "checkmark.circle.fill" : "photo")
-                                    .foregroundStyle(episode.thumbnailOutputData != nil ? .blue : .primary)
+                                Image(systemName: episode.hasThumbnailOutput ? "checkmark.circle.fill" : "photo")
+                                    .foregroundStyle(episode.hasThumbnailOutput ? .blue : .primary)
                                 Text("Thumbnail")
                                 Spacer()
                                 if selectedTab == .thumbnail {
@@ -661,4 +768,61 @@ private enum DetailTab: Hashable {
     case transcript
     case thumbnail
     case aiIdeas
+}
+
+/// Episode row button for sidebar list
+private struct EpisodeRowContent: View {
+    let episode: PodcastLibraryStore.EpisodeSummary
+    let isSelected: Bool
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Episode number badge
+            Text("\(episode.episodeNumber)")
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.white)
+                .frame(width: 32, height: 32)
+                .background(Color.accentColor)
+                .clipShape(Circle())
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(episode.title)
+                    .font(.body)
+                    .lineLimit(2)
+                
+                Text(episode.publishDate, style: .date)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                if episode.hasTranscript || episode.hasThumbnail {
+                    HStack(spacing: 8) {
+                        if episode.hasTranscript {
+                            Label("Transcript", systemImage: "doc.text.fill")
+                                .labelStyle(.iconOnly)
+                                .font(.caption2)
+                                .foregroundStyle(.green)
+                        }
+                        if episode.hasThumbnail {
+                            Label("Thumbnail", systemImage: "photo.fill")
+                                .labelStyle(.iconOnly)
+                                .font(.caption2)
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                }
+            }
+            
+            Spacer()
+            
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .foregroundColor(Color.accentColor)
+                    .imageScale(.small)
+            }
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .listRowBackground(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+    }
 }
