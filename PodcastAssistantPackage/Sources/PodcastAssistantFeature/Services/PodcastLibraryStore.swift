@@ -1,184 +1,395 @@
 import Foundation
 import SwiftData
 
-/// Provides cached, value-type summaries of podcasts and episodes to keep SwiftUI view updates light.
+/// Hybrid store: Uses SwiftData for persistence, POCOs for UI binding
+/// This gives us database persistence with fast UI performance
 @MainActor
 public final class PodcastLibraryStore: ObservableObject {
-    // MARK: - Nested Types
+    // MARK: - Published State (POCOs for UI binding)
     
-    public struct PodcastSummary: Identifiable, Hashable {
-        public let id: String
-        public let name: String
-        public let podcastDescription: String?
-        public let createdAt: Date
-        
-        init(podcast: Podcast) {
-            id = podcast.id
-            name = podcast.name
-            podcastDescription = podcast.podcastDescription
-            createdAt = podcast.createdAt
-        }
-    }
+    @Published public private(set) var podcasts: [PodcastPOCO] = []
+    @Published public private(set) var episodes: [String: [EpisodePOCO]] = [:] // keyed by podcast ID
     
-    public struct EpisodeSummary: Identifiable, Hashable {
-        public let id: String
-        public let title: String
-        public let episodeNumber: Int32
-        public let publishDate: Date
-        public let hasTranscript: Bool
-        public let hasThumbnail: Bool
-        let searchableTitle: String
-        
-        init(episode: Episode) {
-            id = episode.id
-            title = episode.title
-            episodeNumber = episode.episodeNumber
-            publishDate = episode.publishDate
-            hasTranscript = episode.hasTranscriptData
-            hasThumbnail = episode.hasThumbnailOutput
-            searchableTitle = episode.title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-        }
-    }
-    
-    // MARK: - Published State
-    
-    @Published public private(set) var podcasts: [PodcastSummary] = []
-    private var episodesCache: [String: [EpisodeSummary]] = [:]
+    // SwiftData context for persistence
+    private var context: ModelContext?
     
     public init() {}
     
-    // MARK: - Loading & Refreshing
+    // MARK: - Errors
     
+    public enum StoreError: Error {
+        case contextNotSet
+        case podcastNotFound
+        case episodeNotFound
+    }
+    
+    // MARK: - Initialization
+    
+    /// Load initial data from SwiftData and convert to POCOs
     public func loadInitialData(context: ModelContext) throws {
-        try refreshPodcasts(context: context)
+        self.context = context
+        try refreshPodcasts()
     }
     
+    // MARK: - Podcast Management
+    
+    /// Refresh podcasts from SwiftData
     @discardableResult
-    public func refreshPodcasts(context: ModelContext) throws -> [PodcastSummary] {
-        var descriptor = FetchDescriptor<Podcast>(sortBy: [SortDescriptor(\Podcast.createdAt, order: .reverse)])
-        descriptor.propertiesToFetch = [
-            \Podcast.id,
-            \Podcast.name,
-            \Podcast.podcastDescription,
-            \Podcast.createdAt
-        ]
-        let fetched = try context.fetch(descriptor)
-        let summaries = fetched.map(PodcastSummary.init)
-        if podcasts != summaries {
-            podcasts = summaries
+    public func refreshPodcasts() throws -> [PodcastPOCO] {
+        guard let context = context else {
+            throw StoreError.contextNotSet
         }
-        pruneOrphanedEpisodeCaches()
-        return summaries
-    }
-    
-    public func ensureEpisodes(for podcastID: String, context: ModelContext) throws {
-        if episodesCache[podcastID] == nil {
-            try refreshEpisodes(for: podcastID, context: context)
-        }
-    }
-    
-    @discardableResult
-    public func refreshEpisodes(for podcastID: String, context: ModelContext) throws -> [EpisodeSummary] {
-        let predicate = #Predicate<Episode> { episode in
-            episode.podcast?.id == podcastID
-        }
-        var descriptor = FetchDescriptor<Episode>(predicate: predicate)
-        descriptor.sortBy = [SortDescriptor(\Episode.publishDate, order: .reverse)]
-        // Fetch only the lightweight properties and cached flags
-        descriptor.propertiesToFetch = [
-            \Episode.id,
-            \Episode.title,
-            \Episode.episodeNumber,
-            \Episode.publishDate,
-            \Episode.hasTranscriptData,
-            \Episode.hasThumbnailOutput
-        ]
+        
+        let descriptor = FetchDescriptor<Podcast>(sortBy: [SortDescriptor(\Podcast.createdAt, order: .reverse)])
         let fetched = try context.fetch(descriptor)
         
-        // Validate and update flags if needed (handles cases where didSet wasn't called)
-        var needsSave = false
-        for episode in fetched {
-            // Skip deleted episodes
-            if episode.isDeleted {
-                continue
-            }
-            
-            // Only validate if we suspect the flag might be wrong
-            if episode.hasTranscriptData == false {
-                // Fault in the property to check (unavoidable for validation)
-                let actuallyHasTranscript = episode.transcriptInputText?.isEmpty == false
-                if actuallyHasTranscript != episode.hasTranscriptData {
-                    episode.hasTranscriptData = actuallyHasTranscript
-                    needsSave = true
-                }
-            }
-            if episode.hasThumbnailOutput == false {
-                // Fault in the property to check (unavoidable for validation)
-                let actuallyHasThumbnail = episode.thumbnailOutputData != nil
-                if actuallyHasThumbnail != episode.hasThumbnailOutput {
-                    episode.hasThumbnailOutput = actuallyHasThumbnail
-                    needsSave = true
-                }
-            }
+        // Convert SwiftData models to POCOs
+        podcasts = fetched.map { podcast in
+            convertToPOCO(podcast: podcast)
         }
-        
-        if needsSave {
-            try context.save()
-        }
-        
-        // Filter out deleted episodes before creating summaries
-        let validEpisodes = fetched.filter { !$0.isDeleted }
-        let summaries = validEpisodes.map(EpisodeSummary.init)
-        if episodesCache[podcastID] != summaries {
-            episodesCache[podcastID] = summaries
-        }
-        return summaries
+        return podcasts
     }
     
-    public func episodes(for podcastID: String) -> [EpisodeSummary] {
-        episodesCache[podcastID] ?? []
+    /// Add a new podcast (persists to SwiftData and updates POCO list)
+    public func addPodcast(_ poco: PodcastPOCO) throws {
+        guard let context = context else {
+            throw StoreError.contextNotSet
+        }
+        
+        // Create SwiftData model
+        let podcast = Podcast(
+            name: poco.name,
+            podcastDescription: poco.podcastDescription,
+            artworkData: poco.artworkData,
+            defaultOverlayData: poco.defaultOverlayData,
+            defaultFontName: poco.defaultFontName,
+            defaultFontSize: poco.defaultFontSize,
+            defaultTextPositionX: poco.defaultTextPositionX,
+            defaultTextPositionY: poco.defaultTextPositionY,
+            defaultHorizontalPadding: poco.defaultHorizontalPadding,
+            defaultVerticalPadding: poco.defaultVerticalPadding,
+            defaultCanvasWidth: poco.defaultCanvasWidth,
+            defaultCanvasHeight: poco.defaultCanvasHeight,
+            defaultBackgroundScaling: poco.defaultBackgroundScaling,
+            defaultFontColorHex: poco.defaultFontColorHex,
+            defaultOutlineEnabled: poco.defaultOutlineEnabled,
+            defaultOutlineColorHex: poco.defaultOutlineColorHex
+        )
+        podcast.id = poco.id
+        podcast.createdAt = poco.createdAt
+        
+        context.insert(podcast)
+        try context.save()
+        
+        // Add to POCO list
+        podcasts.append(poco)
+        try refreshPodcasts() // Re-sort
     }
     
-    public func podcastSummary(with id: String) -> PodcastSummary? {
+    /// Update a podcast (updates both SwiftData and POCO)
+    public func updatePodcast(_ poco: PodcastPOCO) throws {
+        guard let context = context else {
+            throw StoreError.contextNotSet
+        }
+        
+        // Find and update SwiftData model
+        let podcastID = poco.id
+        let predicate = #Predicate<Podcast> { $0.id == podcastID }
+        var descriptor = FetchDescriptor<Podcast>(predicate: predicate)
+        descriptor.fetchLimit = 1
+        
+        guard let podcast = try context.fetch(descriptor).first else {
+            throw StoreError.podcastNotFound
+        }
+        
+        // Update properties
+        podcast.name = poco.name
+        podcast.podcastDescription = poco.podcastDescription
+        podcast.artworkData = poco.artworkData
+        podcast.defaultOverlayData = poco.defaultOverlayData
+        podcast.defaultFontName = poco.defaultFontName
+        podcast.defaultFontSize = poco.defaultFontSize
+        podcast.defaultTextPositionX = poco.defaultTextPositionX
+        podcast.defaultTextPositionY = poco.defaultTextPositionY
+        podcast.defaultHorizontalPadding = poco.defaultHorizontalPadding
+        podcast.defaultVerticalPadding = poco.defaultVerticalPadding
+        podcast.defaultCanvasWidth = poco.defaultCanvasWidth
+        podcast.defaultCanvasHeight = poco.defaultCanvasHeight
+        podcast.defaultBackgroundScaling = poco.defaultBackgroundScaling
+        podcast.defaultFontColorHex = poco.defaultFontColorHex
+        podcast.defaultOutlineEnabled = poco.defaultOutlineEnabled
+        podcast.defaultOutlineColorHex = poco.defaultOutlineColorHex
+        
+        try context.save()
+        
+        // Update POCO list - reassign array to trigger @Published
+        if let index = podcasts.firstIndex(where: { $0.id == poco.id }) {
+            var updated = podcasts
+            updated[index] = poco
+            podcasts = updated
+        }
+    }
+    
+    /// Delete a podcast (removes from both SwiftData and POCO)
+    public func deletePodcast(_ poco: PodcastPOCO) throws {
+        guard let context = context else {
+            throw StoreError.contextNotSet
+        }
+        
+        // Find and delete SwiftData model
+        let podcastID = poco.id
+        let predicate = #Predicate<Podcast> { $0.id == podcastID }
+        var descriptor = FetchDescriptor<Podcast>(predicate: predicate)
+        descriptor.fetchLimit = 1
+        
+        guard let podcast = try context.fetch(descriptor).first else {
+            throw StoreError.podcastNotFound
+        }
+        
+        context.delete(podcast)
+        try context.save()
+        
+        // Remove from POCO list
+        podcasts.removeAll { $0.id == poco.id }
+        episodes.removeValue(forKey: poco.id)
+    }
+    
+    public func getPodcast(with id: String) -> PodcastPOCO? {
         podcasts.first { $0.id == id }
     }
     
-    // MARK: - Direct Model Fetching
+    // MARK: - Episode Management
     
-    public func fetchPodcastModel(with id: String, context: ModelContext) throws -> Podcast? {
-        let predicate = #Predicate<Podcast> { podcast in
-            podcast.id == id
+    /// Refresh episodes for a podcast from SwiftData
+    @discardableResult
+    public func refreshEpisodes(for podcastID: String) throws -> [EpisodePOCO] {
+        guard let context = context else {
+            throw StoreError.contextNotSet
         }
-        var descriptor = FetchDescriptor<Podcast>(predicate: predicate)
-        descriptor.fetchLimit = 1
-        let result = try context.fetch(descriptor).first
         
-        // Verify the object is valid and not deleted
-        if let podcast = result, !podcast.isDeleted {
-            return podcast
+        let predicate = #Predicate<Episode> { $0.podcast?.id == podcastID }
+        let descriptor = FetchDescriptor<Episode>(predicate: predicate, sortBy: [SortDescriptor(\Episode.publishDate, order: .reverse)])
+        
+        let fetched = try context.fetch(descriptor)
+        
+        // Convert to POCOs
+        let pocos = fetched.map { episode in
+            convertToPOCO(episode: episode, podcastID: podcastID)
         }
-        return nil
+        
+        episodes[podcastID] = pocos
+        return pocos
     }
     
-    public func fetchEpisodeModel(with id: String, context: ModelContext) throws -> Episode? {
-        let predicate = #Predicate<Episode> { episode in
-            episode.id == id
+    /// Ensure episodes are loaded for a podcast (lazy loading)
+    public func ensureEpisodes(for podcastID: String) throws {
+        if episodes[podcastID] == nil {
+            try refreshEpisodes(for: podcastID)
         }
+    }
+    
+    /// Search episodes within a podcast
+    public func searchEpisodes(in podcastID: String, query: String) -> [EpisodePOCO] {
+        guard let allEpisodes = episodes[podcastID] else {
+            return []
+        }
+        
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return allEpisodes
+        }
+        
+        let normalized = trimmed.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+        return allEpisodes.filter { episode in
+            let searchableTitle = episode.title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            return searchableTitle.contains(normalized)
+        }
+    }
+    
+    /// Add a new episode (persists to SwiftData and updates POCO list)
+    public func addEpisode(_ poco: EpisodePOCO, to podcast: PodcastPOCO) throws {
+        guard let context = context else {
+            throw StoreError.contextNotSet
+        }
+        
+        // Find podcast model
+        let podcastID = podcast.id
+        let podcastPredicate = #Predicate<Podcast> { $0.id == podcastID }
+        var podcastDescriptor = FetchDescriptor<Podcast>(predicate: podcastPredicate)
+        podcastDescriptor.fetchLimit = 1
+        
+        guard let podcastModel = try context.fetch(podcastDescriptor).first else {
+            throw StoreError.podcastNotFound
+        }
+        
+        // Create episode model
+        let episode = Episode(title: poco.title, episodeNumber: poco.episodeNumber, podcast: podcastModel)
+        episode.id = poco.id
+        episode.episodeDescription = poco.episodeDescription
+        episode.publishDate = poco.publishDate
+        episode.transcriptInputText = poco.transcriptInputText
+        episode.srtOutputText = poco.srtOutputText
+        episode.thumbnailBackgroundData = poco.thumbnailBackgroundData
+        episode.thumbnailOverlayData = poco.thumbnailOverlayData
+        episode.thumbnailOutputData = poco.thumbnailOutputData
+        episode.fontName = poco.fontName
+        episode.fontSize = poco.fontSize
+        episode.textPositionX = poco.textPositionX
+        episode.textPositionY = poco.textPositionY
+        episode.horizontalPadding = poco.horizontalPadding
+        episode.verticalPadding = poco.verticalPadding
+        episode.canvasWidth = poco.canvasWidth
+        episode.canvasHeight = poco.canvasHeight
+        episode.backgroundScaling = poco.backgroundScaling
+        episode.fontColorHex = poco.fontColorHex
+        episode.outlineEnabled = poco.outlineEnabled
+        episode.outlineColorHex = poco.outlineColorHex
+        
+        context.insert(episode)
+        try context.save()
+        
+        // Add to POCO list
+        if episodes[podcast.id] == nil {
+            episodes[podcast.id] = []
+        }
+        episodes[podcast.id]?.append(poco)
+        try refreshEpisodes(for: podcast.id) // Re-sort
+    }
+    
+    /// Update an episode (updates both SwiftData and POCO)
+    public func updateEpisode(_ poco: EpisodePOCO) throws {
+        guard let context = context else {
+            throw StoreError.contextNotSet
+        }
+        
+        // Find and update SwiftData model
+        let episodeID = poco.id
+        let predicate = #Predicate<Episode> { $0.id == episodeID }
         var descriptor = FetchDescriptor<Episode>(predicate: predicate)
         descriptor.fetchLimit = 1
-        let result = try context.fetch(descriptor).first
         
-        // Verify the object is valid and not deleted
-        if let episode = result, !episode.isDeleted {
-            return episode
+        guard let episode = try context.fetch(descriptor).first else {
+            throw StoreError.episodeNotFound
         }
-        return nil
+        
+        // Update properties
+        episode.title = poco.title
+        episode.episodeNumber = poco.episodeNumber
+        episode.episodeDescription = poco.episodeDescription
+        episode.publishDate = poco.publishDate
+        episode.transcriptInputText = poco.transcriptInputText
+        episode.srtOutputText = poco.srtOutputText
+        episode.thumbnailBackgroundData = poco.thumbnailBackgroundData
+        episode.thumbnailOverlayData = poco.thumbnailOverlayData
+        episode.thumbnailOutputData = poco.thumbnailOutputData
+        episode.fontName = poco.fontName
+        episode.fontSize = poco.fontSize
+        episode.textPositionX = poco.textPositionX
+        episode.textPositionY = poco.textPositionY
+        episode.horizontalPadding = poco.horizontalPadding
+        episode.verticalPadding = poco.verticalPadding
+        episode.canvasWidth = poco.canvasWidth
+        episode.canvasHeight = poco.canvasHeight
+        episode.backgroundScaling = poco.backgroundScaling
+        episode.fontColorHex = poco.fontColorHex
+        episode.outlineEnabled = poco.outlineEnabled
+        episode.outlineColorHex = poco.outlineColorHex
+        
+        try context.save()
+        
+        // Update POCO list - reassign array to trigger @Published
+        let podcastID = poco.podcastID
+        if var podcastEpisodes = episodes[podcastID],
+           let episodeIndex = podcastEpisodes.firstIndex(where: { $0.id == poco.id }) {
+            podcastEpisodes[episodeIndex] = poco
+            episodes[podcastID] = podcastEpisodes
+        }
     }
     
-    // MARK: - Helpers
+    /// Delete an episode (removes from both SwiftData and POCO)
+    public func deleteEpisode(_ poco: EpisodePOCO) throws {
+        guard let context = context else {
+            throw StoreError.contextNotSet
+        }
+        
+        // Find and delete SwiftData model
+        let episodeID = poco.id
+        let predicate = #Predicate<Episode> { $0.id == episodeID }
+        var descriptor = FetchDescriptor<Episode>(predicate: predicate)
+        descriptor.fetchLimit = 1
+        
+        guard let episode = try context.fetch(descriptor).first else {
+            throw StoreError.episodeNotFound
+        }
+        
+        context.delete(episode)
+        try context.save()
+        
+        // Remove from POCO list
+        let podcastID = poco.podcastID
+        episodes[podcastID]?.removeAll { $0.id == poco.id }
+    }
     
-    private func pruneOrphanedEpisodeCaches() {
-        let validIDs = Set(podcasts.map(\.id))
-        episodesCache = episodesCache.filter { validIDs.contains($0.key) }
+    public func getEpisode(with id: String, in podcastID: String) -> EpisodePOCO? {
+        episodes[podcastID]?.first { $0.id == id }
+    }
+    
+    public func getEpisodes(for podcastID: String) -> [EpisodePOCO] {
+        episodes[podcastID] ?? []
+    }
+    
+    // MARK: - Conversion Helpers
+    
+    private func convertToPOCO(podcast: Podcast) -> PodcastPOCO {
+        PodcastPOCO(
+            id: podcast.id,
+            name: podcast.name,
+            podcastDescription: podcast.podcastDescription,
+            artworkData: podcast.artworkData,
+            defaultOverlayData: podcast.defaultOverlayData,
+            defaultFontName: podcast.defaultFontName,
+            defaultFontSize: podcast.defaultFontSize,
+            defaultTextPositionX: podcast.defaultTextPositionX,
+            defaultTextPositionY: podcast.defaultTextPositionY,
+            defaultHorizontalPadding: podcast.defaultHorizontalPadding,
+            defaultVerticalPadding: podcast.defaultVerticalPadding,
+            defaultCanvasWidth: podcast.defaultCanvasWidth,
+            defaultCanvasHeight: podcast.defaultCanvasHeight,
+            defaultBackgroundScaling: podcast.defaultBackgroundScaling,
+            defaultFontColorHex: podcast.defaultFontColorHex,
+            defaultOutlineEnabled: podcast.defaultOutlineEnabled,
+            defaultOutlineColorHex: podcast.defaultOutlineColorHex,
+            createdAt: podcast.createdAt
+        )
+    }
+    
+    private func convertToPOCO(episode: Episode, podcastID: String) -> EpisodePOCO {
+        EpisodePOCO(
+            id: episode.id,
+            podcastID: podcastID,
+            title: episode.title,
+            episodeNumber: episode.episodeNumber,
+            podcast: nil,
+            episodeDescription: episode.episodeDescription,
+            transcriptInputText: episode.transcriptInputText,
+            srtOutputText: episode.srtOutputText,
+            createdAt: episode.createdAt,
+            publishDate: episode.publishDate,
+            thumbnailBackgroundData: episode.thumbnailBackgroundData,
+            thumbnailOverlayData: episode.thumbnailOverlayData,
+            thumbnailOutputData: episode.thumbnailOutputData,
+            fontName: episode.fontName,
+            fontSize: episode.fontSize,
+            textPositionX: episode.textPositionX,
+            textPositionY: episode.textPositionY,
+            horizontalPadding: episode.horizontalPadding,
+            verticalPadding: episode.verticalPadding,
+            canvasWidth: episode.canvasWidth,
+            canvasHeight: episode.canvasHeight,
+            backgroundScaling: episode.backgroundScaling,
+            fontColorHex: episode.fontColorHex,
+            outlineEnabled: episode.outlineEnabled,
+            outlineColorHex: episode.outlineColorHex
+        )
     }
 }
