@@ -6,8 +6,9 @@ import AppKit
 public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     
+    // Optimized: Sort podcasts by creation date
     @Query(sort: [SortDescriptor(\Podcast.createdAt)])
-    private var podcasts: [Podcast]
+    private var _podcasts: [Podcast]
     
     @State private var selectedPodcastID: String?
     @State private var selectedPodcast: Podcast?
@@ -24,7 +25,17 @@ public struct ContentView: View {
     @State private var episodeSortOption: EpisodeSortOption = .numberAscending
     @State private var filteredEpisodes: [Episode] = []
     
+    // Cache for podcasts to avoid repeated SwiftData fetches
+    @State private var cachedPodcasts: [Podcast] = []
+    // Cache for episodes to avoid repeated SwiftData fetches
+    @State private var cachedEpisodes: [Episode] = []
+    
     @AppStorage("lastSelectedPodcastID") private var lastSelectedPodcastID: String = ""
+    
+    // Computed property that uses cache
+    private var podcasts: [Podcast] {
+        cachedPodcasts.isEmpty ? _podcasts : cachedPodcasts
+    }
     
     public init() {}
     
@@ -69,6 +80,7 @@ public struct ContentView: View {
             }
         }
         .onAppear {
+            initializeCaches()
             restoreLastSelectedPodcast()
             registerImportedFonts()
             applyStoredTheme()
@@ -101,17 +113,6 @@ public struct ContentView: View {
             var transaction = Transaction()
             transaction.disablesAnimations = true
             withTransaction(transaction) {
-                updateFilteredEpisodes()
-            }
-        }
-        .onChange(of: podcasts) { _, _ in
-            var transaction = Transaction()
-            transaction.disablesAnimations = true
-            withTransaction(transaction) {
-                // Update selected podcast if it still exists
-                if let currentID = selectedPodcastID {
-                    selectedPodcast = podcasts.first { $0.id == currentID }
-                }
                 updateFilteredEpisodes()
             }
         }
@@ -309,18 +310,35 @@ public struct ContentView: View {
                 .help("Open settings")
             }
             .navigationSplitViewColumnWidth(min: 250, ideal: 300, max: 400)
-            .sheet(isPresented: $showingPodcastForm) {
+            .sheet(isPresented: $showingPodcastForm, onDismiss: {
+                // Refresh podcast cache when form dismisses
+                refreshPodcastCache()
+                
+                // Auto-select first podcast if none selected
+                if !podcasts.isEmpty && selectedPodcastID == nil {
+                    selectedPodcastID = podcasts.first?.id
+                }
+            }) {
                 PodcastFormView()
             }
-            .sheet(item: $editingPodcast) { podcast in
+            .sheet(item: $editingPodcast, onDismiss: {
+                // Refresh podcast cache when editing dismisses
+                refreshPodcastCache()
+            }) { podcast in
                 PodcastFormView(podcast: podcast)
             }
-            .sheet(isPresented: $showingEpisodeForm) {
+            .sheet(isPresented: $showingEpisodeForm, onDismiss: {
+                // Refresh episode cache when form dismisses
+                refreshEpisodeCache()
+            }) {
                 if let podcast = selectedPodcast {
                     EpisodeFormView(podcast: podcast)
                 }
             }
-            .sheet(item: $editingEpisode) { episode in
+            .sheet(item: $editingEpisode, onDismiss: {
+                // Refresh episode cache when form dismisses
+                refreshEpisodeCache()
+            }) { episode in
                 if let podcast = selectedPodcast {
                     EpisodeFormView(podcast: podcast, episode: episode)
                 }
@@ -368,11 +386,48 @@ public struct ContentView: View {
     private func updateFilteredEpisodes() {
         guard let podcast = selectedPodcast else {
             filteredEpisodes = []
+            cachedEpisodes = []
             return
         }
-        // Cache episodes array to avoid repeated SwiftData relationship access
-        let episodes = Array(podcast.episodes)
-        filteredEpisodes = filterAndSortEpisodes(episodes)
+        
+        // Only fetch from SwiftData if cache is empty or podcast changed
+        if cachedEpisodes.isEmpty || cachedEpisodes.first?.podcast?.id != podcast.id {
+            cachedEpisodes = Array(podcast.episodes)
+        }
+        
+        filteredEpisodes = filterAndSortEpisodes(cachedEpisodes)
+    }
+    
+    /// Force refresh the episode cache from SwiftData
+    private func refreshEpisodeCache() {
+        guard let podcast = selectedPodcast else {
+            cachedEpisodes = []
+            return
+        }
+        cachedEpisodes = Array(podcast.episodes)
+        updateFilteredEpisodes()
+    }
+    
+    /// Initialize all caches on app launch
+    private func initializeCaches() {
+        // Cache podcasts
+        cachedPodcasts = _podcasts
+        
+        // If there's a selected podcast, cache its episodes
+        if let podcast = selectedPodcast {
+            cachedEpisodes = Array(podcast.episodes)
+            updateFilteredEpisodes()
+        }
+    }
+    
+    /// Refresh podcast cache from SwiftData
+    private func refreshPodcastCache() {
+        cachedPodcasts = _podcasts
+        
+        // Update selected podcast reference if it exists
+        if let currentID = selectedPodcastID {
+            selectedPodcast = cachedPodcasts.first { $0.id == currentID }
+        }
     }
     
     private func registerImportedFonts() {
@@ -442,12 +497,16 @@ public struct ContentView: View {
         
         do {
             try modelContext.save()
+            // Refresh podcast cache
+            refreshPodcastCache()
+            
             // Clear selection if deleted podcast was selected
             if selectedPodcastID == podcast.id {
                 selectedPodcastID = nil
                 selectedPodcast = nil
                 selectedEpisode = nil
                 filteredEpisodes = []
+                cachedEpisodes = []
             }
         } catch {
             print("Error deleting podcast: \(error)")
@@ -463,6 +522,8 @@ public struct ContentView: View {
             if selectedEpisode?.id == episode.id {
                 selectedEpisode = nil
             }
+            // Refresh cache to reflect deletion
+            refreshEpisodeCache()
         } catch {
             print("Error deleting episode: \(error)")
         }
