@@ -588,8 +588,22 @@ private struct TranscriptSection: View {
             HStack(spacing: 16) {
                 // Left pane: Input
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Input Transcript")
-                        .font(.headline)
+                    HStack {
+                        Text("Input Transcript")
+                            .font(.headline)
+                        
+                        Spacer()
+                        
+                        if !inputText.isEmpty {
+                            HStack(spacing: 4) {
+                                Image(systemName: "doc.text.fill")
+                                    .foregroundStyle(.blue)
+                                Text("\(inputText.split(separator: " ").count) words")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
                     
                     ScrollView {
                         TextEditor(text: $inputText)
@@ -608,8 +622,22 @@ private struct TranscriptSection: View {
                 
                 // Right pane: Output
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("SRT Output")
-                        .font(.headline)
+                    HStack {
+                        Text("SRT Output")
+                            .font(.headline)
+                        
+                        Spacer()
+                        
+                        if !outputText.isEmpty {
+                            HStack(spacing: 4) {
+                                Image(systemName: "captions.bubble.fill")
+                                    .foregroundStyle(.green)
+                                Text("\(outputText.split(separator: " ").count) words")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
                     
                     ScrollView {
                         TextEditor(text: $outputText)
