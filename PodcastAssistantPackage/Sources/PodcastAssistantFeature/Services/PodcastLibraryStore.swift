@@ -84,17 +84,43 @@ public final class PodcastLibraryStore: ObservableObject {
         }
         var descriptor = FetchDescriptor<Episode>(predicate: predicate)
         descriptor.sortBy = [SortDescriptor(\Episode.publishDate, order: .reverse)]
-        // Note: hasTranscriptData and hasThumbnailOutput are computed properties
-        // and cannot be included in propertiesToFetch
+        // Fetch only the lightweight properties and cached flags
         descriptor.propertiesToFetch = [
             \Episode.id,
             \Episode.title,
             \Episode.episodeNumber,
             \Episode.publishDate,
-            \Episode.transcriptInputText,
-            \Episode.thumbnailOutputData
+            \Episode.hasTranscriptData,
+            \Episode.hasThumbnailOutput
         ]
         let fetched = try context.fetch(descriptor)
+        
+        // Validate and update flags if needed (handles cases where didSet wasn't called)
+        var needsSave = false
+        for episode in fetched {
+            // Only validate if we suspect the flag might be wrong
+            if episode.hasTranscriptData == false {
+                // Fault in the property to check (unavoidable for validation)
+                let actuallyHasTranscript = episode.transcriptInputText?.isEmpty == false
+                if actuallyHasTranscript != episode.hasTranscriptData {
+                    episode.hasTranscriptData = actuallyHasTranscript
+                    needsSave = true
+                }
+            }
+            if episode.hasThumbnailOutput == false {
+                // Fault in the property to check (unavoidable for validation)
+                let actuallyHasThumbnail = episode.thumbnailOutputData != nil
+                if actuallyHasThumbnail != episode.hasThumbnailOutput {
+                    episode.hasThumbnailOutput = actuallyHasThumbnail
+                    needsSave = true
+                }
+            }
+        }
+        
+        if needsSave {
+            try context.save()
+        }
+        
         let summaries = fetched.map(EpisodeSummary.init)
         if episodesCache[podcastID] != summaries {
             episodesCache[podcastID] = summaries
