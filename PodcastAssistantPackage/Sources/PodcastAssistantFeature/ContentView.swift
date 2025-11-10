@@ -129,7 +129,7 @@ public struct ContentView: View {
     @ViewBuilder
     private var sidebarContent: some View {
             VStack(spacing: 0) {
-                // Podcast selector and management
+                // Step 1: Podcast header
                 VStack(spacing: 12) {
                     HStack {
                         Text("Podcast")
@@ -146,6 +146,7 @@ public struct ContentView: View {
                         .help("Create new podcast")
                     }
                     
+                    // Step 2: Podcast picker
                     if podcasts.isEmpty {
                         Text("No podcasts")
                             .foregroundStyle(.secondary)
@@ -159,7 +160,9 @@ public struct ContentView: View {
                                     Text(podcast.name).tag(podcast.id as String?)
                                 }
                             }
+                            .pickerStyle(.menu)
                             .labelsHidden()
+                            .id("podcast-picker")
                             
                             if selectedPodcast != nil {
                                 Menu {
@@ -184,16 +187,59 @@ public struct ContentView: View {
                 }
                 .padding()
                 .background(Color(NSColor.controlBackgroundColor))
+                .animation(nil, value: selectedPodcastID)
                 
                 Divider()
                 
-                // Episode list
-                if let podcast = selectedPodcast {
-                    VStack(spacing: 0) {
+                // Step 3: Episode list header
+                if selectedPodcast != nil {
+                    VStack(spacing: 8) {
                         HStack {
                             Text("Episodes")
                                 .font(.headline)
                             Spacer()
+                            
+                            // Sort menu
+                            Menu {
+                                Button {
+                                    episodeSortOption = .numberAscending
+                                } label: {
+                                    Label("Number (Low to High)", systemImage: episodeSortOption == .numberAscending ? "checkmark" : "")
+                                }
+                                Button {
+                                    episodeSortOption = .numberDescending
+                                } label: {
+                                    Label("Number (High to Low)", systemImage: episodeSortOption == .numberDescending ? "checkmark" : "")
+                                }
+                                Divider()
+                                Button {
+                                    episodeSortOption = .titleAscending
+                                } label: {
+                                    Label("Title (A to Z)", systemImage: episodeSortOption == .titleAscending ? "checkmark" : "")
+                                }
+                                Button {
+                                    episodeSortOption = .titleDescending
+                                } label: {
+                                    Label("Title (Z to A)", systemImage: episodeSortOption == .titleDescending ? "checkmark" : "")
+                                }
+                                Divider()
+                                Button {
+                                    episodeSortOption = .dateAscending
+                                } label: {
+                                    Label("Date (Oldest First)", systemImage: episodeSortOption == .dateAscending ? "checkmark" : "")
+                                }
+                                Button {
+                                    episodeSortOption = .dateDescending
+                                } label: {
+                                    Label("Date (Newest First)", systemImage: episodeSortOption == .dateDescending ? "checkmark" : "")
+                                }
+                            } label: {
+                                Label("Sort", systemImage: "arrow.up.arrow.down")
+                                    .labelStyle(.iconOnly)
+                            }
+                            .buttonStyle(.glass)
+                            .help("Sort episodes")
+                            
                             Button {
                                 showingEpisodeForm = true
                             } label: {
@@ -203,130 +249,53 @@ public struct ContentView: View {
                             .buttonStyle(.glass)
                             .help("Create new episode")
                         }
-                        .padding()
-                        .background(Color(NSColor.controlBackgroundColor))
                         
-                        Divider()
-                        
-                        // Search and Sort
-                        VStack(spacing: 8) {
+                        // Search field
+                        HStack {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundStyle(.secondary)
                             TextField("Search episodes...", text: $episodeSearchText)
-                                .textFieldStyle(.roundedBorder)
-                            
-                            HStack {
-                                Text("Sort by:")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                
-                                Picker("Sort", selection: $episodeSortOption) {
-                                    Text("Number ↑").tag(EpisodeSortOption.numberAscending)
-                                    Text("Number ↓").tag(EpisodeSortOption.numberDescending)
-                                    Text("Title A-Z").tag(EpisodeSortOption.titleAscending)
-                                    Text("Title Z-A").tag(EpisodeSortOption.titleDescending)
-                                    Text("Newest").tag(EpisodeSortOption.dateDescending)
-                                    Text("Oldest").tag(EpisodeSortOption.dateAscending)
+                                .textFieldStyle(.plain)
+                            if !episodeSearchText.isEmpty {
+                                Button {
+                                    episodeSearchText = ""
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundStyle(.secondary)
                                 }
-                                .pickerStyle(.menu)
-                                .labelsHidden()
-                                
-                                Spacer()
-                                
-                                if !episodeSearchText.isEmpty {
-                                    Button {
-                                        episodeSearchText = ""
-                                    } label: {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .help("Clear search")
-                                }
+                                .buttonStyle(.plain)
                             }
                         }
-                        .padding(.horizontal)
-                        .padding(.vertical, 8)
+                        .padding(6)
                         .background(Color(NSColor.controlBackgroundColor))
-                        
-                        Divider()
-                        
-                        if podcast.episodes.isEmpty {
-                            VStack {
-                                ContentUnavailableView(
-                                    "No Episodes",
-                                    systemImage: "waveform.slash",
-                                    description: Text("Create an episode for this podcast")
-                                )
-                                .frame(maxHeight: 300)
-                                Spacer()
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                        } else {
-                            if filteredEpisodes.isEmpty {
-                                VStack {
-                                    ContentUnavailableView(
-                                        "No Matching Episodes",
-                                        systemImage: "magnifyingglass",
-                                        description: Text("Try adjusting your search")
-                                    )
-                                    .frame(maxHeight: 300)
-                                    Spacer()
-                                }
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                            } else {
-                                List(selection: $selectedEpisode) {
-                                    ForEach(filteredEpisodes) { episode in
-                                        EpisodeRow(episode: episode)
-                                            .tag(episode)
-                                            .contextMenu {
-                                                Button("Edit") {
-                                                    editingEpisode = episode
-                                                }
-                                                Button("Delete", role: .destructive) {
-                                                    deleteEpisode(episode)
-                                                }
-                                            }
-                                    }
-                                }
-                                .animation(nil, value: filteredEpisodes)
-                                .id("episode-list-\(selectedPodcast?.id ?? "")")
-                            }
-                        }
+                        .cornerRadius(6)
                     }
-                    .frame(maxHeight: .infinity)
-                } else {
-                    VStack {
-                        ContentUnavailableView(
-                            "Select a Podcast",
-                            systemImage: "mic.slash",
-                            description: Text("Choose a podcast from the dropdown above")
-                        )
-                        .frame(maxHeight: 300)
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                }
-                
-                // Settings button at bottom
-                Spacer()
-                
-                VStack(spacing: 0) {
+                    .padding()
+                    .animation(nil, value: episodeSearchText)
+                    .animation(nil, value: episodeSortOption)
+                    
                     Divider()
                     
-                    Button {
-                        showingSettings = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "gear")
-                            Text("Settings")
-                            Spacer()
+                    // Step 4: Episode list
+                    List(filteredEpisodes, id: \.id) { episode in
+                        EpisodeRowContent(
+                            episode: episode,
+                            isSelected: selectedEpisode?.id == episode.id
+                        )
+                        .onTapGesture {
+                            var transaction = Transaction()
+                            transaction.disablesAnimations = true
+                            withTransaction(transaction) {
+                                selectedEpisode = episode
+                            }
                         }
-                        .padding()
-                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .help("App settings")
+                    .listStyle(.sidebar)
+                    .id("episode-list")
+                    .animation(nil, value: selectedEpisode?.id)
                 }
+                
+                Spacer()
             }
             .navigationSplitViewColumnWidth(min: 250, ideal: 300, max: 400)
             .sheet(isPresented: $showingPodcastForm) {
@@ -716,4 +685,44 @@ private enum DetailTab: Hashable {
     case transcript
     case thumbnail
     case aiIdeas
+}
+
+/// Episode row button for sidebar list
+private struct EpisodeRowContent: View {
+    let episode: Episode
+    let isSelected: Bool
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Episode number badge
+            Text("\(episode.episodeNumber)")
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.white)
+                .frame(width: 32, height: 32)
+                .background(Color.accentColor)
+                .clipShape(Circle())
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(episode.title)
+                    .font(.body)
+                    .lineLimit(2)
+                
+                Text(episode.createdAt, style: .date)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .foregroundColor(Color.accentColor)
+                    .imageScale(.small)
+            }
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .listRowBackground(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+    }
 }
