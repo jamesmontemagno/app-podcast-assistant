@@ -104,13 +104,6 @@ public struct ContentView: View {
                 updateFilteredEpisodes()
             }
         }
-        .onChange(of: selectedPodcast?.episodes) { _, _ in
-            var transaction = Transaction()
-            transaction.disablesAnimations = true
-            withTransaction(transaction) {
-                updateFilteredEpisodes()
-            }
-        }
         .onChange(of: podcasts) { _, _ in
             var transaction = Transaction()
             transaction.disablesAnimations = true
@@ -291,11 +284,29 @@ public struct ContentView: View {
                         }
                     }
                     .listStyle(.sidebar)
+                    .environment(\.defaultMinListRowHeight, 50)
                     .id("episode-list")
                     .animation(nil, value: selectedEpisode?.id)
                 }
                 
                 Spacer()
+                
+                // Step 5: Settings button at bottom
+                Divider()
+                
+                Button {
+                    showingSettings = true
+                } label: {
+                    HStack {
+                        Image(systemName: "gear")
+                        Text("Settings")
+                        Spacer()
+                    }
+                    .padding()
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Open settings")
             }
             .navigationSplitViewColumnWidth(min: 250, ideal: 300, max: 400)
             .sheet(isPresented: $showingPodcastForm) {
@@ -355,10 +366,12 @@ public struct ContentView: View {
     }
     
     private func updateFilteredEpisodes() {
-        guard let episodes = selectedPodcast?.episodes else {
+        guard let podcast = selectedPodcast else {
             filteredEpisodes = []
             return
         }
+        // Cache episodes array to avoid repeated SwiftData relationship access
+        let episodes = Array(podcast.episodes)
         filteredEpisodes = filterAndSortEpisodes(episodes)
     }
     
