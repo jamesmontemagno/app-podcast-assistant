@@ -6,35 +6,25 @@ import AppKit
 public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     
-    // Optimized: Sort podcasts by creation date
-    @Query(sort: [SortDescriptor(\Podcast.createdAt)])
-    private var _podcasts: [Podcast]
-    
+    @StateObject private var libraryStore = PodcastLibraryStore()
     @State private var selectedPodcastID: String?
-    @State private var selectedPodcast: Podcast?
-    @State private var selectedEpisode: Episode?
+    @State private var selectedEpisodeID: String?
+    @State private var selectedEpisodeModel: Episode?
     @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var showingPodcastForm = false
     @State private var showingEpisodeForm = false
     @State private var editingPodcast: Podcast?
-    @State private var editingEpisode: Episode?
     @State private var showingEpisodeDetailEdit = false
     @State private var selectedDetailTab: DetailTab = .details
     @State private var showingSettings = false
     @State private var episodeSearchText = ""
     @State private var episodeSortOption: EpisodeSortOption = .numberAscending
-    @State private var filteredEpisodes: [Episode] = []
-    
-    // Cache for podcasts to avoid repeated SwiftData fetches
-    @State private var cachedPodcasts: [Podcast] = []
-    // Cache for episodes to avoid repeated SwiftData fetches
-    @State private var cachedEpisodes: [Episode] = []
+    @State private var filteredEpisodes: [PodcastLibraryStore.EpisodeSummary] = []
     
     @AppStorage("lastSelectedPodcastID") private var lastSelectedPodcastID: String = ""
     
-    // Computed property that uses cache
-    private var podcasts: [Podcast] {
-        cachedPodcasts.isEmpty ? _podcasts : cachedPodcasts
+    private var podcasts: [PodcastLibraryStore.PodcastSummary] {
+        libraryStore.podcasts
     }
     
     public init() {}
@@ -46,23 +36,23 @@ public struct ContentView: View {
             detailContent
         }
         .frame(minWidth: 800, minHeight: 700)
-        .focusedSceneValue(\.selectedEpisode, selectedEpisode)
+        .focusedSceneValue(\.selectedEpisode, selectedEpisodeModel)
         .focusedSceneValue(\.podcastActions, PodcastActions(
             createPodcast: { showingPodcastForm = true }
         ))
         .focusedSceneValue(\.episodeActions, EpisodeActions(
             createEpisode: { 
-                if selectedPodcast != nil {
+                if selectedPodcastID != nil {
                     showingEpisodeForm = true
                 }
             },
             editEpisode: { 
-                if selectedEpisode != nil {
+                if selectedEpisodeModel != nil {
                     showingEpisodeDetailEdit = true
                 }
             },
             deleteEpisode: { 
-                if let episode = selectedEpisode {
+                if let episode = selectedEpisodeModel {
                     deleteEpisode(episode)
                 }
             },
@@ -75,13 +65,14 @@ public struct ContentView: View {
             SettingsView()
         }
         .sheet(isPresented: $showingEpisodeDetailEdit) {
-            if let selectedEpisode = selectedEpisode {
+            if let selectedEpisode = selectedEpisodeModel {
                 EpisodeDetailEditView(episode: selectedEpisode)
             }
         }
         .onAppear {
-            initializeCaches()
+            loadInitialData()
             restoreLastSelectedPodcast()
+            updateFilteredEpisodes()
             registerImportedFonts()
             applyStoredTheme()
         }
@@ -89,16 +80,32 @@ public struct ContentView: View {
             var transaction = Transaction()
             transaction.disablesAnimations = true
             withTransaction(transaction) {
-                selectedPodcast = podcasts.first { $0.id == newPodcastID }
                 if let id = newPodcastID {
                     lastSelectedPodcastID = id
                 }
                 // Clear episode selection when podcast changes
-                selectedEpisode = nil
+                selectedEpisodeID = nil
+                selectedEpisodeModel = nil
                 updateFilteredEpisodes()
             }
         }
-        .onChange(of: selectedEpisode) { _, _ in
+        .onChange(of: selectedEpisodeID) { _, newEpisodeID in
+            guard let newEpisodeID else {
+                selectedEpisodeModel = nil
+                return
+            }
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                if let model = loadEpisodeModel(with: newEpisodeID) {
+                    selectedEpisodeModel = model
+                } else {
+                    selectedEpisodeID = nil
+                    selectedEpisodeModel = nil
+                }
+            }
+        }
+        .onChange(of: selectedEpisodeModel) { _, _ in
             // Reset to details tab when episode changes
             selectedDetailTab = .details
         }
@@ -158,14 +165,14 @@ public struct ContentView: View {
                             .labelsHidden()
                             .id("podcast-picker")
                             
-                            if selectedPodcast != nil {
+                            if let podcastID = selectedPodcastID {
                                 Menu {
                                     Button("Edit Podcast") {
-                                        editingPodcast = selectedPodcast
+                                        editingPodcast = loadPodcastModel(with: podcastID)
                                     }
                                     Divider()
                                     Button("Delete Podcast", role: .destructive) {
-                                        if let podcast = selectedPodcast {
+                                        if let podcast = loadPodcastModel(with: podcastID) {
                                             deletePodcast(podcast)
                                         }
                                     }
@@ -186,7 +193,7 @@ public struct ContentView: View {
                 Divider()
                 
                 // Step 3: Episode list header
-                if selectedPodcast != nil {
+                if selectedPodcastID != nil {
                     VStack(spacing: 8) {
                         HStack {
                             Text("Episodes")
@@ -271,23 +278,23 @@ public struct ContentView: View {
                     Divider()
                     
                     // Step 4: Episode list
-                    List(filteredEpisodes, id: \.id) { episode in
+                    List(filteredEpisodes, id: \.id) { summary in
                         EpisodeRowContent(
-                            episode: episode,
-                            isSelected: selectedEpisode?.id == episode.id
+                            episode: summary,
+                            isSelected: selectedEpisodeID == summary.id
                         )
                         .onTapGesture {
                             var transaction = Transaction()
                             transaction.disablesAnimations = true
                             withTransaction(transaction) {
-                                selectedEpisode = episode
+                                selectedEpisodeID = summary.id
                             }
                         }
                     }
                     .listStyle(.sidebar)
                     .environment(\.defaultMinListRowHeight, 50)
                     .id("episode-list")
-                    .animation(nil, value: selectedEpisode?.id)
+                    .animation(nil, value: selectedEpisodeID)
                 }
                 
                 Spacer()
@@ -311,10 +318,7 @@ public struct ContentView: View {
             }
             .navigationSplitViewColumnWidth(min: 250, ideal: 300, max: 400)
             .sheet(isPresented: $showingPodcastForm, onDismiss: {
-                // Refresh podcast cache when form dismisses
-                refreshPodcastCache()
-                
-                // Auto-select first podcast if none selected
+                refreshPodcasts()
                 if !podcasts.isEmpty && selectedPodcastID == nil {
                     selectedPodcastID = podcasts.first?.id
                 }
@@ -322,25 +326,22 @@ public struct ContentView: View {
                 PodcastFormView()
             }
             .sheet(item: $editingPodcast, onDismiss: {
-                // Refresh podcast cache when editing dismisses
-                refreshPodcastCache()
+                refreshPodcasts()
             }) { podcast in
                 PodcastFormView(podcast: podcast)
             }
             .sheet(isPresented: $showingEpisodeForm, onDismiss: {
-                // Refresh episode cache when form dismisses
-                refreshEpisodeCache()
+                refreshEpisodesForSelection()
             }) {
-                if let podcast = selectedPodcast {
+                if let podcastID = selectedPodcastID,
+                   let podcast = loadPodcastModel(with: podcastID) {
                     EpisodeFormView(podcast: podcast)
-                }
-            }
-            .sheet(item: $editingEpisode, onDismiss: {
-                // Refresh episode cache when form dismisses
-                refreshEpisodeCache()
-            }) { episode in
-                if let podcast = selectedPodcast {
-                    EpisodeFormView(podcast: podcast, episode: episode)
+                } else {
+                    ContentUnavailableView(
+                        "Select a Podcast",
+                        systemImage: "exclamationmark.triangle",
+                        description: Text("Choose a podcast before creating an episode")
+                    )
                 }
             }
     }
@@ -349,7 +350,7 @@ public struct ContentView: View {
     
     @ViewBuilder
     private var detailContent: some View {
-        if let episode = selectedEpisode {
+        if let episode = selectedEpisodeModel {
             EpisodeDetailView(
                 episode: episode,
                 selectedTab: $selectedDetailTab,
@@ -365,68 +366,126 @@ public struct ContentView: View {
         }
     }
     
-    // MARK: - Podcast Selection
+    // MARK: - Podcast & Episode Selection
+    
+    private func loadInitialData() {
+        do {
+            try libraryStore.loadInitialData(context: modelContext)
+        } catch {
+            print("Error loading podcasts: \(error)")
+        }
+    }
     
     private func restoreLastSelectedPodcast() {
         guard selectedPodcastID == nil else { return }
-        
-        // Try to restore last selected podcast
-        if !lastSelectedPodcastID.isEmpty,
-           podcasts.contains(where: { $0.id == lastSelectedPodcastID }) {
-            selectedPodcastID = lastSelectedPodcastID
-            selectedPodcast = podcasts.first { $0.id == lastSelectedPodcastID }
+        guard !podcasts.isEmpty else { return }
+        if let last = podcasts.first(where: { $0.id == lastSelectedPodcastID }) {
+            selectedPodcastID = last.id
         } else {
-            // Fallback to first podcast
             selectedPodcastID = podcasts.first?.id
-            selectedPodcast = podcasts.first
         }
-        updateFilteredEpisodes()
     }
     
     private func updateFilteredEpisodes() {
-        guard let podcast = selectedPodcast else {
+        guard let podcastID = selectedPodcastID else {
             filteredEpisodes = []
-            cachedEpisodes = []
             return
         }
-        
-        // Only fetch from SwiftData if cache is empty or podcast changed
-        if cachedEpisodes.isEmpty || cachedEpisodes.first?.podcast?.id != podcast.id {
-            cachedEpisodes = Array(podcast.episodes)
+        do {
+            try libraryStore.ensureEpisodes(for: podcastID, context: modelContext)
+            let source = libraryStore.episodes(for: podcastID)
+            let normalizedQuery = episodeSearchText
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            var working = source
+            if !normalizedQuery.isEmpty {
+                working = working.filter { $0.searchableTitle.contains(normalizedQuery) }
+            }
+            filteredEpisodes = sortEpisodes(working)
+            if let selectedID = selectedEpisodeID,
+               filteredEpisodes.contains(where: { $0.id == selectedID }) == false {
+                selectedEpisodeID = nil
+                selectedEpisodeModel = nil
+            }
+        } catch {
+            print("Error updating episodes: \(error)")
+            filteredEpisodes = []
         }
-        
-        filteredEpisodes = filterAndSortEpisodes(cachedEpisodes)
     }
     
-    /// Force refresh the episode cache from SwiftData
-    private func refreshEpisodeCache() {
-        guard let podcast = selectedPodcast else {
-            cachedEpisodes = []
+    private func sortEpisodes(_ episodes: [PodcastLibraryStore.EpisodeSummary]) -> [PodcastLibraryStore.EpisodeSummary] {
+        episodes.sorted { lhs, rhs in
+            switch episodeSortOption {
+            case .numberAscending:
+                return lhs.episodeNumber < rhs.episodeNumber
+            case .numberDescending:
+                return lhs.episodeNumber > rhs.episodeNumber
+            case .titleAscending:
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            case .titleDescending:
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedDescending
+            case .dateAscending:
+                return lhs.publishDate < rhs.publishDate
+            case .dateDescending:
+                return lhs.publishDate > rhs.publishDate
+            }
+        }
+    }
+    
+    private func refreshEpisodesForSelection() {
+        guard let podcastID = selectedPodcastID else {
+            filteredEpisodes = []
             return
         }
-        cachedEpisodes = Array(podcast.episodes)
-        updateFilteredEpisodes()
-    }
-    
-    /// Initialize all caches on app launch
-    private func initializeCaches() {
-        // Cache podcasts
-        cachedPodcasts = _podcasts
-        
-        // If there's a selected podcast, cache its episodes
-        if let podcast = selectedPodcast {
-            cachedEpisodes = Array(podcast.episodes)
+        do {
+            try libraryStore.refreshEpisodes(for: podcastID, context: modelContext)
             updateFilteredEpisodes()
+        } catch {
+            print("Error refreshing episodes: \(error)")
         }
     }
     
-    /// Refresh podcast cache from SwiftData
-    private func refreshPodcastCache() {
-        cachedPodcasts = _podcasts
-        
-        // Update selected podcast reference if it exists
-        if let currentID = selectedPodcastID {
-            selectedPodcast = cachedPodcasts.first { $0.id == currentID }
+    private func refreshPodcasts() {
+        do {
+            try libraryStore.refreshPodcasts(context: modelContext)
+            validateSelectionsAfterPodcastRefresh()
+            updateFilteredEpisodes()
+        } catch {
+            print("Error refreshing podcasts: \(error)")
+        }
+    }
+    
+    private func validateSelectionsAfterPodcastRefresh() {
+        guard !podcasts.isEmpty else {
+            selectedPodcastID = nil
+            selectedEpisodeID = nil
+            selectedEpisodeModel = nil
+            filteredEpisodes = []
+            return
+        }
+        if let currentID = selectedPodcastID,
+           podcasts.contains(where: { $0.id == currentID }) == false {
+            selectedPodcastID = podcasts.first?.id
+        } else if selectedPodcastID == nil {
+            selectedPodcastID = podcasts.first?.id
+        }
+    }
+    
+    private func loadPodcastModel(with id: String) -> Podcast? {
+        do {
+            return try libraryStore.fetchPodcastModel(with: id, context: modelContext)
+        } catch {
+            print("Error loading podcast model: \(error)")
+            return nil
+        }
+    }
+    
+    private func loadEpisodeModel(with id: String) -> Episode? {
+        do {
+            return try libraryStore.fetchEpisodeModel(with: id, context: modelContext)
+        } catch {
+            print("Error loading episode model: \(error)")
+            return nil
         }
     }
     
@@ -459,37 +518,6 @@ public struct ContentView: View {
         }
     }
     
-    // MARK: - Episode Filtering and Sorting
-    
-    private func filterAndSortEpisodes(_ episodes: [Episode]) -> [Episode] {
-        var filtered = episodes
-        
-        // Apply search filter
-        if !episodeSearchText.isEmpty {
-            filtered = filtered.filter { episode in
-                episode.title.localizedCaseInsensitiveContains(episodeSearchText)
-            }
-        }
-        
-        // Apply sorting
-        return filtered.sorted { episode1, episode2 in
-            switch episodeSortOption {
-            case .numberAscending:
-                return episode1.episodeNumber < episode2.episodeNumber
-            case .numberDescending:
-                return episode1.episodeNumber > episode2.episodeNumber
-            case .titleAscending:
-                return episode1.title.localizedCaseInsensitiveCompare(episode2.title) == .orderedAscending
-            case .titleDescending:
-                return episode1.title.localizedCaseInsensitiveCompare(episode2.title) == .orderedDescending
-            case .dateAscending:
-                return episode1.publishDate < episode2.publishDate
-            case .dateDescending:
-                return episode1.publishDate > episode2.publishDate
-            }
-        }
-    }
-    
     // MARK: - Delete Actions
     
     private func deletePodcast(_ podcast: Podcast) {
@@ -497,16 +525,12 @@ public struct ContentView: View {
         
         do {
             try modelContext.save()
-            // Refresh podcast cache
-            refreshPodcastCache()
-            
-            // Clear selection if deleted podcast was selected
+            refreshPodcasts()
             if selectedPodcastID == podcast.id {
                 selectedPodcastID = nil
-                selectedPodcast = nil
-                selectedEpisode = nil
+                selectedEpisodeID = nil
+                selectedEpisodeModel = nil
                 filteredEpisodes = []
-                cachedEpisodes = []
             }
         } catch {
             print("Error deleting podcast: \(error)")
@@ -518,54 +542,14 @@ public struct ContentView: View {
         
         do {
             try modelContext.save()
-            // Clear selection if deleted episode was selected
-            if selectedEpisode?.id == episode.id {
-                selectedEpisode = nil
+            if selectedEpisodeID == episode.id {
+                selectedEpisodeID = nil
+                selectedEpisodeModel = nil
             }
-            // Refresh cache to reflect deletion
-            refreshEpisodeCache()
+            refreshEpisodesForSelection()
         } catch {
             print("Error deleting episode: \(error)")
         }
-    }
-}
-
-// MARK: - Supporting Views
-
-/// Row view for displaying an episode in the sidebar
-private struct EpisodeRow: View {
-    let episode: Episode
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // Episode number badge
-            Text("\(episode.episodeNumber)")
-                .font(.caption.bold())
-                .foregroundStyle(.white)
-                .frame(width: 28, height: 28)
-                .background(Color.accentColor)
-                .clipShape(Circle())
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(episode.title)
-                    .font(.body)
-                    .lineLimit(1)
-                
-                HStack(spacing: 8) {
-                    if episode.transcriptInputText != nil {
-                        Label("Transcript", systemImage: "doc.text.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.green)
-                    }
-                    if episode.thumbnailOutputData != nil {
-                        Label("Thumbnail", systemImage: "photo.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.blue)
-                    }
-                }
-            }
-        }
-        .padding(.vertical, 4)
     }
 }
 
@@ -763,7 +747,7 @@ private enum DetailTab: Hashable {
 
 /// Episode row button for sidebar list
 private struct EpisodeRowContent: View {
-    let episode: Episode
+    let episode: PodcastLibraryStore.EpisodeSummary
     let isSelected: Bool
     
     var body: some View {
@@ -782,9 +766,26 @@ private struct EpisodeRowContent: View {
                     .font(.body)
                     .lineLimit(2)
                 
-                Text(episode.createdAt, style: .date)
+                Text(episode.publishDate, style: .date)
                     .font(.caption)
                     .foregroundColor(.secondary)
+                
+                if episode.hasTranscript || episode.hasThumbnail {
+                    HStack(spacing: 8) {
+                        if episode.hasTranscript {
+                            Label("Transcript", systemImage: "doc.text.fill")
+                                .labelStyle(.iconOnly)
+                                .font(.caption2)
+                                .foregroundStyle(.green)
+                        }
+                        if episode.hasThumbnail {
+                            Label("Thumbnail", systemImage: "photo.fill")
+                                .labelStyle(.iconOnly)
+                                .font(.caption2)
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                }
             }
             
             Spacer()
