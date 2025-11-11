@@ -1,12 +1,13 @@
 import SwiftUI
+import SwiftData
 import AppKit
 
 /// Form for creating or editing a podcast
 public struct PodcastFormView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     
-    let podcast: PodcastPOCO? // nil for new podcast
-    let store: PodcastLibraryStore
+    let podcast: Podcast? // nil for new podcast
     
     @State private var name: String = ""
     @State private var podcastDescription: String = ""
@@ -33,9 +34,8 @@ public struct PodcastFormView: View {
         case thumbnailDefaults
     }
     
-    public init(podcast: PodcastPOCO? = nil, store: PodcastLibraryStore) {
+    public init(podcast: Podcast? = nil) {
         self.podcast = podcast
-        self.store = store
         
         // Initialize with existing values if editing
         if let podcast = podcast {
@@ -450,30 +450,25 @@ public struct PodcastFormView: View {
             
             if let existingPodcast = podcast {
                 // Update existing podcast
-                let updated = PodcastPOCO(
-                    id: existingPodcast.id,
-                    name: name,
-                    podcastDescription: podcastDescription.isEmpty ? nil : podcastDescription,
-                    artworkData: artworkData ?? existingPodcast.artworkData,
-                    defaultOverlayData: overlayData ?? existingPodcast.defaultOverlayData,
-                    defaultFontName: selectedFontName,
-                    defaultFontSize: fontSize,
-                    defaultTextPositionX: textPositionX,
-                    defaultTextPositionY: textPositionY,
-                    defaultHorizontalPadding: horizontalPadding,
-                    defaultVerticalPadding: verticalPadding,
-                    defaultCanvasWidth: canvasWidth,
-                    defaultCanvasHeight: canvasHeight,
-                    defaultBackgroundScaling: backgroundScaling,
-                    defaultFontColorHex: fontColorHex,
-                    defaultOutlineEnabled: outlineEnabled,
-                    defaultOutlineColorHex: outlineColorHex,
-                    createdAt: existingPodcast.createdAt
-                )
-                try store.updatePodcast(updated)
+                existingPodcast.name = name
+                existingPodcast.podcastDescription = podcastDescription.isEmpty ? nil : podcastDescription
+                existingPodcast.artworkData = artworkData ?? existingPodcast.artworkData
+                existingPodcast.defaultOverlayData = overlayData ?? existingPodcast.defaultOverlayData
+                existingPodcast.defaultFontName = selectedFontName
+                existingPodcast.defaultFontSize = fontSize
+                existingPodcast.defaultTextPositionX = textPositionX
+                existingPodcast.defaultTextPositionY = textPositionY
+                existingPodcast.defaultHorizontalPadding = horizontalPadding
+                existingPodcast.defaultVerticalPadding = verticalPadding
+                existingPodcast.defaultCanvasWidth = canvasWidth
+                existingPodcast.defaultCanvasHeight = canvasHeight
+                existingPodcast.defaultBackgroundScaling = backgroundScaling
+                existingPodcast.defaultFontColorHex = fontColorHex
+                existingPodcast.defaultOutlineEnabled = outlineEnabled
+                existingPodcast.defaultOutlineColorHex = outlineColorHex
             } else {
                 // Create new podcast
-                let podcast = PodcastPOCO(
+                let newPodcast = Podcast(
                     name: name,
                     podcastDescription: podcastDescription.isEmpty ? nil : podcastDescription,
                     artworkData: artworkData,
@@ -491,8 +486,9 @@ public struct PodcastFormView: View {
                     defaultOutlineEnabled: outlineEnabled,
                     defaultOutlineColorHex: outlineColorHex
                 )
-                try store.addPodcast(podcast)
+                modelContext.insert(newPodcast)
             }
+            try modelContext.save()
             dismiss()
         } catch {
             errorMessage = error.localizedDescription

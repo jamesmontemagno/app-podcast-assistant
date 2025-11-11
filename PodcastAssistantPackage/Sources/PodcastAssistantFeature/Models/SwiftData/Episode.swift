@@ -1,31 +1,19 @@
 import Foundation
 import SwiftData
 
-/// Episode model representing a podcast episode with transcript and thumbnail data
+/// Episode model representing a podcast episode metadata (lightweight for list views)
+/// Heavy content (transcripts, images) stored in separate EpisodeContent relationship
 @Model
 public final class Episode {
     @Attribute(.unique) public var id: String
     public var title: String
     public var episodeNumber: Int32
     public var episodeDescription: String?
-    public var transcriptInputText: String? {
-        didSet {
-            hasTranscriptData = transcriptInputText?.isEmpty == false
-        }
-    }
-    public var srtOutputText: String?
-    public var thumbnailBackgroundData: Data?
-    public var thumbnailOverlayData: Data?
-    public var thumbnailOutputData: Data? {
-        didSet {
-            hasThumbnailOutput = thumbnailOutputData != nil
-        }
-    }
     
-    /// Cached flag indicating if transcript data exists (updated via didSet and validated on fetch)
+    /// Cached flag indicating if transcript data exists
     public var hasTranscriptData: Bool = false
     
-    /// Cached flag indicating if thumbnail output exists (updated via didSet and validated on fetch)
+    /// Cached flag indicating if thumbnail output exists
     public var hasThumbnailOutput: Bool = false
     
     public var fontName: String?
@@ -43,7 +31,11 @@ public final class Episode {
     public var createdAt: Date
     public var publishDate: Date
     
+    // Relationships
     public var podcast: Podcast?
+    
+    @Relationship(deleteRule: .cascade, inverse: \EpisodeContent.episode)
+    public var content: EpisodeContent?
     
     // MARK: - Initialization
     
@@ -78,7 +70,6 @@ public final class Episode {
             self.fontColorHex = podcast.defaultFontColorHex
             self.outlineEnabled = podcast.defaultOutlineEnabled
             self.outlineColorHex = podcast.defaultOutlineColorHex
-            self.thumbnailOverlayData = podcast.defaultOverlayData
         } else {
             // Fallback defaults
             self.fontSize = 72.0
@@ -93,9 +84,77 @@ public final class Episode {
             self.outlineEnabled = true
             self.outlineColorHex = "#000000"
         }
+        
+        // Create empty content relationship
+        self.content = EpisodeContent()
+    }
+    
+    // MARK: - Convenience Accessors
+    
+    /// Access transcript input text from content relationship
+    public var transcriptInputText: String? {
+        get { content?.transcriptInputText }
+        set {
+            if content == nil {
+                content = EpisodeContent()
+            }
+            content?.transcriptInputText = newValue
+            hasTranscriptData = newValue?.isEmpty == false
+        }
+    }
+    
+    /// Access SRT output text from content relationship
+    public var srtOutputText: String? {
+        get { content?.srtOutputText }
+        set {
+            if content == nil {
+                content = EpisodeContent()
+            }
+            content?.srtOutputText = newValue
+        }
+    }
+    
+    /// Access thumbnail background data from content relationship
+    public var thumbnailBackgroundData: Data? {
+        get { content?.thumbnailBackgroundData }
+        set {
+            if content == nil {
+                content = EpisodeContent()
+            }
+            content?.thumbnailBackgroundData = newValue
+        }
+    }
+    
+    /// Access thumbnail overlay data from content relationship
+    public var thumbnailOverlayData: Data? {
+        get { content?.thumbnailOverlayData }
+        set {
+            if content == nil {
+                content = EpisodeContent()
+            }
+            content?.thumbnailOverlayData = newValue
+        }
+    }
+    
+    /// Access thumbnail output data from content relationship
+    public var thumbnailOutputData: Data? {
+        get { content?.thumbnailOutputData }
+        set {
+            if content == nil {
+                content = EpisodeContent()
+            }
+            content?.thumbnailOutputData = newValue
+            hasThumbnailOutput = newValue != nil
+        }
     }
 }
 
-extension Episode: Identifiable {
+extension Episode: Identifiable, Hashable {
+    public static func == (lhs: Episode, rhs: Episode) -> Bool {
+        lhs.id == rhs.id
+    }
     
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
 }

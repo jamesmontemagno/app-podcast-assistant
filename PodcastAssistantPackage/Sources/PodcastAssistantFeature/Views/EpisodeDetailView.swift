@@ -1,12 +1,12 @@
 import SwiftUI
+import SwiftData
 import AppKit
 import UniformTypeIdentifiers
 
 /// Episode detail view with segmented control for different sections
 public struct EpisodeDetailView: View {
-    let episode: EpisodePOCO
-    let podcast: PodcastPOCO
-    @ObservedObject var store: PodcastLibraryStore
+    let episode: Episode
+    let podcast: Podcast
     @Binding var selectedSection: EpisodeSection
     @StateObject private var appState = AppState.shared
     
@@ -18,10 +18,9 @@ public struct EpisodeDetailView: View {
     @State private var transcriptOutputText: String = ""
     @State private var thumbnailViewModel: ThumbnailViewModel?
     
-    public init(episode: EpisodePOCO, podcast: PodcastPOCO, store: PodcastLibraryStore, selectedSection: Binding<EpisodeSection>) {
+    public init(episode: Episode, podcast: Podcast, selectedSection: Binding<EpisodeSection>) {
         self.episode = episode
         self.podcast = podcast
-        self.store = store
         self._selectedSection = selectedSection
     }
     
@@ -59,26 +58,32 @@ public struct EpisodeDetailView: View {
             Group {
                 switch selectedSection {
                 case .details:
-                    DetailsView(
-                        episode: episode,
-                        podcast: podcast,
-                        store: store,
-                        hasUnsavedChanges: $hasUnsavedChanges,
-                        viewModel: $detailsViewModel
-                    )
+                    Text("Details view - TODO: Update for SwiftData")
+                        .padding()
+                    // DetailsView(
+                    //     episode: episode,
+                    //     podcast: podcast,
+                    //     hasUnsavedChanges: $hasUnsavedChanges,
+                    //     viewModel: $detailsViewModel
+                    // )
                 case .transcript:
-                    TranscriptView(
-                        episode: episode,
-                        store: store,
-                        showingTranslation: $showingTranscriptTranslation,
-                        inputText: $transcriptInputText,
-                        outputText: $transcriptOutputText
-                    )
+                    Text("Transcript view - TODO: Update for SwiftData")
+                        .padding()
+                    // TranscriptView(
+                    //     episode: episode,
+                    //     showingTranslation: $showingTranscriptTranslation,
+                    //     inputText: $transcriptInputText,
+                    //     outputText: $transcriptOutputText
+                    // )
                 case .thumbnail:
-                    ThumbnailView(episode: episode, podcast: podcast, store: store, viewModel: $thumbnailViewModel)
+                    Text("Thumbnail view - TODO: Update for SwiftData")
+                        .padding()
+                    // ThumbnailView(episode: episode, podcast: podcast, viewModel: $thumbnailViewModel)
                 case .aiIdeas:
                     if #available(macOS 26.0, *) {
-                        AIIdeasView(episode: episode, podcast: podcast, store: store)
+                        Text("AI Ideas view - TODO: Update for SwiftData")
+                            .padding()
+                        // AIIdeasView(episode: episode, podcast: podcast)
                     } else {
                         ContentUnavailableView(
                             "AI Ideas Unavailable",

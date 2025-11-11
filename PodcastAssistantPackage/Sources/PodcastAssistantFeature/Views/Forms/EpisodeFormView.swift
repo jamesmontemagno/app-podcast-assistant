@@ -1,12 +1,13 @@
 import SwiftUI
+import SwiftData
 
 /// Form for creating or editing an episode
 public struct EpisodeFormView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     
-    let episode: EpisodePOCO? // nil for new episode
-    let podcast: PodcastPOCO
-    let store: PodcastLibraryStore
+    let episode: Episode? // nil for new episode
+    let podcast: Podcast
     
     @State private var title: String = ""
     @State private var episodeNumber: String = ""
@@ -14,10 +15,9 @@ public struct EpisodeFormView: View {
     @State private var publishDate: Date = Date()
     @State private var errorMessage: String?
     
-    public init(episode: EpisodePOCO? = nil, podcast: PodcastPOCO, store: PodcastLibraryStore) {
+    public init(episode: Episode? = nil, podcast: Podcast) {
         self.episode = episode
         self.podcast = podcast
-        self.store = store
         
         if let episode = episode {
             // Editing existing episode
@@ -27,8 +27,7 @@ public struct EpisodeFormView: View {
             _publishDate = State(initialValue: episode.publishDate)
         } else {
             // Creating new episode - auto-suggest next episode number
-            let existingEpisodes = store.getEpisodes(for: podcast.id)
-            if let maxNumber = existingEpisodes.map(\.episodeNumber).max() {
+            if let maxNumber = podcast.episodes.map(\.episodeNumber).max() {
                 _episodeNumber = State(initialValue: "\(maxNumber + 1)")
             } else {
                 _episodeNumber = State(initialValue: "1")
@@ -142,46 +141,22 @@ public struct EpisodeFormView: View {
         do {
             if let existingEpisode = episode {
                 // Update existing episode
-                let updated = EpisodePOCO(
-                    id: existingEpisode.id,
-                    podcastID: podcast.id,
-                    title: title,
-                    episodeNumber: number,
-                    podcast: podcast,
-                    episodeDescription: episodeDescription.isEmpty ? nil : episodeDescription,
-                    transcriptInputText: existingEpisode.transcriptInputText,
-                    srtOutputText: existingEpisode.srtOutputText,
-                    createdAt: existingEpisode.createdAt,
-                    publishDate: publishDate,
-                    thumbnailBackgroundData: existingEpisode.thumbnailBackgroundData,
-                    thumbnailOverlayData: existingEpisode.thumbnailOverlayData,
-                    thumbnailOutputData: existingEpisode.thumbnailOutputData,
-                    fontName: existingEpisode.fontName,
-                    fontSize: existingEpisode.fontSize,
-                    textPositionX: existingEpisode.textPositionX,
-                    textPositionY: existingEpisode.textPositionY,
-                    horizontalPadding: existingEpisode.horizontalPadding,
-                    verticalPadding: existingEpisode.verticalPadding,
-                    canvasWidth: existingEpisode.canvasWidth,
-                    canvasHeight: existingEpisode.canvasHeight,
-                    backgroundScaling: existingEpisode.backgroundScaling,
-                    fontColorHex: existingEpisode.fontColorHex,
-                    outlineEnabled: existingEpisode.outlineEnabled,
-                    outlineColorHex: existingEpisode.outlineColorHex
-                )
-                try store.updateEpisode(updated)
+                existingEpisode.title = title
+                existingEpisode.episodeNumber = number
+                existingEpisode.episodeDescription = episodeDescription.isEmpty ? nil : episodeDescription
+                existingEpisode.publishDate = publishDate
             } else {
                 // Create new episode
-                let newEpisode = EpisodePOCO(
-                    podcastID: podcast.id,
+                let newEpisode = Episode(
                     title: title,
                     episodeNumber: number,
-                    podcast: podcast,
-                    episodeDescription: episodeDescription.isEmpty ? nil : episodeDescription,
-                    publishDate: publishDate
+                    podcast: podcast
                 )
-                try store.addEpisode(newEpisode, to: podcast)
+                newEpisode.episodeDescription = episodeDescription.isEmpty ? nil : episodeDescription
+                newEpisode.publishDate = publishDate
+                modelContext.insert(newEpisode)
             }
+            try modelContext.save()
             dismiss()
         } catch {
             errorMessage = error.localizedDescription
