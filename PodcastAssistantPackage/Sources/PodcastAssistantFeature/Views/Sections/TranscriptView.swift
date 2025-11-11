@@ -1,14 +1,16 @@
 import SwiftUI
+import SwiftData
 import AppKit
 
 // MARK: - Transcript Section
 
-struct TranscriptView: View {
-    let episode: EpisodePOCO
-    let store: PodcastLibraryStore
+public struct TranscriptView: View {
+    let episode: Episode
     @Binding var showingTranslation: Bool
     @Binding var inputText: String
     @Binding var outputText: String
+    
+    @Environment(\.modelContext) private var modelContext
     
     @State private var isProcessing: Bool = false
     @State private var errorMessage: String?
@@ -16,7 +18,14 @@ struct TranscriptView: View {
     
     private let converter = TranscriptConverter()
     
-    var body: some View {
+    public init(episode: Episode, showingTranslation: Binding<Bool>, inputText: Binding<String>, outputText: Binding<String>) {
+        self.episode = episode
+        self._showingTranslation = showingTranslation
+        self._inputText = inputText
+        self._outputText = outputText
+    }
+    
+    public var body: some View {
         GeometryReader { geometry in
             HStack(spacing: 16) {
                 // Left pane: Input
@@ -44,6 +53,7 @@ struct TranscriptView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .onChange(of: inputText) { _, newValue in
                                 episode.transcriptInputText = newValue.isEmpty ? nil : newValue
+                                try? modelContext.save()
                             }
                     }
                     .background(Color(nsColor: .textBackgroundColor))

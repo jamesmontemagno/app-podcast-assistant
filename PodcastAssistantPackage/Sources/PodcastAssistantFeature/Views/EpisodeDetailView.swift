@@ -58,32 +58,24 @@ public struct EpisodeDetailView: View {
             Group {
                 switch selectedSection {
                 case .details:
-                    Text("Details view - TODO: Update for SwiftData")
-                        .padding()
-                    // DetailsView(
-                    //     episode: episode,
-                    //     podcast: podcast,
-                    //     hasUnsavedChanges: $hasUnsavedChanges,
-                    //     viewModel: $detailsViewModel
-                    // )
+                    DetailsView(
+                        episode: episode,
+                        podcast: podcast,
+                        hasUnsavedChanges: $hasUnsavedChanges,
+                        viewModel: $detailsViewModel
+                    )
                 case .transcript:
-                    Text("Transcript view - TODO: Update for SwiftData")
-                        .padding()
-                    // TranscriptView(
-                    //     episode: episode,
-                    //     showingTranslation: $showingTranscriptTranslation,
-                    //     inputText: $transcriptInputText,
-                    //     outputText: $transcriptOutputText
-                    // )
+                    TranscriptView(
+                        episode: episode,
+                        showingTranslation: $showingTranscriptTranslation,
+                        inputText: $transcriptInputText,
+                        outputText: $transcriptOutputText
+                    )
                 case .thumbnail:
-                    Text("Thumbnail view - TODO: Update for SwiftData")
-                        .padding()
-                    // ThumbnailView(episode: episode, podcast: podcast, viewModel: $thumbnailViewModel)
+                    ThumbnailView(episode: episode, podcast: podcast, viewModel: $thumbnailViewModel)
                 case .aiIdeas:
                     if #available(macOS 26.0, *) {
-                        Text("AI Ideas view - TODO: Update for SwiftData")
-                            .padding()
-                        // AIIdeasView(episode: episode, podcast: podcast)
+                        AIIdeasView(episode: episode, podcast: podcast)
                     } else {
                         ContentUnavailableView(
                             "AI Ideas Unavailable",

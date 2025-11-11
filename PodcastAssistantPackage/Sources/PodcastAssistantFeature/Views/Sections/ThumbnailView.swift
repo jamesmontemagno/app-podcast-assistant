@@ -1,32 +1,33 @@
 import SwiftUI
+import SwiftData
 import AppKit
 
 // MARK: - Thumbnail Section
 
-struct ThumbnailView: View {
-    let episode: EpisodePOCO
-    let podcast: PodcastPOCO
-    let store: PodcastLibraryStore
+public struct ThumbnailView: View {
+    let episode: Episode
+    let podcast: Podcast
     @Binding var viewModel: ThumbnailViewModel?
+    
+    @Environment(\.modelContext) private var modelContext
     
     @State private var previewZoom: CGFloat = 1.0
     @State private var fitToWindow: Bool = true
     
-    init(episode: EpisodePOCO, podcast: PodcastPOCO, store: PodcastLibraryStore, viewModel: Binding<ThumbnailViewModel?>) {
+    public init(episode: Episode, podcast: Podcast, viewModel: Binding<ThumbnailViewModel?>) {
         self.episode = episode
         self.podcast = podcast
-        self.store = store
         self._viewModel = viewModel
     }
     
-    var body: some View {
+    public var body: some View {
         Group {
             if let viewModel = viewModel {
                 contentView(viewModel: viewModel)
             } else {
                 ProgressView("Loading...")
                     .onAppear {
-                        self.viewModel = ThumbnailViewModel(episode: episode, store: store)
+                        self.viewModel = ThumbnailViewModel(episode: episode, modelContext: modelContext)
                     }
             }
         }

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import SwiftData
 import AppKit
 
 /// ViewModel for thumbnail generation
@@ -121,8 +122,8 @@ public class ThumbnailViewModel: ObservableObject {
     
     // MARK: - Dependencies
     
-    private let episode: EpisodePOCO
-    private let store: PodcastLibraryStore
+    private let episode: Episode
+    private let modelContext: ModelContext
     private let generator = ThumbnailGenerator()
     private let fontManager = FontManager()
     
@@ -143,9 +144,9 @@ public class ThumbnailViewModel: ObservableObject {
     
     // MARK: - Initialization
     
-    public init(episode: EpisodePOCO, store: PodcastLibraryStore) {
+    public init(episode: Episode, modelContext: ModelContext) {
         self.episode = episode
-        self.store = store
+        self.modelContext = modelContext
         self.episodeNumber = "\(episode.episodeNumber)"
     }
     
@@ -555,7 +556,7 @@ public class ThumbnailViewModel: ObservableObject {
                 self.episode.backgroundScaling = self.backgroundScaling.rawValue
                 
                 do {
-                    try self.store.updateEpisode(self.episode)
+                    try self.modelContext.save()
                     self.successMessage = "Thumbnail saved to episode"
                     self.errorMessage = nil
                     self.clearUndoStack() // Clear undo history after successful save
