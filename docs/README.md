@@ -14,19 +14,28 @@ This folder contains comprehensive documentation for the Podcast Assistant macOS
 - Build configuration
 - Testing strategy
 
-### 🏗️ POCO_ARCHITECTURE.md
-**Hybrid POCO/SwiftData pattern** - Critical for understanding the data layer.
-- Why POCOs instead of pure SwiftData
-- PodcastPOCO and EpisodePOCO explained
-- PodcastLibraryStore (the bridge between UI and persistence)
-- Data flow and conversion methods
-- ViewModel patterns with POCOs
-- Memory management and best practices
+### 🚀 SWIFTDATA_QUERY_ARCHITECTURE.md
+**Pure SwiftData with @Query pattern** - Critical for understanding the current data layer.
+- Why pure SwiftData instead of intermediate layers
+- @Query reactive binding explained
+- External storage for performance
+- Dynamic predicates and filtering
+- List selection patterns (.tag() + Hashable)
+- Best practices and lessons learned
+
+### ⚡ SWIFTDATA_BEST_PRACTICES.md
+**Essential SwiftData tips and patterns** - Must-read for working with SwiftData.
+- The 5 SwiftData rules (critical for success)
+- "When in doubt, create a new view" pattern
+- External storage for performance optimization
+- Common pitfalls and how to avoid them
+- Migration guide from POCO/intermediate layers
+- Testing patterns and examples
 
 ### 📁 FOLDER_STRUCTURE.md
 **Code organization** - Where to find and add code.
 - Complete folder hierarchy
-- Models/ (POCOs, SwiftData, Supporting)
+- Models/ (SwiftData, Supporting)
 - Services/ (Data, UI, Utilities)
 - ViewModels/
 - Views/ (Forms, Sections, Sheets)
@@ -94,8 +103,8 @@ This folder contains comprehensive documentation for the Podcast Assistant macOS
 **Understand the overall architecture**
 → Read `ARCHITECTURE.md` first
 
-**Learn about the POCO pattern**
-→ Read `POCO_ARCHITECTURE.md`
+**Learn about the pure SwiftData @Query pattern**
+→ Read `SWIFTDATA_QUERY_ARCHITECTURE.md` then `SWIFTDATA_BEST_PRACTICES.md`
 
 **Find where to add new code**
 → Read `FOLDER_STRUCTURE.md`
@@ -141,15 +150,18 @@ When making significant changes to the app:
 ## File History
 
 ### Created
-- `POCO_ARCHITECTURE.md` - Nov 10, 2025
+- `SWIFTDATA_QUERY_ARCHITECTURE.md` - Nov 10, 2025 (Pure SwiftData approach)
+- `SWIFTDATA_BEST_PRACTICES.md` - Nov 10, 2025 (Essential SwiftData patterns)
 - `FOLDER_STRUCTURE.md` - Nov 10, 2025
 - `UI_DESIGN_PATTERNS.md` - Nov 10, 2025
 
 ### Updated
-- `ARCHITECTURE.md` - Nov 10, 2025 (POCO architecture rewrite)
+- `ARCHITECTURE.md` - Nov 10, 2025
+- `FOLDER_STRUCTURE.md` - Nov 10, 2025 (removed POCOs section)
 
-### Removed (Outdated)
-- `CORE_DATA.md` - Nov 10, 2025 (obsolete, we use POCOs now)
+### Removed (Outdated/Superseded)
+- `POCO_ARCHITECTURE.md` - Nov 10, 2025 (superseded by pure SwiftData approach)
+- `CORE_DATA.md` - Nov 10, 2025 (obsolete, never used Core Data)
 - `IMPLEMENTATION_SUMMARY.md` - Nov 10, 2025 (obsolete)
 - `LAZY_LOADING_FLOW.md` - Nov 10, 2025 (implementation detail, not needed)
 - `NAVIGATION_ANALYSIS.md` - Nov 10, 2025 (old performance analysis)
@@ -176,4 +188,4 @@ Future documentation to consider:
 ---
 
 **Last Updated:** November 10, 2025  
-**Documentation Version:** 2.0 (POCO Architecture)
+**Documentation Version:** 3.0 (Pure SwiftData with @Query)
