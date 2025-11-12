@@ -34,6 +34,34 @@ public class AIIdeasViewModel: ObservableObject {
     private let descriptionService = DescriptionGenerationService()
     private let socialService = SocialPostGenerationService()
     private let chapterService = ChapterGenerationService()
+    private let transcriptCleaner = TranscriptCleaner()
+    
+    // MARK: - Computed Properties
+    
+    public var transcriptLength: Int {
+        episode.transcriptInputText?.count ?? 0
+    }
+    
+    public var cleanedTranscriptLength: Int {
+        guard let transcript = episode.transcriptInputText else { return 0 }
+        return transcriptCleaner.cleanForAI(transcript).count
+    }
+    
+    public var transcriptLengthFormatted: String {
+        formatCharacterCount(transcriptLength)
+    }
+    
+    public var cleanedTranscriptLengthFormatted: String {
+        formatCharacterCount(cleanedTranscriptLength)
+    }
+    
+    private func formatCharacterCount(_ count: Int) -> String {
+        if count >= 1000 {
+            let thousands = Double(count) / 1000.0
+            return String(format: "%.1fK", thousands)
+        }
+        return "\(count)"
+    }
     
     // MARK: - Initialization
     

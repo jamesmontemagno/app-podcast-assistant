@@ -19,6 +19,18 @@ public class ChapterGenerationService {
         }
     }
     
+    private struct TranscriptSegment {
+        let startTime: String
+        let endTime: String
+        let summary: String
+    }
+    
+    private struct TranscriptChunk {
+        let text: String
+        let startTime: String
+        let endTime: String
+    }
+    
     // MARK: - Dependencies
     
     private let transcriptCleaner = TranscriptCleaner()
@@ -29,41 +41,249 @@ public class ChapterGenerationService {
     
     // MARK: - Chapter Generation
     
-    /// Generates chapter markers based on the episode transcript
+    /// Generates chapter markers based on the episode transcript using a two-pass approach
+    /// Pass 1: Chunk and summarize transcript segments
+    /// Pass 2: Identify topic shifts from summaries to create chapters
     /// - Parameter transcript: The episode transcript text
     /// - Returns: Array of 5-10 chapter markers
     /// - Throws: Error if generation fails
     public func generateChapters(from transcript: String) async throws -> [ChapterMarker] {
+        let cleanedTranscript = transcriptCleaner.cleanForAI(transcript)
+        
+        // Pass 1: Chunk and summarize transcript segments
+        let segments = try await summarizeTranscriptSegments(cleanedTranscript)
+        
+        // Pass 2: Identify topic shifts and create chapters from summaries
+        let chapters = try await identifyChaptersFromSummaries(segments)
+        
+        return chapters
+    }
+    
+    // MARK: - Private Methods - Pass 1: Segment Summarization
+    
+    /// Pass 1: Processes transcript using sliding windows with overlap to preserve context
+    /// This reduces transcript length while maintaining temporal structure for chapter detection
+    private func summarizeTranscriptSegments(_ transcript: String) async throws -> [TranscriptSegment] {
+        print("🔍 [ChapterGen] Starting Pass 1: Transcript Condensation")
+        print("📊 [ChapterGen] Original transcript length: \(transcript.count) characters")
+        
         let session = LanguageModelSession(
-            instructions: "You are a podcast editor who creates chapter markers for episodes."
+            instructions: """
+            You are a podcast transcript condenser. Your job is to shorten transcripts while preserving all timecodes.
+            
+            Key Rules:
+            1. Keep ALL timecodes exactly as they appear - they are critical for chapter generation
+            2. Merge adjacent timecodes if they discuss the same topic
+            3. Condense long monologues into concise summaries
+            4. Focus on what's being discussed, not who is speaking
+            5. Preserve the temporal flow - keep timecodes in chronological order
+            
+            Goal: Reduce transcript length by 50-70% while maintaining all timing information.
+            """
         )
         
-        let cleanedTranscript = transcriptCleaner.cleanForAI(transcript)
-        let truncatedTranscript = String(cleanedTranscript.prefix(15000))
+        // Create sliding windows with 20% overlap for better context
+        let windows = createSlidingWindows(transcript, windowSize: 3000, overlapPercentage: 0.2)
+        print("📦 [ChapterGen] Created \(windows.count) sliding windows with 20% overlap")
+        
+        var windowSummaries: [String] = []
+        
+        for (index, window) in windows.enumerated() {
+            let windowNumber = index + 1
+            let totalWindows = windows.count
+            
+            print("⏳ [ChapterGen] Processing window \(windowNumber)/\(totalWindows) - Size: \(window.count) chars")
+            
+            let prompt = """
+            Read through this transcript segment and create a condensed version that:
+            1. Preserves ALL timecodes (timestamps) exactly as they appear
+            2. Merges adjacent timecodes discussing the same topic
+            3. Summarizes long monologues into concise talking points
+            4. Maintains chronological order
+            
+            Format each entry as:
+            [TIMECODE] Brief summary of what's discussed at this point
+            
+            Keep the output significantly shorter than the input while preserving timing structure.
+            
+            This is window \(windowNumber) of \(totalWindows).
+            
+            Transcript segment:
+            \(window)
+            """
+            
+            print("📤 [ChapterGen] Sending prompt - Total size: \(prompt.count) chars")
+            
+            let response = try await session.respond(
+                to: prompt,
+                generating: SegmentSummaryPOCO.self
+            )
+            
+            let summaryLength = response.content.summary.count
+            let reductionPercent = Int(100.0 - (Double(summaryLength) / Double(window.count) * 100.0))
+            print("✅ [ChapterGen] Window \(windowNumber) condensed: \(window.count) → \(summaryLength) chars (\(reductionPercent)% reduction)")
+            
+            windowSummaries.append(response.content.summary)
+        }
+        
+        // Merge overlapping windows, keeping content from the window with most context
+        print("🔗 [ChapterGen] Merging \(windowSummaries.count) window summaries...")
+        let mergedSummary = mergeOverlappingWindows(windowSummaries, overlapPercentage: 0.2)
+        
+        let totalReduction = Int(100.0 - (Double(mergedSummary.count) / Double(transcript.count) * 100.0))
+        print("✨ [ChapterGen] Pass 1 Complete - Final: \(transcript.count) → \(mergedSummary.count) chars (\(totalReduction)% reduction)")
+        
+        // Return as single segment since we've already merged everything
+        return [TranscriptSegment(
+            startTime: "00:00",
+            endTime: estimateEndTime(transcript),
+            summary: mergedSummary
+        )]
+    }
+    
+    /// Creates sliding windows of text with specified overlap
+    private func createSlidingWindows(_ text: String, windowSize: Int, overlapPercentage: Double) -> [String] {
+        guard !text.isEmpty else { return [] }
+        
+        print("🪟 [ChapterGen] Creating sliding windows - Window size: \(windowSize), Overlap: \(Int(overlapPercentage * 100))%")
+        
+        let overlapSize = Int(Double(windowSize) * overlapPercentage)
+        let stepSize = windowSize - overlapSize
+        
+        print("📏 [ChapterGen] Step size: \(stepSize) chars (window advances by this amount)")
+        
+        var windows: [String] = []
+        var startIndex = text.startIndex
+        
+        while startIndex < text.endIndex {
+            // Calculate end of current window
+            let remainingDistance = text.distance(from: startIndex, to: text.endIndex)
+            let currentWindowSize = min(windowSize, remainingDistance)
+            
+            guard let endIndex = text.index(startIndex, offsetBy: currentWindowSize, limitedBy: text.endIndex) else {
+                break
+            }
+            
+            // Extract window text
+            let windowText = String(text[startIndex..<endIndex])
+            
+            // Try to break at a paragraph boundary if we're not at the end
+            if endIndex < text.endIndex {
+                if let lastNewlineRange = windowText.range(of: "\n\n", options: .backwards) {
+                    let adjustedEnd = text.index(startIndex, offsetBy: windowText.distance(from: windowText.startIndex, to: lastNewlineRange.lowerBound))
+                    windows.append(String(text[startIndex..<adjustedEnd]))
+                    
+                    // Move start forward by step size
+                    if let nextStart = text.index(startIndex, offsetBy: stepSize, limitedBy: text.endIndex) {
+                        startIndex = nextStart
+                    } else {
+                        break
+                    }
+                } else {
+                    windows.append(windowText)
+                    
+                    // Move start forward by step size
+                    if let nextStart = text.index(startIndex, offsetBy: stepSize, limitedBy: text.endIndex) {
+                        startIndex = nextStart
+                    } else {
+                        break
+                    }
+                }
+            } else {
+                // Last window - include everything remaining
+                windows.append(windowText)
+                break
+            }
+        }
+        
+        return windows
+    }
+    
+    /// Merges overlapping window summaries, preferring content from windows with more context
+    private func mergeOverlappingWindows(_ summaries: [String], overlapPercentage: Double) -> String {
+        guard !summaries.isEmpty else { return "" }
+        guard summaries.count > 1 else { return summaries[0] }
+        
+        var merged = ""
+        
+        for (index, summary) in summaries.enumerated() {
+            if index == 0 {
+                // First window - take everything
+                merged = summary
+            } else {
+                // Subsequent windows - skip the overlapping portion (first ~20%)
+                let lines = summary.components(separatedBy: .newlines)
+                let skipLines = Int(Double(lines.count) * overlapPercentage)
+                let uniqueLines = Array(lines.dropFirst(skipLines))
+                
+                // Add the unique portion
+                if !uniqueLines.isEmpty {
+                    merged += "\n\n" + uniqueLines.joined(separator: "\n")
+                }
+            }
+        }
+        
+        return merged
+    }
+    
+    /// Estimates the end time of the transcript
+    private func estimateEndTime(_ transcript: String) -> String {
+        // Try to find the last timestamp in the transcript
+        let timestampPattern = #/\b(\d{1,2}):(\d{2})(?::(\d{2}))?\b/#
+        let matches = transcript.matches(of: timestampPattern)
+        
+        if let lastMatch = matches.last {
+            return String(lastMatch.output.0)
+        }
+        
+        // Fallback to estimated duration
+        return "60:00"
+    }
+    
+    // MARK: - Private Methods - Pass 2: Chapter Identification
+    
+    /// Pass 2: Analyzes condensed transcript summaries to identify topic shifts and create chapter markers
+    private func identifyChaptersFromSummaries(_ segments: [TranscriptSegment]) async throws -> [ChapterMarker] {
+        print("🔍 [ChapterGen] Starting Pass 2: Chapter Identification")
+        
+        let session = LanguageModelSession(
+            instructions: """
+            You are a podcast editor who identifies natural topic transitions and creates chapter markers.
+            You will receive condensed transcript segments with preserved timecodes.
+            """
+        )
+        
+        // Combine all condensed summaries (each already has timecodes embedded)
+        let condensedTranscript = segments.map { $0.summary }.joined(separator: "\n\n")
+        print("📊 [ChapterGen] Condensed transcript length: \(condensedTranscript.count) chars")
         
         let prompt = """
-        You are creating chapter markers for a podcast episode based on its transcript.
+        You are creating chapter markers for a podcast episode from a condensed transcript.
         
-        Analyze the transcript and identify natural topic shifts or major discussion points.
-        Create 5-10 chapter markers that help listeners navigate the episode.
+        The transcript has been condensed but preserves all timecodes in the format [TIMECODE].
+        Read through and identify where major topic shifts occur.
         
-        For each chapter:
-        - Provide a timestamp in MM:SS or HH:MM:SS format
-        - Create a short, descriptive title (under 8 words)
-        - Write a one-sentence summary
+        Guidelines:
+        - Create 5-10 chapters total
+        - Start the first chapter at 00:00
+        - Only create a new chapter when the topic significantly changes
+        - Use the timecode where the new topic begins
+        - Create descriptive titles that reflect the main topic (under 8 words)
+        - Provide a one-sentence summary of what's covered in that chapter
+        - Look for natural transition points, not arbitrary time intervals
         
-        Start the first chapter at 00:00.
-        Space chapters evenly throughout the episode.
-        Focus on major topics or discussion shifts.
-        
-        Episode Transcript:
-        \(truncatedTranscript)
+        Condensed Transcript with Timecodes:
+        \(condensedTranscript)
         """
+        
+        print("📤 [ChapterGen] Sending Pass 2 prompt - Total size: \(prompt.count) chars")
         
         let response = try await session.respond(
             to: prompt,
             generating: ChapterMarkersResponsePOCO.self
         )
+        
+        print("✅ [ChapterGen] Pass 2 Complete - Generated \(response.content.chapters.count) chapters")
         
         return response.content.chapters.map {
             ChapterMarker(
@@ -71,6 +291,65 @@ public class ChapterGenerationService {
                 title: $0.title,
                 summary: $0.summary
             )
+        }
+    }
+    
+    // MARK: - Private Methods - Chunking & Utilities
+    
+    /// Splits transcript into roughly equal chunks while preserving sentence boundaries
+    private func chunkTranscript(_ transcript: String, targetChunkSize: Int) -> [TranscriptChunk] {
+        var chunks: [TranscriptChunk] = []
+        let lines = transcript.components(separatedBy: .newlines)
+        var currentChunk = ""
+        var chunkStartLine = 0
+        
+        for (index, line) in lines.enumerated() {
+            currentChunk += line + "\n"
+            
+            // Check if we've reached target size and we're at a paragraph break
+            if currentChunk.count >= targetChunkSize && line.trimmingCharacters(in: .whitespaces).isEmpty {
+                let startTime = estimateTimestamp(fromLineIndex: chunkStartLine, totalLines: lines.count)
+                let endTime = estimateTimestamp(fromLineIndex: index, totalLines: lines.count)
+                
+                chunks.append(TranscriptChunk(
+                    text: currentChunk.trimmingCharacters(in: .whitespacesAndNewlines),
+                    startTime: startTime,
+                    endTime: endTime
+                ))
+                
+                currentChunk = ""
+                chunkStartLine = index + 1
+            }
+        }
+        
+        // Add final chunk if any content remains
+        if !currentChunk.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let startTime = estimateTimestamp(fromLineIndex: chunkStartLine, totalLines: lines.count)
+            let endTime = estimateTimestamp(fromLineIndex: lines.count - 1, totalLines: lines.count)
+            
+            chunks.append(TranscriptChunk(
+                text: currentChunk.trimmingCharacters(in: .whitespacesAndNewlines),
+                startTime: startTime,
+                endTime: endTime
+            ))
+        }
+        
+        return chunks
+    }
+    
+    /// Estimates timestamp based on position in transcript (assumes proportional distribution)
+    private func estimateTimestamp(fromLineIndex lineIndex: Int, totalLines: Int) -> String {
+        guard totalLines > 0 else { return "00:00" }
+        
+        // Rough estimation: assume average podcast is 60 minutes and estimate position
+        let estimatedMinutes = Int((Double(lineIndex) / Double(totalLines)) * 60.0)
+        let hours = estimatedMinutes / 60
+        let minutes = estimatedMinutes % 60
+        
+        if hours > 0 {
+            return String(format: "%d:%02d:00", hours, minutes)
+        } else {
+            return String(format: "%02d:00", minutes)
         }
     }
     
@@ -87,6 +366,12 @@ public class ChapterGenerationService {
 }
 
 // MARK: - Generable Structs for LLM Structured Output
+
+@Generable
+private struct SegmentSummaryPOCO {
+    @Guide(description: "Condensed transcript with preserved timecodes. Format: [TIMECODE] Summary text. Merge adjacent timecodes on same topic. Reduce length by 50-70%.")
+    var summary: String
+}
 
 @Generable
 private struct ChapterMarkersResponsePOCO {

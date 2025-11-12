@@ -31,6 +31,8 @@ public struct AIIdeasView: View {
             } else {
                 ScrollView {
                     VStack(spacing: 16) {
+                        transcriptInfoSection
+                        Divider()
                         titleSuggestionsSection
                         Divider()
                         descriptionSection
@@ -79,6 +81,72 @@ public struct AIIdeasView: View {
                 }
             }
         }
+    }
+    
+    private var transcriptInfoSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Transcript Analysis", systemImage: "doc.text.magnifyingglass")
+                .font(.headline)
+            
+            HStack(spacing: 24) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Original Length")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        Text(viewModel.transcriptLengthFormatted)
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.primary)
+                        Text("chars")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
+                Image(systemName: "arrow.right")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Cleaned Length")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        Text(viewModel.cleanedTranscriptLengthFormatted)
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.blue)
+                        Text("chars")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("Reduction")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if viewModel.transcriptLength > 0 {
+                        let reduction = Double(viewModel.transcriptLength - viewModel.cleanedTranscriptLength) / Double(viewModel.transcriptLength) * 100
+                        Text(String(format: "%.0f%%", reduction))
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.green)
+                    } else {
+                        Text("–")
+                            .font(.title2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        }
+        .padding(16)
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+        .cornerRadius(8)
     }
     
     private var titleSuggestionsSection: some View {
