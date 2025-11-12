@@ -7,8 +7,13 @@ public final class Podcast {
     @Attribute(.unique) public var id: String
     public var name: String
     public var podcastDescription: String?
+    
+    @Attribute(.externalStorage)
     public var artworkData: Data?
+    
+    @Attribute(.externalStorage)
     public var defaultOverlayData: Data?
+    
     public var defaultFontName: String?
     public var defaultFontSize: Double
     public var defaultTextPositionX: Double
@@ -67,6 +72,12 @@ public final class Podcast {
     }
 }
 
-extension Podcast: Identifiable {
+extension Podcast: Identifiable, Hashable {
+    public static func == (lhs: Podcast, rhs: Podcast) -> Bool {
+        lhs.id == rhs.id
+    }
     
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
 }

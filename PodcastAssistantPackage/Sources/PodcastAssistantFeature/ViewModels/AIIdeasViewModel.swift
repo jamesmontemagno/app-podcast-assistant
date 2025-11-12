@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import SwiftData
 import FoundationModels
 import AppKit
 
@@ -26,15 +27,15 @@ public class AIIdeasViewModel: ObservableObject {
     
     // MARK: - Dependencies
     
-    public let episode: EpisodePOCO
-    private let store: PodcastLibraryStore
+    public let episode: Episode
+    public var modelContext: ModelContext?
     private let transcriptCleaner = TranscriptCleaner()
     
     // MARK: - Initialization
     
-    public init(episode: EpisodePOCO, store: PodcastLibraryStore) {
+    public init(episode: Episode, modelContext: ModelContext? = nil) {
         self.episode = episode
-        self.store = store
+        self.modelContext = modelContext
         checkModelAvailability()
     }
     
@@ -314,7 +315,7 @@ public class AIIdeasViewModel: ObservableObject {
     
     private func saveEpisode() {
         do {
-            try store.updateEpisode(episode)
+            try modelContext?.save()
         } catch {
             errorMessage = "Failed to save changes: \(error.localizedDescription)"
         }

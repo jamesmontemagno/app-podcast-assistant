@@ -1,22 +1,24 @@
 import SwiftUI
+import SwiftData
 
 // MARK: - AI Ideas Section
 
 @available(macOS 26.0, *)
-struct AIIdeasView: View {
-    let episode: EpisodePOCO
-    let podcast: PodcastPOCO
-    let store: PodcastLibraryStore
+public struct AIIdeasView: View {
+    let episode: Episode
+    let podcast: Podcast
     @StateObject private var viewModel: AIIdeasViewModel
     
-    init(episode: EpisodePOCO, podcast: PodcastPOCO, store: PodcastLibraryStore) {
+    @Environment(\.modelContext) private var modelContext
+    
+    public init(episode: Episode, podcast: Podcast) {
         self.episode = episode
         self.podcast = podcast
-        self.store = store
-        _viewModel = StateObject(wrappedValue: AIIdeasViewModel(episode: episode, store: store))
+        // ViewModel initialized without modelContext, will set it in onAppear
+        _viewModel = StateObject(wrappedValue: AIIdeasViewModel(episode: episode))
     }
     
-    var body: some View {
+    public var body: some View {
         VStack(spacing: 0) {
             if !viewModel.modelAvailable {
                 unavailableView
@@ -56,6 +58,9 @@ struct AIIdeasView: View {
                     .background(Color.orange.opacity(0.1))
                 }
             }
+        }
+        .onAppear {
+            viewModel.modelContext = modelContext
         }
     }
     

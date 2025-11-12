@@ -2,33 +2,32 @@
 
 ## Project Architecture
 
-This is a macOS SwiftUI app using a **workspace + SPM package architecture** with **hybrid POCO + SwiftData persistence** for clean separation:
+This is a macOS SwiftUI app using a **workspace + SPM package architecture** with **pure SwiftData @Query binding**:
 
 - **App Shell**: `PodcastAssistant/` - Minimal app lifecycle code (App entry point only)
 - **Feature Code**: `PodcastAssistantPackage/Sources/PodcastAssistantFeature/` - **ALL business logic, services, views, and models live here**
 - **Always open**: `PodcastAssistant.xcworkspace` (never the .xcodeproj file)
 
-This app targets the latest macOS SDK. Uses **POCOs (Plain Old Class Objects) for UI** with SwiftData for persistence (CloudKit-ready). macOS 26 APIs are preferred.
+This app targets the latest macOS SDK. Uses **SwiftData models with @Query for reactive UI binding** (CloudKit-ready). macOS 26 APIs are preferred.
 
 ### Critical File Organization Pattern
 ```
 PodcastAssistantPackage/Sources/PodcastAssistantFeature/
 ├── Models/
-│   ├── POCOs/              # UI-layer simple classes (PodcastPOCO, EpisodePOCO)
-│   ├── SwiftData/          # Database models (Podcast, Episode)
+│   ├── SwiftData/          # Database models (Podcast, Episode, EpisodeContent)
 │   └── Supporting/         # Helper models (AppSettings, SRTDocument, etc.)
 ├── Services/
-│   ├── Data/              # PodcastLibraryStore (POCO ↔ SwiftData bridge), PersistenceController
+│   ├── Data/              # PersistenceController (SwiftData container setup)
 │   ├── UI/                # UI services (ThumbnailGenerator)
 │   └── Utilities/         # Business logic (TranscriptConverter, ImageUtilities, etc.)
-├── ViewModels/            # @MainActor ObservableObject classes working with POCOs
+├── ViewModels/            # @MainActor ObservableObject classes for complex business logic
 └── Views/
     ├── Forms/             # Modal create/edit forms
     ├── Sections/          # Main detail pane tabs (TranscriptView, ThumbnailView, etc.)
     └── Sheets/            # Action popups (translation sheets)
 ```
 
-**See `/docs/POCO_ARCHITECTURE.md` and `/docs/FOLDER_STRUCTURE.md` for complete details.**
+**See `/docs/SWIFTDATA_QUERY_ARCHITECTURE.md` and `/docs/FOLDER_STRUCTURE.md` for complete details.**
 
 ## Public API Pattern (Critical!)
 
@@ -75,77 +74,142 @@ xcodebuild -workspace PodcastAssistant.xcworkspace -scheme PodcastAssistant -con
 
 ## Key Conventions
 
-### 1. POCO Pattern (Critical!)
-**UI layer uses POCOs, NOT SwiftData models directly**:
+### 1. SwiftData @Query Pattern (Critical!)
+**Views bind directly to SwiftData models using @Query**:
 ```swift
-// PodcastLibraryStore bridges POCOs ↔ SwiftData
-@EnvironmentObject var store: PodcastLibraryStore
+// Top-level @Query for all data
+@Query(sort: \Podcast.name) private var podcasts: [Podcast]
 
-// Views work with POCOs
-let podcast: PodcastPOCO  // ✅ Simple class
-let episode: EpisodePOCO  // ✅ Simple class
+// Create child views with filtered @Query (dynamic predicates)
+struct EpisodeListView: View {
+    let podcastID: String
+    @Query private var episodes: [Episode]
+    
+    init(podcastID: String) {
+        self.podcastID = podcastID
+        let predicate = #Predicate<Episode> { episode in
+            episode.podcast?.id == podcastID
+        }
+        _episodes = Query(filter: predicate, sort: \Episode.episodeNumber)
+    }
+}
 
-// ViewModels accept POCO + Store dependencies
+// ViewModels work with SwiftData models + ModelContext
 @MainActor
 public class ThumbnailViewModel: ObservableObject {
-    @Published public var episode: EpisodePOCO
-    private let store: PodcastLibraryStore
+    @Published public var episode: Episode
+    private var modelContext: ModelContext?
     
-    public init(episode: EpisodePOCO, store: PodcastLibraryStore) {
+    public init(episode: Episode, modelContext: ModelContext?) {
         self.episode = episode
-        self.store = store
+        self.modelContext = modelContext
     }
     
-    // Update POCO, save via store
+    // Update model directly, save via ModelContext
     public var fontSize: Double {
         get { episode.fontSize }
         set { 
             episode.fontSize = newValue
-            try? store.updateEpisode(episode)  // Persist to SwiftData
+            try? modelContext?.save()  // Persist immediately
+            objectWillChange.send()
         }
     }
 }
 ```
 
-**Why POCOs?**
-- ✅ Fast UI performance (no SwiftData overhead)
-- ✅ Easy testing (no ModelContext needed)
-- ✅ Predictable updates (@Published works reliably)
-- ✅ SwiftData still handles persistence in background
+**Why pure SwiftData?**
+- ✅ Trust the framework - @Query is reactive and works reliably
+- ✅ No intermediate bridge layers (~1,500 lines eliminated)
+- ✅ Direct model binding with @Bindable
+- ✅ External storage for performance (large data)
 
-### 2. Image Storage Pattern
-Images are stored as Data blobs in SwiftData (auto-processed before storage):
+### 2. External Storage Pattern (Critical for Performance!)
+**Use @Attribute(.externalStorage) for large data** to prevent memory bloat:
 ```swift
-// Automatic resize to 1024x1024 + JPEG 0.8 compression
-if let image = selectedImage {
-    podcast.artworkData = ImageUtilities.processImageForStorage(image)
+@Model
+public final class EpisodeContent {
+    // Large text - store externally
+    @Attribute(.externalStorage) public var transcriptInputText: String?
+    @Attribute(.externalStorage) public var transcriptSRT: String?
+    
+    // Large binary data - store externally
+    @Attribute(.externalStorage) public var thumbnailBackgroundData: Data?
+    @Attribute(.externalStorage) public var videoData: Data?
+    
+    // Small metadata - inline is fine
+    public var lastModified: Date = Date()
 }
 
-// Retrieval
-if let data = episode.thumbnailBackgroundData {
-    let image = ImageUtilities.loadImage(from: data)
+// Separate lightweight metadata from heavy content
+@Model
+public final class Episode: Hashable {
+    public var id: String
+    public var title: String
+    
+    // Lazy-loaded heavy content with cascade delete
+    @Relationship(deleteRule: .cascade, inverse: \EpisodeContent.episode)
+    public var content: EpisodeContent?
+    
+    // Convenience accessor for UI
+    public var transcriptInputText: String? {
+        get { content?.transcriptInputText }
+        set { 
+            if content == nil { content = EpisodeContent() }
+            content?.transcriptInputText = newValue
+        }
+    }
 }
 ```
 
-### 3. Master-Detail Navigation Pattern
-Three-column NavigationSplitView replaces old tab-based UI:
+### 3. List Selection Pattern (Required for NavigationSplitView!)
+**MUST use .tag() + Hashable** for selection binding to work:
+```swift
+// Add Hashable conformance to models
+@Model
+public final class Podcast: Hashable {
+    @Attribute(.unique) public var id: String
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+    
+    public static func == (lhs: Podcast, rhs: Podcast) -> Bool {
+        lhs.id == rhs.id
+    }
+}
+
+// In view - MUST add .tag() to each row
+NavigationSplitView {
+    List(podcasts, selection: $selectedPodcast) { podcast in
+        PodcastRow(podcast: podcast)
+            .tag(podcast)  // ← REQUIRED! Without this, selection won't work
+    }
+}
+```
+
+### 4. Master-Detail Navigation Pattern
+Three-column NavigationSplitView with @Query at each level:
 ```swift
 NavigationSplitView {
-    // Sidebar: Podcast list with @Query
+    // Sidebar: @Query for all podcasts
+    @Query(sort: \Podcast.name) private var podcasts: [Podcast]
+    List(podcasts, selection: $selectedPodcast) { podcast in
+        PodcastRow(podcast).tag(podcast)
+    }
 } content: {
-    // Middle: Episode list for selected podcast
+    // Middle: New view with filtered @Query for episodes
+    if let podcast = selectedPodcast {
+        EpisodeListView(podcastID: podcast.id, selection: $selectedEpisode)
+    }
 } detail: {
-    // Detail pane: TranscriptView/ThumbnailView for selected episode
+    // Detail: Pass SwiftData model directly
+    if let episode = selectedEpisode {
+        EpisodeDetailView(episode: episode)
+    }
 }
 ```
 
-Views now require episode parameter:
-```swift
-TranscriptView(episode: selectedEpisode)
-ThumbnailView(episode: selectedEpisode)
-```
-
-### 4. File Dialogs Pattern (NSOpenPanel/NSSavePanel)
+### 5. File Dialogs Pattern (NSOpenPanel/NSSavePanel)
 All file operations use macOS native panels with proper UTType handling:
 ```swift
 let panel = NSSavePanel()
@@ -162,48 +226,47 @@ panel.begin { response in
 }
 ```
 
-### 2. Data Management Pattern
-**PodcastLibraryStore is the central data manager**:
+### 6. Data Management Pattern
+**Use @Query and ModelContext directly** - no bridge layers needed:
 ```swift
-// In ContentView - inject store
-@StateObject private var store = PodcastLibraryStore()
+// In ContentView - @Query for top-level data
+@Query(sort: \Podcast.name) private var podcasts: [Podcast]
+@Environment(\.modelContext) private var modelContext
 
-var body: some View {
-    NavigationSplitView { ... }
-        .environmentObject(store)
-        .onAppear {
-            try? store.loadInitialData(context: modelContext)
-        }
-}
+// Create/Update/Delete directly
+let podcast = Podcast(name: "New Show")
+modelContext.insert(podcast)
+try? modelContext.save()
 
-// In child views - use store
-@EnvironmentObject var store: PodcastLibraryStore
+// Update existing
+podcast.name = "Updated Name"
+try? modelContext.save()  // @Query views will auto-refresh
 
-// Access POCO data
-let podcasts = store.podcasts  // [PodcastPOCO]
-let episodes = store.episodes[podcastID]  // [EpisodePOCO]
-
-// CRUD operations
-try? store.addPodcast(newPodcast)
-try? store.updateEpisode(modifiedEpisode)
-try? store.deletePodcast(podcast)
+// Delete
+modelContext.delete(podcast)
+try? modelContext.save()
 ```
 
-**ViewModels use @MainActor and work with POCOs**:
+**ViewModels work with SwiftData models**:
 ```swift
 @MainActor
 public class MyViewModel: ObservableObject {
-    @Published public var data: MyPOCO
-    private let store: PodcastLibraryStore
+    @Published public var episode: Episode
+    private var modelContext: ModelContext?
+    
+    public init(episode: Episode, modelContext: ModelContext?) {
+        self.episode = episode
+        self.modelContext = modelContext
+    }
     
     public func saveChanges() {
-        try? store.updateData(data)  // Persist
+        try? modelContext?.save()  // That's it!
         objectWillChange.send()
     }
 }
 ```
 
-### 3. UI Design Pattern
+### 7. UI Design Pattern
 **All forms/sheets follow consistent design system** (see `/docs/UI_DESIGN_PATTERNS.md`):
 ```swift
 VStack(spacing: 0) {
@@ -241,7 +304,7 @@ HSplitView {
 }
 ```
 
-### 4. Format Detection Pattern
+### 8. Format Detection Pattern
 `TranscriptConverter` auto-detects input formats by sampling first 50 lines:
 - **Zencastr format**: `MM:SS.ss` timestamp → speaker name → dialog (multi-line)
 - **Time range format**: `HH:MM:SS - HH:MM:SS` → text
@@ -256,22 +319,26 @@ HSplitView {
 ## Adding New Features
 
 1. **Determine architecture needs** (see `/docs/FOLDER_STRUCTURE.md`):
-   - Need persistence? → Create SwiftData model + POCO + update PodcastLibraryStore
+   - Need persistence? → Create SwiftData @Model in `Models/SwiftData/`
+   - Need filtered data? → Create new View with @Query and #Predicate ("when in doubt, create a new view")
    - Need business logic? → Create service in `Services/Utilities/`
-   - Need UI state? → Create ViewModel
+   - Need complex UI state? → Create ViewModel (only if needed, prefer direct model binding)
    - New form? → `Views/Forms/`
    - New tab? → `Views/Sections/`
    - New popup? → `Views/Sheets/`
 
 2. **Create files in proper folders**:
-   - POCOs: `Models/POCOs/`
-   - SwiftData: `Models/SwiftData/`
+   - SwiftData models: `Models/SwiftData/`
+   - Supporting models: `Models/Supporting/`
    - Services: `Services/Data/`, `Services/UI/`, or `Services/Utilities/`
-   - ViewModels: `ViewModels/`
+   - ViewModels: `ViewModels/` (only for complex business logic)
    - Views: `Views/Forms/`, `Views/Sections/`, or `Views/Sheets/`
 
 3. **Follow patterns**:
-   - Use POCO pattern (Views/ViewModels work with POCOs, not SwiftData)
+   - Use @Query with dynamic predicates for filtered data
+   - Add @Attribute(.externalStorage) to large string/Data properties
+   - Add Hashable conformance + .tag() for List selection
+   - Pass ModelContext explicitly to ViewModels
    - Make everything `public` with `public init()`
    - Follow UI design patterns from `/docs/UI_DESIGN_PATTERNS.md`
    - For file I/O, use NSOpenPanel/NSSavePanel with proper UTType
@@ -288,73 +355,118 @@ HSplitView {
 1. ❌ Opening `.xcodeproj` instead of `.xcworkspace` → SPM dependencies won't resolve
 2. ❌ Forgetting `public` on types/inits → Compiler errors about inaccessible types
 3. ❌ Using `xcodebuild` without setting developer directory → Falls back to Command Line Tools (insufficient)
-4. ❌ **Passing SwiftData models to views** → Use POCOs instead
-5. ❌ **Updating POCOs without saving** → Always call `store.updatePodcast()` or `store.updateEpisode()`
-6. ❌ **Creating circular references** → Use `podcastID: String` in EpisodePOCO, not object reference
-7. ❌ Ignoring design patterns → Follow `/docs/UI_DESIGN_PATTERNS.md` for consistency
+4. ❌ **Forgetting .tag() on List rows** → Selection binding won't update (but rows will highlight)
+5. ❌ **Missing Hashable conformance** → List selection won't work with SwiftData models
+6. ❌ **Filtering arrays instead of using @Query** → Breaks reactivity, UI won't auto-update
+7. ❌ **Not using @Attribute(.externalStorage) for large data** → Memory bloat, sluggish UI
+8. ❌ **Passing filtered arrays down** → Create new View with its own @Query instead
+9. ❌ Ignoring design patterns → Follow `/docs/UI_DESIGN_PATTERNS.md` for consistency
 
 ## Project Context
 
 Built with XcodeBuildMCP scaffolding tool. Core features:
-1. **Multi-Podcast Management**: Create/manage via PodcastLibraryStore (POCO + SwiftData hybrid)
+1. **Multi-Podcast Management**: Create/manage via SwiftData @Query with reactive UI binding
 2. **Transcript Converter**: Zencastr/generic formats → YouTube SRT (with speaker names, timestamp calculation)
 3. **Thumbnail Generator**: Background + overlay + episode number → PNG/JPEG (AppKit-based rendering)
 4. **AI Content Generation**: Apple Intelligence integration for titles, descriptions, social posts (macOS 26+)
 5. **Translation Support**: SRT subtitle and episode metadata translation (macOS 26+)
-6. **POCO Architecture**: Hybrid persistence (POCOs for UI, SwiftData for database, CloudKit-ready)
+6. **SwiftData Architecture**: Pure SwiftData with @Query (no intermediate layers, CloudKit-ready)
 7. **Master-Detail Navigation**: Three-column layout (Podcasts → Episodes → Detail)
 8. **Settings & Customization**: Theme selection, font management
 
-## POCO Architecture (Critical!)
+## SwiftData Architecture (Critical!)
 
-**UI Layer uses POCOs, persistence layer uses SwiftData:**
+**Pure SwiftData with @Query - no intermediate layers:**
 
-**POCOs (UI Layer):**
-- `PodcastPOCO` - Simple class with all podcast properties
-- `EpisodePOCO` - Simple class with all episode properties
-- Used in ALL Views and ViewModels
-- Fast, testable, no SwiftData dependencies
-
-**SwiftData (Persistence Layer):**
-- `Podcast` - @Model mirroring PodcastPOCO structure
-- `Episode` - @Model mirroring EpisodePOCO structure
-- `@Relationship(deleteRule: .cascade)` for episodes
+**SwiftData Models:**
+- `Podcast` - @Model with Hashable conformance for List selection
+- `Episode` - @Model with lightweight metadata + Hashable conformance
+- `EpisodeContent` - @Model with @Attribute(.externalStorage) for heavy data
+- `@Relationship(deleteRule: .cascade)` for parent-child relationships
 - `@Attribute(.unique)` on ID (CloudKit-compatible)
 
-**PodcastLibraryStore (Bridge):**
-- `@Published var podcasts: [PodcastPOCO]` - UI binds here
-- `@Published var episodes: [String: [EpisodePOCO]]` - Keyed by podcast ID
-- Converts SwiftData ↔ POCOs automatically
-- Handles all CRUD operations
+**UI Layer:**
+- Views use @Query directly with dynamic #Predicate for filtering
+- `@Bindable` for two-way binding to model properties
+- `@Environment(\.modelContext)` for CRUD operations
+- Create new Views with filtered @Query instead of passing arrays
 
 **Data Flow:**
 ```
-User Action → ViewModel → POCO Update → Store.update() → SwiftData Save → POCO Array Update → UI Refresh
+User Action → Update Model → modelContext.save() → @Query Auto-Refreshes → UI Updates
 ```
 
-**Benefits:**
-- ✅ No SwiftData quirks in UI (no @Query, no faulting)
-- ✅ Fast rendering (simple classes)
-- ✅ Easy testing (no ModelContext needed)
-- ✅ Reliable persistence (SwiftData in background)
+**Performance Optimization:**
+- `@Attribute(.externalStorage)` on all large strings and Data properties
+- Separate heavy content (EpisodeContent) from lightweight metadata (Episode)
+- Lazy loading via optional relationships
+- Batch operations with single save() call
 
-**See `/docs/POCO_ARCHITECTURE.md` for complete details.**
+**Benefits:**
+- ✅ ~1,500 lines of code eliminated (no POCOs, no bridge layer)
+- ✅ Trust the framework - @Query reactivity works reliably
+- ✅ Direct model binding with @Bindable
+- ✅ External storage prevents memory bloat
+
+**See `/docs/SWIFTDATA_QUERY_ARCHITECTURE.md` for complete details.**
 
 **Image Storage:**
-- Stored as Data in both POCOs and SwiftData models
+- Stored as Data in SwiftData models with @Attribute(.externalStorage)
 - Auto-processed: resize to 1024x1024 max + JPEG 0.8 compression
+- External storage prevents memory bloat with large images
 
 **CloudKit Sync:**
 - Currently disabled (local-only)
 - CloudKit-ready schema - see `PersistenceController.swift`
 - Container ID: `iCloud.com.refractored.PodcastAssistant`
 
+## SwiftData Quick Tips (CRITICAL!)
+
+**The 5 SwiftData Rules to Remember:**
+
+1. **"When in Doubt, Create a New View"** - Don't filter and pass arrays, create new View with @Query and #Predicate:
+   ```swift
+   init(podcastID: String) {
+       let predicate = #Predicate<Episode> { $0.podcast?.id == podcastID }
+       _episodes = Query(filter: predicate)
+   }
+   ```
+
+2. **External Storage is Required for Performance** - Use @Attribute(.externalStorage) on large strings and Data:
+   ```swift
+   @Attribute(.externalStorage) public var transcriptInputText: String?
+   @Attribute(.externalStorage) public var thumbnailBackgroundData: Data?
+   ```
+
+3. **List Selection Needs .tag() + Hashable** - BOTH are required or selection won't work:
+   ```swift
+   List(items, selection: $selected) { item in
+       Row(item).tag(item)  // ← Don't forget .tag()!
+   }
+   // Plus Hashable conformance on model
+   ```
+
+4. **Trust modelContext.save()** - Update models directly, call save(), @Query handles reactivity:
+   ```swift
+   episode.title = "New Title"
+   try? modelContext.save()  // @Query views auto-refresh
+   ```
+
+5. **Keep It Simple** - Don't over-engineer with bridge layers, ViewModels, or manual sync logic. SwiftData handles it.
+
+**Common Mistakes:**
+- ❌ Forgetting .tag() → selection appears to work but binding doesn't update
+- ❌ Not using external storage → memory bloat with large data
+- ❌ Filtering arrays in parent views → breaks @Query reactivity
+- ❌ Missing Hashable → List selection won't work
+
 ## App Documentation
 
 **Comprehensive documentation in `/docs` folder:**
 
 **Core Architecture:**
-- `/docs/POCO_ARCHITECTURE.md` - **START HERE** - Hybrid POCO/SwiftData pattern explained
+- `/docs/SWIFTDATA_QUERY_ARCHITECTURE.md` - **START HERE** - Pure SwiftData @Query pattern explained
+- `/docs/SWIFTDATA_BEST_PRACTICES.md` - **CRITICAL TIPS** - The 5 rules, common pitfalls, performance optimization
 - `/docs/FOLDER_STRUCTURE.md` - File organization and where to add code
 - `/docs/UI_DESIGN_PATTERNS.md` - Consistent design system and components
 - `/docs/ARCHITECTURE.md` - System overview
@@ -365,10 +477,11 @@ User Action → ViewModel → POCO Update → Store.update() → SwiftData Save 
 - `/docs/SETTINGS.md` - Settings and customization
 
 **When adding features or making changes:**
-1. Read relevant docs first (especially POCO_ARCHITECTURE.md and FOLDER_STRUCTURE.md)
-2. Follow established patterns
-3. Update docs if you change architecture or add major features
-4. Add to `/docs/README.md` if creating new doc files
+1. Read relevant docs first (especially SWIFTDATA_QUERY_ARCHITECTURE.md and SWIFTDATA_BEST_PRACTICES.md)
+2. Follow the 5 SwiftData rules (see Quick Tips above)
+3. Follow established patterns
+4. Update docs if you change architecture or add major features
+5. Add to `/docs/README.md` if creating new doc files
 
 ## Apple API Documentation
 

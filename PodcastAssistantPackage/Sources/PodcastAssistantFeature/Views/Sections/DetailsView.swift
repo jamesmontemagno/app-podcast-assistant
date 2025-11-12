@@ -1,20 +1,24 @@
 import SwiftUI
+import SwiftData
 import AppKit
 
 // MARK: - Details Section
 
 /// Simple class to expose save/revert methods to parent
-class DetailsViewModel {
-    var save: () -> Void = {}
-    var revert: () -> Void = {}
+public class DetailsViewModel {
+    public var save: () -> Void = {}
+    public var revert: () -> Void = {}
+    
+    public init() {}
 }
 
-struct DetailsView: View {
-    let episode: EpisodePOCO
-    let podcast: PodcastPOCO
-    let store: PodcastLibraryStore
+public struct DetailsView: View {
+    let episode: Episode
+    let podcast: Podcast
     @Binding var hasUnsavedChanges: Bool
     @Binding var viewModel: DetailsViewModel?
+    
+    @Environment(\.modelContext) private var modelContext
     
     @State private var title: String = ""
     @State private var episodeNumber: String = ""
@@ -23,7 +27,14 @@ struct DetailsView: View {
     @State private var showingSaveConfirmation: Bool = false
     @State private var isInitialLoad: Bool = true
     
-    var body: some View {
+    public init(episode: Episode, podcast: Podcast, hasUnsavedChanges: Binding<Bool>, viewModel: Binding<DetailsViewModel?>) {
+        self.episode = episode
+        self.podcast = podcast
+        self._hasUnsavedChanges = hasUnsavedChanges
+        self._viewModel = viewModel
+    }
+    
+    public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 // Basic Information Section
@@ -284,14 +295,14 @@ struct DetailsView: View {
             return
         }
         
-        // Update episode (it's a class, so we can modify directly)
+        // Update episode properties directly
         episode.title = trimmedTitle
         episode.episodeNumber = number
         episode.episodeDescription = description.isEmpty ? nil : description
         episode.publishDate = publishDate
         
         do {
-            try store.updateEpisode(episode)
+            try modelContext.save()
             hasUnsavedChanges = false
             
             // Show save confirmation
@@ -312,12 +323,18 @@ struct DetailsView: View {
 
 // MARK: - Status Badge
 
-struct StatusBadge: View {
+public struct StatusBadge: View {
     let icon: String
     let title: String
     let isComplete: Bool
     
-    var body: some View {
+    public init(icon: String, title: String, isComplete: Bool) {
+        self.icon = icon
+        self.title = title
+        self.isComplete = isComplete
+    }
+    
+    public var body: some View {
         VStack(spacing: 8) {
             ZStack {
                 Circle()

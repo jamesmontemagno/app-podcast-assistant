@@ -11,13 +11,10 @@ PodcastAssistantPackage/Sources/PodcastAssistantFeature/
 ├── ContentView.swift                    # Main app navigation container
 │
 ├── Models/                              # All data models
-│   ├── POCOs/                          # Plain Old Class Objects (UI layer)
-│   │   ├── EpisodePOCO.swift
-│   │   └── PodcastPOCO.swift
-│   │
 │   ├── SwiftData/                      # Database persistence models
-│   │   ├── Episode.swift
-│   │   └── Podcast.swift
+│   │   ├── Episode.swift               # Episode model (lightweight)
+│   │   ├── EpisodeContent.swift        # Heavy content (external storage)
+│   │   └── Podcast.swift               # Podcast model
 │   │
 │   └── Supporting/                      # Helper models
 │       ├── AppSettings.swift           # App-wide settings (@Model)
@@ -27,8 +24,7 @@ PodcastAssistantPackage/Sources/PodcastAssistantFeature/
 │
 ├── Services/                            # Business logic layer
 │   ├── Data/                           # Data management services
-│   │   ├── PersistenceController.swift # SwiftData stack
-│   │   └── PodcastLibraryStore.swift   # POCO/SwiftData bridge
+│   │   └── PersistenceController.swift # SwiftData stack
 │   │
 │   ├── UI/                             # UI-related services
 │   │   └── ThumbnailGenerator.swift    # Image composition service
@@ -63,6 +59,7 @@ PodcastAssistantPackage/Sources/PodcastAssistantFeature/
     │   └── TranscriptTranslationSheet.swift # Translate SRT
     │
     ├── EpisodeDetailView.swift         # Episode detail coordinator
+    ├── EpisodeListView.swift           # Dynamic @Query episode list
     └── SettingsView.swift              # App settings modal
 ```
 
@@ -70,35 +67,14 @@ PodcastAssistantPackage/Sources/PodcastAssistantFeature/
 
 ### Models/ - Data Layer
 
-**Purpose:** All data structures, whether for UI, persistence, or supporting operations.
-
-#### POCOs/
-**Plain Old Class Objects** - Simple, SwiftUI-friendly classes:
-- No `@Model` macro
-- Implement `Identifiable`, `Hashable`
-- Used in all Views and ViewModels
-- Fast, predictable, testable
-
-**When to add here:**
-- Creating a new UI-facing data structure
-- Need a simple class for view state
-- Want to avoid SwiftData complexity in UI
-
-**Example:**
-```swift
-public final class MyNewPOCO: Identifiable, Hashable {
-    public let id: String
-    public var someProperty: String
-    
-    public init(...) { ... }
-}
-```
+**Purpose:** All data structures for persistence and supporting operations.
 
 #### SwiftData/
-**Persistence layer** - Database-backed models:
+**Persistence layer** - Database-backed models with @Query binding:
 - Use `@Model` macro
 - Define relationships with `@Relationship`
-- Mirror POCO structure
+- Used directly in Views (no intermediate POCOs)
+- Implement `Hashable` for List selection
 - Handle persistence only
 
 **When to add here:**
