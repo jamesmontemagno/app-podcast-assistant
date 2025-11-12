@@ -215,42 +215,57 @@ public class TranscriptionShrinkerService {
     ) async throws -> [CondensedSegment] {
         let session = LanguageModelSession(
             instructions: """
-            You are a transcript condenser who aggressively merges segments to reduce count.
+            You are an expert at summarizing recorded podcast transcripts.
             
-            CRITICAL RULES:
-            1. Focus ONLY on major topic boundaries - ignore speaker names and introductions
-            2. AGGRESSIVELY merge segments discussing similar or related topics
-            3. Preserve the EARLIEST timestamp when merging
-            4. Target 85-90% reduction in segment count
-            5. Create brief summaries that capture the essence of longer discussions
-            6. Only create a new segment when the topic SIGNIFICANTLY changes
+            You will be given transcript segments with timestamps and text. Your goal is to produce a concise summary of the content by identifying key topics and meaningful transitions.
             
-            Output: Highly condensed segments with timestamps and summaries.
+            CORE PRINCIPLES:
+            1. Focus on substantive content - key points, main ideas, and important details
+            2. Completely elide trivial back-and-forth exchanges (greetings, acknowledgments, filler)
+            3. Merge related discussions into comprehensive summaries
+            4. Only create new segments when the topic SIGNIFICANTLY shifts
+            5. Preserve the EARLIEST timestamp when merging segments
+            
+            EXAMPLE - Trivial exchanges to elide:
+            Given:
+              00:15:03 "I had a terrible day today. First, I missed my bus."
+              00:15:15 "Oh"
+              00:15:17 "Yeah"
+              00:15:20 "Well that's tough. Anything else happen?"
+              00:15:45 "Not really, just one of those days."
+            
+            Produce:
+              {timestamp: "00:15:03", summary: "Discussion about having a rough day, missing the bus."}
+            
+            EXAMPLE - Long monologues to summarize:
+            Given:
+              00:30:10 "So, I was thinking about the implications of quantum computing on modern cryptography. As you know, many of our current encryption methods rely on the difficulty of factoring large prime numbers. However, with the advent of quantum algorithms like Shor's algorithm, this could potentially render our existing cryptographic systems obsolete. This means we need to start exploring quantum-resistant algorithms..."
+            
+            Produce:
+              {timestamp: "00:30:10", summary: "Discussion of quantum computing's impact on cryptography, highlighting vulnerabilities in current encryption and the need for quantum-resistant algorithms."}
+            
+            TARGET: Reduce segment count by 85-90% through aggressive merging of related content.
             """
         )
         
         let segmentsText = segments.map { "\($0.timestamp) \($0.text)" }.joined(separator: "\n")
         
         let prompt = """
-        Aggressively condense these timestamped transcript segments by merging related topics.
-        
-        Rules:
-        - AGGRESSIVELY merge segments on RELATED topics, keeping earliest timestamp
-        - Only create NEW segment when topic SIGNIFICANTLY shifts to something completely different
-        - Ignore speaker introductions, greetings, transitions, filler content
-        - Focus on substantive discussion points and major topic changes
-        - Aim to reduce segment count by 85-90%
-        - Combine multiple related points into comprehensive summaries
+        Summarize these timestamped transcript segments following the principles above.
         
         This is window \(windowNumber) of \(totalWindows).
         
         For each condensed segment provide:
         - timestamp: The EARLIEST timestamp from merged segments
-        - summary: Brief summary capturing the key points discussed (1-2 sentences max)
+        - summary: Concise summary capturing key points (1-2 sentences max)
         
-        Be VERY aggressive in merging. Prefer fewer, more comprehensive segments.
+        Remember:
+        - Completely elide trivial exchanges and filler
+        - Merge related topics aggressively
+        - Only create new segments for MAJOR topic shifts
+        - Target 85-90% reduction
         
-        Segments:
+        Transcript segments to summarize:
         \(segmentsText)
         """
         
