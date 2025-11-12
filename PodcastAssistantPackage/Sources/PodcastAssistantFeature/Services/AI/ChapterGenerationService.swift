@@ -42,16 +42,12 @@ public class ChapterGenerationService {
         // Step 1: Shrink transcript using TranscriptionShrinkerService
         // Configure for chapter generation: target ~25 segments for analysis
         let shrinkConfig = TranscriptionShrinkerService.ShrinkConfig(
-            windowSize: 30,
-            overlapPercentage: 0.5,
+            windowSize: 50,
+            overlapPercentage: 0.4,
             targetSegmentCount: 25,
             minSecondsBetweenSegments: 20,
-            similarityThreshold: 0.6
+            similarityThreshold: 0.7
         )
-        
-        shrinkerService.logHandler = { message in
-            print(message)
-        }
         
         let refinedSegments = try await shrinkerService.shrinkTranscript(
             transcript,
