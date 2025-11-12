@@ -470,6 +470,14 @@ public class TranscriptionShrinkerService {
                 }
                 .map { $0.offset }
             
+            // Only include segments that cover at least one original segment
+            // and have valid timestamps
+            guard !coveredIndices.isEmpty,
+                  startSeconds >= 0,
+                  endSeconds >= startSeconds else {
+                continue
+            }
+            
             refined.append(RefinedSegment(
                 startTimestamp: startTimestamp,
                 endTimestamp: endTimestamp,
