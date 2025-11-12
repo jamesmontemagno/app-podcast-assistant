@@ -67,6 +67,28 @@ public class TranscriptCleaner {
         return cleaned
     }
     
+    /// Light cleaning for chapter generation - only removes speaker names, preserves timecodes and structure
+    /// - Parameter transcript: Raw transcript text
+    /// - Returns: Transcript with speaker names removed but timecodes and content preserved
+    public func cleanForChapters(_ transcript: String) -> String {
+        let lines = transcript.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        
+        // Remove speaker names only (capitalized words followed by colon)
+        let cleaned = lines.map { line in
+            // Pattern: "SpeakerName: " or "Speaker Name: " at start of line
+            let pattern = #"^[A-Z][a-zA-Z\s]*:\s*"#
+            if let regex = try? NSRegularExpression(pattern: pattern) {
+                let range = NSRange(line.startIndex..., in: line)
+                return regex.stringByReplacingMatches(in: line, range: range, withTemplate: "")
+            }
+            return line
+        }
+        
+        // Join with newlines to preserve structure, remove empty lines
+        return cleaned.filter { !$0.isEmpty }.joined(separator: "\n")
+    }
+    
     /// Chunks transcript for chapter generation when it exceeds context window
     /// Preserves original timestamps and structure for accurate chapter extraction
     /// - Parameters:

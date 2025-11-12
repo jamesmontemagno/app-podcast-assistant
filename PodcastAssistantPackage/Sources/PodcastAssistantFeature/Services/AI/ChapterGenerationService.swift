@@ -48,7 +48,8 @@ public class ChapterGenerationService {
     /// - Returns: Array of 5-10 chapter markers
     /// - Throws: Error if generation fails
     public func generateChapters(from transcript: String) async throws -> [ChapterMarker] {
-        let cleanedTranscript = transcriptCleaner.cleanForAI(transcript)
+        // Use cleanForChapters to preserve timecodes while removing speaker names
+        let cleanedTranscript = transcriptCleaner.cleanForChapters(transcript)
         
         // Pass 1: Chunk and summarize transcript segments
         let segments = try await summarizeTranscriptSegments(cleanedTranscript)
@@ -67,23 +68,8 @@ public class ChapterGenerationService {
         print("🔍 [ChapterGen] Starting Pass 1: Transcript Condensation")
         print("📊 [ChapterGen] Original transcript length: \(transcript.count) characters")
         
-        let session = LanguageModelSession(
-            instructions: """
-            You are a podcast transcript condenser. Your job is to shorten transcripts while preserving all timecodes.
-            
-            Key Rules:
-            1. Keep ALL timecodes exactly as they appear - they are critical for chapter generation
-            2. Merge adjacent timecodes if they discuss the same topic
-            3. Condense long monologues into concise summaries
-            4. Focus on what's being discussed, not who is speaking
-            5. Preserve the temporal flow - keep timecodes in chronological order
-            
-            Goal: Reduce transcript length by 50-70% while maintaining all timing information.
-            """
-        )
-        
         // Create sliding windows with 20% overlap for better context
-        let windows = createSlidingWindows(transcript, windowSize: 3000, overlapPercentage: 0.2)
+        let windows = createSlidingWindows(transcript, windowSize: 6000, overlapPercentage: 0.2)
         print("📦 [ChapterGen] Created \(windows.count) sliding windows with 20% overlap")
         
         var windowSummaries: [String] = []
@@ -94,17 +80,37 @@ public class ChapterGenerationService {
             
             print("⏳ [ChapterGen] Processing window \(windowNumber)/\(totalWindows) - Size: \(window.count) chars")
             
+            // Create a fresh session for each window to avoid context buildup
+            let session = LanguageModelSession(
+                instructions: """
+                You are a podcast transcript condenser. Your job is to shorten transcripts while ALWAYS preserving timecodes.
+                
+                CRITICAL: Every timecode must be preserved - they are used to create chapter markers.
+                
+                Key Rules:
+                1. NEVER remove or skip timecodes - keep them ALL exactly as they appear
+                2. Merge adjacent entries discussing the same topic, keeping the earliest timecode
+                3. Condense dialogue into brief summaries
+                4. Focus on what's being discussed, not who said it
+                5. Keep timecodes in chronological order
+                
+                Goal: Reduce length by 50-70% while keeping EVERY timecode.
+                """
+            )
+            
             let prompt = """
-            Read through this transcript segment and create a condensed version that:
-            1. Preserves ALL timecodes (timestamps) exactly as they appear
-            2. Merges adjacent timecodes discussing the same topic
-            3. Summarizes long monologues into concise talking points
-            4. Maintains chronological order
+            Condense this transcript segment while PRESERVING ALL TIMECODES.
             
-            Format each entry as:
-            [TIMECODE] Brief summary of what's discussed at this point
+            Rules:
+            1. Keep EVERY timecode exactly as it appears - DO NOT skip any
+            2. For adjacent timecodes on the same topic, merge them but keep the first timecode
+            3. Summarize long discussions briefly
+            4. Maintain chronological order
             
-            Keep the output significantly shorter than the input while preserving timing structure.
+            Output format:
+            [TIMECODE] Brief summary of topic discussed
+            
+            IMPORTANT: Every timecode in the input MUST appear in your output.
             
             This is window \(windowNumber) of \(totalWindows).
             
@@ -248,8 +254,8 @@ public class ChapterGenerationService {
         
         let session = LanguageModelSession(
             instructions: """
-            You are a podcast editor who identifies natural topic transitions and creates chapter markers.
-            You will receive condensed transcript segments with preserved timecodes.
+            You are a podcast editor who creates chapter markers based on topic transitions.
+            You must use the ACTUAL TIMECODES from the transcript where topics shift.
             """
         )
         
@@ -258,19 +264,22 @@ public class ChapterGenerationService {
         print("📊 [ChapterGen] Condensed transcript length: \(condensedTranscript.count) chars")
         
         let prompt = """
-        You are creating chapter markers for a podcast episode from a condensed transcript.
+        Create chapter markers for this podcast episode.
         
-        The transcript has been condensed but preserves all timecodes in the format [TIMECODE].
-        Read through and identify where major topic shifts occur.
+        The transcript contains timecodes in [TIMECODE] format. When you identify a topic shift,
+        use the EXACT TIMECODE from the transcript where that new topic begins.
         
         Guidelines:
         - Create 5-10 chapters total
-        - Start the first chapter at 00:00
+        - First chapter MUST start at 00:00 (or the first timecode if different)
+        - For each chapter after the first, use the ACTUAL TIMECODE where the new topic starts
+        - DO NOT make up or estimate timecodes - only use timecodes that appear in the transcript
         - Only create a new chapter when the topic significantly changes
-        - Use the timecode where the new topic begins
-        - Create descriptive titles that reflect the main topic (under 8 words)
-        - Provide a one-sentence summary of what's covered in that chapter
-        - Look for natural transition points, not arbitrary time intervals
+        - Create descriptive titles (under 8 words)
+        - Provide a one-sentence summary per chapter
+        - Look for natural topic transitions, not arbitrary time intervals
+        
+        CRITICAL: Chapter timestamps must be EXACT timecodes from the transcript below.
         
         Condensed Transcript with Timecodes:
         \(condensedTranscript)
