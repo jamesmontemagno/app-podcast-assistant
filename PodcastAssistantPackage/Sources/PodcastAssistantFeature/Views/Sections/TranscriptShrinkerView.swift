@@ -199,7 +199,7 @@ public struct TranscriptShrinkerView: View {
                     value: $viewModel.windowSize,
                     range: 20...60,
                     step: 5,
-                    format: "%.0f segments"
+                    format: "~%.0f×120 chars"
                 )
                 
                 configSlider(

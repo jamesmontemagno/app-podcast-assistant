@@ -273,25 +273,23 @@ public class TranscriptShrinkerViewModel: ObservableObject {
     }
     
     private func calculateWindowCount() -> Int {
-        let windowSize = Int(self.windowSize)
-        let overlapSize = Int(Double(windowSize) * (overlapPercent / 100.0))
-        let stepSize = windowSize - overlapSize
+        // Estimate based on character-based windowing
+        let maxChars = Int(windowSize) * 120
+        let overlapChars = Int((overlapPercent / 100.0) * Double(maxChars))
+        let stepChars = maxChars - overlapChars
         
-        guard originalSegments.count > windowSize else { return 1 }
+        guard !originalSegments.isEmpty else { return 0 }
         
-        var count = 0
-        var startIndex = 0
-        
-        while startIndex < originalSegments.count {
-            count += 1
-            startIndex += stepSize
-            
-            if startIndex >= originalSegments.count {
-                break
-            }
+        // Estimate total characters in transcript
+        let totalChars = originalSegments.reduce(0) { sum, segment in
+            sum + segment.timestamp.count + segment.text.count + 60
         }
         
-        return count
+        guard totalChars > maxChars else { return 1 }
+        
+        // Estimate number of windows needed
+        let estimatedWindows = 1 + ((totalChars - maxChars) / stepChars)
+        return max(1, estimatedWindows)
     }
     
     private func formatDuration(_ seconds: Double) -> String {
