@@ -15,8 +15,10 @@ public struct TranscriptView: View {
     @State private var isProcessing: Bool = false
     @State private var errorMessage: String?
     @State private var successMessage: String?
+    @State private var showDebugInfo: Bool = false
+    @State private var debugInfo: ConversionDebugInfo?
     
-    private let converter = TranscriptConverter()
+    private var converter = TranscriptConverter()
     
     public init(episode: Episode, showingTranslation: Binding<Bool>, inputText: Binding<String>, outputText: Binding<String>) {
         self.episode = episode
@@ -27,6 +29,12 @@ public struct TranscriptView: View {
     
     public var body: some View {
         GeometryReader { geometry in
+            VStack(spacing: 0) {
+                // Debug info panel (collapsible)
+                if showDebugInfo, let info = debugInfo {
+                    debugPanel(info: info)
+                }
+                
             HStack(spacing: 16) {
                 // Left pane: Input
                 VStack(alignment: .leading, spacing: 12) {
@@ -95,10 +103,86 @@ public struct TranscriptView: View {
                 .frame(width: (geometry.size.width - 48) / 2)
             }
             .padding(16)
+            }
         }
         .onAppear {
             inputText = episode.transcriptInputText ?? ""
             outputText = episode.srtOutputText ?? ""
         }
+        .toolbar {
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    showDebugInfo.toggle()
+                } label: {
+                    Label("Debug Info", systemImage: showDebugInfo ? "info.circle.fill" : "info.circle")
+                }
+                .help("Show conversion debug information")
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func debugPanel(info: ConversionDebugInfo) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: info.success ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(info.success ? .green : .red)
+                Text("Conversion Debug Info")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    showDebugInfo = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            
+            Divider()
+            
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
+                GridRow {
+                    Text("Format:")
+                        .fontWeight(.semibold)
+                        .gridColumnAlignment(.trailing)
+                    Text(info.formatDescription)
+                }
+                
+                GridRow {
+                    Text("Input:")
+                        .fontWeight(.semibold)
+                    Text("\(info.inputLines) lines, \(info.inputCharacters) characters")
+                }
+                
+                GridRow {
+                    Text("Found:")
+                        .fontWeight(.semibold)
+                    Text("\(info.timestampsFound) timestamps, \(info.speakersFound) speakers")
+                }
+                
+                GridRow {
+                    Text("Generated:")
+                        .fontWeight(.semibold)
+                    Text("\(info.entriesGenerated) SRT entries")
+                }
+                
+                if let error = info.errorMessage {
+                    GridRow {
+                        Text("Error:")
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.red)
+                        Text(error)
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
+            .font(.caption)
+        }
+        .padding(12)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(8)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
     }
 }

@@ -5,6 +5,9 @@ public class TranscriptConverter {
     
     public init() {}
     
+    /// Debug information from the last conversion
+    public private(set) var lastDebugInfo: ConversionDebugInfo?
+    
     /// Converts a text file content to SRT format
     /// - Parameter textContent: The raw text content from the transcript file
     /// - Returns: SRT formatted string ready for YouTube
@@ -13,13 +16,32 @@ public class TranscriptConverter {
         // Detect format and convert accordingly
         let format = detectFormat(textContent)
         
-        switch format {
-        case .zencastr:
-            return try convertZencastrFormat(textContent)
-        case .timeRange:
-            return try convertTimeRangeFormat(textContent)
-        case .unknown:
-            throw ConversionError.invalidFormat
+        var debugInfo = ConversionDebugInfo()
+        debugInfo.detectedFormat = format
+        debugInfo.inputLines = textContent.components(separatedBy: .newlines).count
+        debugInfo.inputCharacters = textContent.count
+        
+        let result: String
+        do {
+            switch format {
+            case .zencastr:
+                result = try convertZencastrFormat(textContent, debugInfo: &debugInfo)
+            case .timeRange:
+                result = try convertTimeRangeFormat(textContent)
+            case .unknown:
+                debugInfo.errorMessage = "Could not detect format. Expected Zencastr (MM:SS.ss) or Time Range (HH:MM:SS - HH:MM:SS) format."
+                throw ConversionError.invalidFormat
+            }
+            
+            debugInfo.outputEntries = result.components(separatedBy: "\n\n").filter { !$0.isEmpty }.count
+            debugInfo.success = true
+            lastDebugInfo = debugInfo
+            return result
+        } catch {
+            debugInfo.success = false
+            debugInfo.errorMessage = error.localizedDescription
+            lastDebugInfo = debugInfo
+            throw error
         }
     }
     
@@ -28,9 +50,11 @@ public class TranscriptConverter {
         let lines = content.components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespaces) }
         
-        // Check for Zencastr format: MM:SS.ss on its own line
-        let zencastrPattern = #"^\d{1,2}:\d{2}\.\d{2}$"#
-        let zencastrRegex = try? NSRegularExpression(pattern: zencastrPattern)
+        // Check for Zencastr format: MM:SS.ss or HH:MM:SS.ss on its own line
+        let zencastrShortPattern = #"^\d{1,2}:\d{2}\.\d{2}$"#  // MM:SS.ss
+        let zencastrLongPattern = #"^\d{1,2}:\d{2}:\d{2}\.\d{2}$"#  // HH:MM:SS.ss
+        let zencastrShortRegex = try? NSRegularExpression(pattern: zencastrShortPattern)
+        let zencastrLongRegex = try? NSRegularExpression(pattern: zencastrLongPattern)
         
         // Check for time range format: HH:MM:SS - HH:MM:SS
         let timeRangePattern = #"\d{1,2}:\d{2}:\d{2}\s*[-–>]+\s*\d{1,2}:\d{2}:\d{2}"#
@@ -40,7 +64,15 @@ public class TranscriptConverter {
         var timeRangeMatches = 0
         
         for line in lines.prefix(50) {
-            if let regex = zencastrRegex {
+            // Check both Zencastr patterns
+            if let regex = zencastrShortRegex {
+                let range = NSRange(line.startIndex..., in: line)
+                if regex.firstMatch(in: line, options: [], range: range) != nil {
+                    zencastrMatches += 1
+                }
+            }
+            
+            if let regex = zencastrLongRegex {
                 let range = NSRange(line.startIndex..., in: line)
                 if regex.firstMatch(in: line, options: [], range: range) != nil {
                     zencastrMatches += 1
@@ -65,7 +97,7 @@ public class TranscriptConverter {
     }
     
     /// Converts Zencastr format (MM:SS.ss timestamp, speaker name, text)
-    private func convertZencastrFormat(_ content: String) throws -> String {
+    private func convertZencastrFormat(_ content: String, debugInfo: inout ConversionDebugInfo) throws -> String {
         let lines = content.components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespaces) }
         
@@ -76,6 +108,8 @@ public class TranscriptConverter {
         var currentTimestamp: String?
         var currentSpeaker: String?
         var currentText: [String] = []
+        var timestampCount = 0
+        var speakerCount = 0
         
         while i < lines.count {
             let line = lines[i]
@@ -88,6 +122,8 @@ public class TranscriptConverter {
             
             // Check if this is a timestamp (MM:SS.ss format)
             if let timestamp = parseZencastrTimestamp(line) {
+                timestampCount += 1
+                
                 // If we have accumulated content, write it out
                 if let ts = currentTimestamp, !currentText.isEmpty {
                     let combinedText = currentText.joined(separator: " ")
@@ -112,14 +148,17 @@ public class TranscriptConverter {
                     // If next line is not empty and not a timestamp, it's likely a speaker name
                     if !nextLine.isEmpty && parseZencastrTimestamp(nextLine) == nil {
                         // Check if it looks like a name (single word or short phrase, capitalized)
-                        if nextLine.count < 30 && nextLine.first?.isUppercase == true && !nextLine.contains(".") {
+                        // Zencastr format: timestamp then speaker name (short, no punctuation)
+                        let words = nextLine.components(separatedBy: .whitespaces)
+                        if words.count <= 2 && nextLine.count < 30 && nextLine.first?.isUppercase == true && !nextLine.contains(".") && !nextLine.contains(",") {
                             currentSpeaker = nextLine
+                            speakerCount += 1
                         } else {
                             // This is actually the text content
                             currentText.append(nextLine)
                         }
                     } else {
-                        // Go back one line
+                        // Go back one line if empty or another timestamp
                         i -= 1
                     }
                 }
@@ -143,41 +182,72 @@ public class TranscriptConverter {
             srtOutput += "\(speakerPrefix)\(combinedText)\n\n"
         }
         
+        // Store debug info
+        debugInfo.timestampsFound = timestampCount
+        debugInfo.speakersFound = speakerCount
+        debugInfo.entriesGenerated = index - 1
+        
         if srtOutput.isEmpty {
+            debugInfo.errorMessage = "No valid entries generated. Found \(timestampCount) timestamps but couldn't create SRT entries."
             throw ConversionError.noTimestampsFound
         }
         
         return srtOutput
     }
     
-    /// Parses Zencastr timestamp (MM:SS.ss) and creates end time
+    /// Parses Zencastr timestamp (MM:SS.ss or HH:MM:SS.ss) and creates end time
     private func parseZencastrTimestamp(_ line: String) -> String? {
-        let pattern = #"^(\d{1,2}):(\d{2})\.(\d{2})$"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
-        
-        let range = NSRange(line.startIndex..., in: line)
-        guard let match = regex.firstMatch(in: line, options: [], range: range) else { return nil }
-        
-        guard let minutesRange = Range(match.range(at: 1), in: line),
-              let secondsRange = Range(match.range(at: 2), in: line),
-              let millisecondsRange = Range(match.range(at: 3), in: line),
-              let minutes = Int(line[minutesRange]),
-              let seconds = Int(line[secondsRange]),
-              let centiseconds = Int(line[millisecondsRange]) else {
-            return nil
+        // Try HH:MM:SS.ss format first (for longer episodes)
+        let longPattern = #"^(\d{1,2}):(\d{2}):(\d{2})\.(\d{2})$"#
+        if let regex = try? NSRegularExpression(pattern: longPattern),
+           let match = regex.firstMatch(in: line, options: [], range: NSRange(line.startIndex..., in: line)),
+           let hoursRange = Range(match.range(at: 1), in: line),
+           let minutesRange = Range(match.range(at: 2), in: line),
+           let secondsRange = Range(match.range(at: 3), in: line),
+           let centisecondsRange = Range(match.range(at: 4), in: line),
+           let hours = Int(line[hoursRange]),
+           let minutes = Int(line[minutesRange]),
+           let seconds = Int(line[secondsRange]),
+           let centiseconds = Int(line[centisecondsRange]) {
+            
+            // Convert to total centiseconds
+            let totalCentiseconds = (hours * 3600 * 100) + (minutes * 60 * 100) + (seconds * 100) + centiseconds
+            
+            // Create end time (5 seconds later by default)
+            let endCentiseconds = totalCentiseconds + 500
+            
+            // Format as SRT timestamps
+            let startTime = formatSRTTimestamp(centiseconds: totalCentiseconds)
+            let endTime = formatSRTTimestamp(centiseconds: endCentiseconds)
+            
+            return "\(startTime) --> \(endTime)"
         }
         
-        // Convert to total seconds
-        let totalCentiseconds = (minutes * 60 * 100) + (seconds * 100) + centiseconds
+        // Try MM:SS.ss format (for shorter episodes)
+        let shortPattern = #"^(\d{1,2}):(\d{2})\.(\d{2})$"#
+        if let regex = try? NSRegularExpression(pattern: shortPattern),
+           let match = regex.firstMatch(in: line, options: [], range: NSRange(line.startIndex..., in: line)),
+           let minutesRange = Range(match.range(at: 1), in: line),
+           let secondsRange = Range(match.range(at: 2), in: line),
+           let centisecondsRange = Range(match.range(at: 3), in: line),
+           let minutes = Int(line[minutesRange]),
+           let seconds = Int(line[secondsRange]),
+           let centiseconds = Int(line[centisecondsRange]) {
+            
+            // Convert to total centiseconds
+            let totalCentiseconds = (minutes * 60 * 100) + (seconds * 100) + centiseconds
+            
+            // Create end time (5 seconds later by default)
+            let endCentiseconds = totalCentiseconds + 500
+            
+            // Format as SRT timestamps
+            let startTime = formatSRTTimestamp(centiseconds: totalCentiseconds)
+            let endTime = formatSRTTimestamp(centiseconds: endCentiseconds)
+            
+            return "\(startTime) --> \(endTime)"
+        }
         
-        // Create end time (5 seconds later by default)
-        let endCentiseconds = totalCentiseconds + 500
-        
-        // Format as SRT timestamps (00:00:00,000 --> 00:00:05,000)
-        let startTime = formatSRTTimestamp(centiseconds: totalCentiseconds)
-        let endTime = formatSRTTimestamp(centiseconds: endCentiseconds)
-        
-        return "\(startTime) --> \(endTime)"
+        return nil
     }
     
     /// Formats centiseconds as SRT timestamp (HH:MM:SS,mmm)
@@ -267,8 +337,8 @@ public class TranscriptConverter {
         return converted.replacingOccurrences(of: #"(\d{2}:\d{2}:\d{2})\.(\d{3})"#, with: "$1,$2", options: .regularExpression)
     }
     
-    private enum TranscriptFormat {
-        case zencastr    // MM:SS.ss format with speaker names
+    public enum TranscriptFormat {
+        case zencastr    // MM:SS.ss or HH:MM:SS.ss format with speaker names
         case timeRange   // HH:MM:SS - HH:MM:SS format
         case unknown
     }
@@ -284,6 +354,43 @@ public class TranscriptConverter {
             case .noTimestampsFound:
                 return "No timestamps found in the transcript."
             }
+        }
+    }
+}
+
+/// Debug information from transcript conversion
+public struct ConversionDebugInfo {
+    public var detectedFormat: TranscriptConverter.TranscriptFormat = .unknown
+    public var inputLines: Int = 0
+    public var inputCharacters: Int = 0
+    public var timestampsFound: Int = 0
+    public var speakersFound: Int = 0
+    public var entriesGenerated: Int = 0
+    public var outputEntries: Int = 0
+    public var success: Bool = false
+    public var errorMessage: String?
+    
+    public var formatDescription: String {
+        switch detectedFormat {
+        case .zencastr:
+            return "Zencastr Format (MM:SS.ss or HH:MM:SS.ss)"
+        case .timeRange:
+            return "Time Range Format (HH:MM:SS - HH:MM:SS)"
+        case .unknown:
+            return "Unknown Format"
+        }
+    }
+}
+
+extension TranscriptConverter.TranscriptFormat {
+    var description: String {
+        switch self {
+        case .zencastr:
+            return "Zencastr"
+        case .timeRange:
+            return "TimeRange"
+        case .unknown:
+            return "Unknown"
         }
     }
 }

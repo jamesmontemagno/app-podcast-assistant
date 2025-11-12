@@ -54,7 +54,7 @@ struct SaveCommands: Commands {
                     appState.episodeDetailActions?.save?()
                 case .thumbnail:
                     appState.thumbnailActions?.saveThumbnail()
-                default:
+                case .transcript, .aiIdeas, .transcriptShrinker, .none:
                     break
                 }
             }
@@ -69,7 +69,7 @@ struct SaveCommands: Commands {
             return appState.episodeDetailActions?.save != nil
         case .thumbnail:
             return appState.thumbnailCapabilities?.canSave == true
-        default:
+        case .transcript, .aiIdeas, .transcriptShrinker, .none:
             return false
         }
     }
@@ -114,6 +114,8 @@ struct EpisodeCommands: Commands {
                     thumbnailMenuItems
                 case .aiIdeas:
                     aiIdeasMenuItems
+                case .transcriptShrinker:
+                    transcriptShrinkerMenuItems
                 case .none:
                     Text("No Episode Selected")
                         .disabled(true)
@@ -248,6 +250,22 @@ struct EpisodeCommands: Commands {
                 .foregroundStyle(.secondary)
         } else {
             Text("AI Ideas Require macOS 26+")
+                .disabled(true)
+        }
+    }
+    
+    @ViewBuilder
+    private var transcriptShrinkerMenuItems: some View {
+        if #available(macOS 26.0, *) {
+            Text("🔬 Debug: Transcript Shrinker")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            
+            Text("Experimental feature for condensing transcripts")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        } else {
+            Text("Transcript Shrinker Requires macOS 26+")
                 .disabled(true)
         }
     }

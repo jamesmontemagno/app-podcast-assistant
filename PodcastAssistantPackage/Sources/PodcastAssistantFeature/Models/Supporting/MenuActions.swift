@@ -226,6 +226,7 @@ public enum EpisodeSection {
     case transcript
     case thumbnail
     case aiIdeas
+    case transcriptShrinker
 }
 
 // MARK: - Episode Detail Actions
