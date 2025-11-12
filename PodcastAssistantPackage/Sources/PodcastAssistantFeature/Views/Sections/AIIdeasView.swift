@@ -31,6 +31,8 @@ public struct AIIdeasView: View {
             } else {
                 ScrollView {
                     VStack(spacing: 16) {
+                        transcriptInfoSection
+                        Divider()
                         titleSuggestionsSection
                         Divider()
                         descriptionSection
@@ -43,6 +45,37 @@ public struct AIIdeasView: View {
                     .background(Color(NSColor.controlBackgroundColor))
                     .cornerRadius(12)
                     .padding(16)
+                }
+                
+                // Status message bar
+                if !viewModel.statusMessage.isEmpty {
+                    Divider()
+                    VStack(spacing: 4) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "sparkles")
+                                .foregroundStyle(.blue)
+                            Text(viewModel.statusMessage)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                        }
+                        
+                        if !viewModel.progressDetails.isEmpty {
+                            HStack(spacing: 8) {
+                                Image(systemName: "gearshape.2")
+                                    .foregroundStyle(.blue.opacity(0.7))
+                                    .font(.caption2)
+                                Text(viewModel.progressDetails)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                Spacer()
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(Color.blue.opacity(0.1))
                 }
                 
                 if let error = viewModel.errorMessage {
@@ -79,6 +112,72 @@ public struct AIIdeasView: View {
                 }
             }
         }
+    }
+    
+    private var transcriptInfoSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Transcript Analysis", systemImage: "doc.text.magnifyingglass")
+                .font(.headline)
+            
+            HStack(spacing: 24) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Original Length")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        Text(viewModel.transcriptLengthFormatted)
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.primary)
+                        Text("chars")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
+                Image(systemName: "arrow.right")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Cleaned Length")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        Text(viewModel.cleanedTranscriptLengthFormatted)
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.blue)
+                        Text("chars")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("Reduction")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if viewModel.transcriptLength > 0 {
+                        let reduction = Double(viewModel.transcriptLength - viewModel.cleanedTranscriptLength) / Double(viewModel.transcriptLength) * 100
+                        Text(String(format: "%.0f%%", reduction))
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.green)
+                    } else {
+                        Text("–")
+                            .font(.title2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        }
+        .padding(16)
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+        .cornerRadius(8)
     }
     
     private var titleSuggestionsSection: some View {
@@ -144,7 +243,7 @@ public struct AIIdeasView: View {
                     .font(.headline)
                 Spacer()
                 Picker("Length", selection: $viewModel.descriptionLength) {
-                    ForEach(AIIdeasViewModel.DescriptionLength.allCases, id: \.self) { length in
+                    ForEach(DescriptionGenerationService.DescriptionLength.allCases, id: \.self) { length in
                         Text(length.rawValue).tag(length)
                     }
                 }

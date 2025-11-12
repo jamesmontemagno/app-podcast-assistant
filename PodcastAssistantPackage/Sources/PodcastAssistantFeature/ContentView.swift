@@ -238,6 +238,7 @@ public struct ContentView: View {
                 case .transcript: return .transcript
                 case .thumbnail: return .thumbnail
                 case .aiIdeas: return .aiIdeas
+                case .transcriptShrinker: return .transcriptShrinker
                 }
             },
             set: { newValue in
@@ -246,6 +247,7 @@ public struct ContentView: View {
                 case .transcript: selectedDetailTab = .transcript
                 case .thumbnail: selectedDetailTab = .thumbnail
                 case .aiIdeas: selectedDetailTab = .aiIdeas
+                case .transcriptShrinker: selectedDetailTab = .transcriptShrinker
                 }
             }
         )
@@ -317,4 +319,5 @@ private enum DetailTab: Hashable {
     case transcript
     case thumbnail
     case aiIdeas
+    case transcriptShrinker
 }

@@ -90,6 +90,7 @@ public class ThumbnailViewModel: ObservableObject {
     @Published public var backgroundImage: NSImage? = nil
     @Published public var overlayImage: NSImage? = nil
     @Published public var canUndo: Bool = false
+    @Published public var availableFonts: [String] = []
     
     /// Tracks whether there are unsaved changes
     public var hasUnsavedChanges: Bool {
@@ -130,24 +131,40 @@ public class ThumbnailViewModel: ObservableObject {
     private var debounceTask: Task<Void, Never>?
     private var hasInitializedFromEpisode = false
     
-    public var availableFonts: [String] {
-        [
-            "Helvetica-Bold",
-            "Arial-BoldMT",
-            "Futura-Bold",
-            "Impact",
-            "Menlo-Bold",
-            "AvenirNext-Bold",
-            "GillSans-Bold"
-        ].sorted()
-    }
-    
     // MARK: - Initialization
     
     public init(episode: Episode, modelContext: ModelContext) {
         self.episode = episode
         self.modelContext = modelContext
         self.episodeNumber = "\(episode.episodeNumber)"
+        
+        // Load available fonts on initialization
+        self.availableFonts = loadAvailableFonts()
+    }
+    
+    // MARK: - Font Management
+    
+    /// Loads all available fonts including system fonts and custom imported fonts
+    private func loadAvailableFonts() -> [String] {
+        // Get all system fonts
+        let allFonts = fontManager.getAllAvailableFonts()
+        
+        // Filter to commonly used bold/display fonts for better UX
+        let preferredFonts = allFonts.filter { font in
+            let lowercased = font.lowercased()
+            return lowercased.contains("bold") || 
+                   lowercased.contains("black") ||
+                   lowercased.contains("heavy") ||
+                   ["Impact", "Futura-Medium", "Didot"].contains(font)
+        }
+        
+        // If we have preferred fonts, return those. Otherwise return all.
+        return preferredFonts.isEmpty ? allFonts : preferredFonts.sorted()
+    }
+    
+    /// Refresh the available fonts list (call this after importing new fonts)
+    public func refreshAvailableFonts() {
+        availableFonts = loadAvailableFonts()
     }
     
     // MARK: - Data Loading
@@ -157,6 +174,9 @@ public class ThumbnailViewModel: ObservableObject {
         hasInitializedFromEpisode = true
         
         isRestoringState = true // Prevent undo tracking during initial load
+        
+        // Refresh fonts list in case new fonts were imported
+        refreshAvailableFonts()
         
         Task { @MainActor in
             // Load saved settings from episode

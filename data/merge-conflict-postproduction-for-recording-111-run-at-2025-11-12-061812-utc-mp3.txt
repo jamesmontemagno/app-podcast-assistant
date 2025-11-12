@@ -1,0 +1,2548 @@
+00:00:00.15
+James
+Welcome back everyone to Merge Conflict, your weekly developer podcast. And this week, Frank is going to be a b-b-b-b-b-b-banger.
+
+00:00:08.79
+Frank
+A banger? don't even know. and I've just been sitting down programming all day. is something happening in the world? I don't really pay attention to the world, James. I need you to pay attention to the world and then talk to me about it so that I know what's going on in the world. What's going on in the world, James?
+
+00:00:24.35
+James
+well it is the second Tuesday of November.
+
+00:00:28.10
+Frank
+Patch Tuesday?
+
+00:00:29.11
+James
+Yeah, which the year in which a new version of.NET launches.
+
+00:00:29.59
+Frank
+No.
+
+00:00:33.49
+James
+And it's a special bonus year because we got a whole brand new version of Visual Studio, Visual Studio 2026 hot off the press.
+
+00:00:33.83
+Frank
+Oh.
+
+00:00:39.13
+James
+And also the time you listen to this, a new version of VS Code, which is also a banger of features as well via 1.06, 1.106.
+
+00:00:39.47
+Frank
+Ooh, OK.
+
+00:00:47.57
+James
+So many good things. And we're recording this on literally the day that.NET 10 launches, 11.11. You'll be listening to this on 11.17. eleven seventeen So hopefully you've already upgraded all of your applications to.NET 10 and have deployed them into production to get the sweet, sweet perf boost.
+
+00:00:58.68
+Frank
+OK.
+
+00:01:02.22
+Frank
+Yeah.
+
+00:01:06.75
+James
+ah Frank, now it's not like.NET 10, we've talked about different.NET 10 features and C-Share features and stuff like that. It's not like this is a mystery, right? I think the team does such a fantastic job of release notes and like putting things together.
+
+00:01:20.10
+James
+You got snapshots in time, right?
+
+00:01:21.89
+Frank
+Yeah.
+
+00:01:21.86
+James
+The previews, all the things. And really in the last few months, it's like bug fixes, maybe a few things, but it's like, it's the day it's.NET Conf, right? It's a keynote. We got Scott Guthrie. We got Scott Hunter. We got Scott Hansel. When we got James, not there at all. Not walking across a bridge this year. Uh-uh, no bridge for me. I don't think so.
+
+00:01:39.51
+James
+um I sat this one out at home, but I did get up super early and John, ah Galloway and I, we helped coordinate. He mostly i did all the work. I pressed a few buttons to synchronize ah the blog to get that out there and the release notes and the announcements and all this stuff before things went out.
+
+00:01:55.93
+James
+But ah yeah, it was like a wild morning because actually like I think a bunch of the bits and pieces and stuff and all things kind of like were kind of live a little early, you could kind of find them on the Internet and do some stuff.
+
+00:02:08.48
+Frank
+Oh, really?
+
+00:02:08.75
+James
+And then by eight o'clock, everything was live, like a new version of Visual Studio. which you need for.NET 10, a brand new C-sharp dev kit for Visual Studio Code, a brand new.NET 10, everything. It was wild. And um there's a bunch of cool community news outside of just.NET 10 that we're going to get into because I was randomly tweeting at like midnight on the on the social Twitter feeds.
+
+00:02:33.26
+James
+And it was think cool things were happening. So did you watch... Frank, anything?
+
+00:02:39.70
+Frank
+i
+
+00:02:39.91
+James
+Because I know that you didn't because you totally told me that you forgot that it was.NET 10 day. What?
+
+00:02:45.67
+Frank
+Look, every day is a.NET 10 day for me, man. Ever since the RC1, have been i have've i've been shipping, dude. I've just been shipping. I don't pay attention to these release cycles and things.
+
+00:02:57.88
+Frank
+I do pay attention to you walking across bridges, but that didn't happen. So I didn't... My notification, my James is walking across the bridge notification, they go off. But as you're saying, like...
+
+00:03:06.63
+James
+what
+
+00:03:07.71
+Frank
+ah For the last few months, has it only been two? I feel like it's been even longer than that. I've literally been shipping.NET 10 apps because I've been using the RC1. Microsoft said it was okay. So I'm like, great.
+
+00:03:19.88
+Frank
+I don't see any bugs. Working fine for me. And I want all the new features and all that kind of stuff. And we've talked about those new features. And so I've i've been um been shipping on this thing. But that's not to say it is good that the ah the team does have a deadline where they get to publish all their stuff. And they can say it's officially out now because we went to the RC1s, the RC2s, all that stuff.
+
+00:03:42.51
+Frank
+It's baked. C Sharp is somehow 14 years old now. I don't know how that ever happened. It's into its teenage years. It's going get awkward.
+
+00:03:51.22
+James
+well Well, I think i didn't it's much older than that, Frank.
+
+00:03:51.56
+Frank
+It's going to be weird.
+
+00:03:54.45
+James
+I think you're just not...
+
+00:03:54.68
+Frank
+No, 14.
+
+00:03:56.01
+James
+Oh, okay.
+
+00:03:56.62
+Frank
+14. C-sharp 14.
+
+00:03:57.12
+James
+and And Donette is only 10 years old, so...
+
+00:03:57.63
+Frank
+That's what it is
+
+00:04:01.43
+Frank
+Well, we don't talk about.NET 4. Those were of the terrible 4s.
+
+00:04:05.81
+James
+I mean...
+
+00:04:05.95
+Frank
+a few years might have gone by that we just don't talk about any.
+
+00:04:09.39
+James
+Yeah. ah It was a cool day. There was a pretty cool keynote, a bunch of cool demos that went on. haven't watched the keynote, it was cool because it was a combined keynote. It wasn't just the launch of Donate 10, but also Visual Studio 2026, which is now on like a yearly cadence. has an Insiders release that gets updated ah like every, think it's like every week maybe. And then the actual mainline gets updated every month.
+
+00:04:33.72
+James
+which is very similar to how like VS code works, although VS code gets nightly. So I don't know if i want to update my visual studio nightly, but you know, they actually though decoupled like a bunch of the, the, I mean, as was talking about that, they basically decoupled like the tooling from the IDE so they can rev things independently.
+
+00:04:38.50
+Frank
+Yeah.
+
+00:04:54.71
+James
+So like inherently, You wouldn't have to update every single like SDK and all the things every time you update visual studio, because like they're decoupled and easier and things like that.
+
+00:05:03.79
+Frank
+yeah
+
+00:05:07.33
+James
+So that's really cool. So it was kind of a combined feed. And then a lot of.net comp was a lot of.net stuff, but then also quite a little bit of a visual studio stuff. And obviously a lot of copilot stuff as well, which is super rad, but.
+
+00:05:18.92
+Frank
+Yeah.
+
+00:05:20.44
+James
+A lot of, lot of good stuff inside of there. And if you haven't watched the keynote, definitely go back and check it out. Highly encourage you to do that. But, you know, stuff that was in the keynote, also in the blog.
+
+00:05:30.62
+James
+So I think we can kind of go through it, give a little TLDR, high level overview, excitement here. I've already updated all my apps to.NET 10 using the ah built-in provided GitHub Copilot app modernization upgrade assist.
+
+00:05:38.82
+Frank
+yeah
+
+00:05:42.81
+James
+And there's just a prompt. Like literally, I think the Maui team put on AI prompt. It's like, just do just run this and I'll just upgrade everything. was like, cool, done. So this power of AI.
+
+00:05:50.76
+Frank
+Bye.
+
+00:05:52.63
+James
+Yeah, let's get into it. What's a what's a first sticking out? Is it that it's a long term support and also that short the standard term support STS is also two years now, 18 months.
+
+00:06:03.58
+Frank
+Yeah, i I had the biggest shock in my life when I was talking to someone. They're like you should do a, or we're not using.NET 9 because.NET 8 is the last long-term stable release.
+
+00:06:15.80
+Frank
+And I had a little bit of a shock because um i had a bunch of code still compiling for.NET 5.
+
+00:06:18.51
+James
+Yeah.
+
+00:06:21.50
+Frank
+And I'm like, oh yeah,.NET 8 totally happened.
+
+00:06:21.70
+James
+Yeah.
+
+00:06:23.78
+Frank
+And that's the LTS. And that's the one we should all be building against and everything.
+
+00:06:27.46
+James
+yeah
+
+00:06:28.10
+Frank
+It's kind of great that I can go to people and be like, oh no, it's 10 now. Just ditch all that.NET 8 stuff, throw it out. It's garbage. Bump that 8 up to a 10. The nice thing, I think we've been talking about this for a few years now, is you really can do that upgrade pretty easily. like the The breaking changes are very few and far between compared to the old days, the old crazy days.
+
+00:06:49.76
+Frank
+And so, yeah, honestly, um there was a library out there i was using. I even sent you a bug report because the library was compiling using.NET Core 1.
+
+00:07:01.65
+Frank
+And it was pulling in the nastiest native dilibs, you know, DLLs on a Mac. Stuff that you you never even imagined could run on a Mac. It was pulling in And it was because I was like, well, you know,.NET Core 1, you know, that that that should still be supported.
+
+00:07:21.88
+Frank
+Turns out it is, but you don't want to use it. Tons of garbage. And so I've actually been going around updating a lot of libraries to.NET 8 because that was the LTS. Now the same libraries.
+
+00:07:34.13
+Frank
+I wish I had just waited a month or two because I am going to go back and just bump those all up to 10 because... As I said before, 10's running great. I have no problems with 10. I might as well get as many things up to date on it as I can so I can ignore them for another couple years.
+
+00:07:50.44
+James
+Yeah. And there's always like sort of two sort of, um, flows, right? There's the original flow, which is like, Hey, i'm going to bump eight to nine or nine to 10 or eight to 10 or whatever.
+
+00:08:01.10
+James
+Does it compile? Does it roll? Let's go. right And like said, the breaking changes are pretty far in view or they're well-documented at least. Now inside of there, and like there's upgrade guides and wizards and things like that too, obviously every project's different, but I would say every project I've done recently from 78910 has been pretty rock solid in my deployments.
+
+00:08:06.84
+Frank
+Yeah.
+
+00:08:19.37
+James
+It's more of like configuring the CI, the CD, making sure my backend stuff is supporting all this stuff, you know, um unless you containerize everything, I guess.
+
+00:08:25.08
+Frank
+Yeah.
+
+00:08:26.25
+James
+But There's that, but then there's the second part, which is like actually taking advantage of the new stuff. right like A good example of this is in my Feedback Flow app where I built it with.99, but I wasn't taking advantage of any of the new like static asset, like optimizations and Blazor and the Bratley compression and all this stuff. There's a bunch of things that you just flip on, um but that was step two. Step one, get my app working, good to go.
+
+00:08:49.11
+Frank
+Yeah.
+
+00:08:49.23
+James
+Because I know inherently when I move from eight to nine or nine to 10, just by flipping the bit, You get all those performance, chunky, awesome updates, right? And I mean, and that's kind of like one of the big kind of things that is in the blog post. And Stephen Tobe's like bajillion going to break your browser thing. But there's tons of like, you know, JIT compiler enhancements. There's new hardware acceleration. There's big native AOT improvement support.
+
+00:09:14.14
+James
+And there's been tons of improvements to the entire inner loop, like stack allocation and different performance gains and strategies, but also like if you don't even use new structures, like the underlying libraries and frameworks that you use, like let's say HTTP client, start to use that stuff.
+
+00:09:28.29
+James
+Like spans are just like, I think, I think, so I think was it in the keynote?
+
+00:09:31.08
+Frank
+Everywhere?
+
+00:09:31.46
+James
+It's like spans have now, like, like it's like they did some analysis, like it's like 95% of places that spans could be used, are be used or like or are being used or something like that.
+
+00:09:39.86
+Frank
+Oh, yeah.
+
+00:09:41.25
+James
+Something crazy. i don't know. some um I might've just made that up or el hallucinated it, but you know what I mean?
+
+00:09:44.33
+Frank
+Good.
+
+00:09:45.41
+James
+So, yeah.
+
+00:09:46.75
+Frank
+Yeah, yeah. And it's it's funny because um I've always been conservative with the language version, um especially back in the Xamarin days, because Xamarin was usually one or two C-sharp language ah versions behind and all that stuff.
+
+00:09:59.25
+Frank
+But these days, and this goes against the MSDN recommendation, this goes against Microsoft's recommendation, i am laying version latest, baby. I'm just like, give me give me whatever you got, I'm going to use it.
+
+00:10:10.55
+Frank
+And then inevitably I realize, oh, I'm still using some old SDKs for a few things and then I run into trouble. But ah i'm i'm I'm not one of those people that's just going to go into code and update it for update's sake. If the code's working, I don't want to introduce bugs by messing around.
+
+00:10:27.85
+Frank
+But I definitely love to ride the latest bleeding edge of the languages as I can on my main code basis, especially for new code. So I don't really go back and rewrite anything. But I do love using the new features.
+
+00:10:42.08
+Frank
+um Especially, i was already mentioning to you, there's one one new feature I'm absolutely going to use because um I've been waiting for extensions, extension everything, basically in C Sharp. I forget what we used to call but basically that.
+
+00:10:57.95
+Frank
+ah We got extension methods many, many, many years ago, and everyone loves them. Everyone writes helper this and utility that and e ex this and all that kind of stuff.
+
+00:11:07.25
+James
+Mm-hmm. Hmm.
+
+00:11:09.55
+Frank
+It's in every C sharp code base. ah But I think this version, we're going to have even more extensions coming through in all the codes. And I don't know.
+
+00:11:22.37
+Frank
+i i don't like, you know, i do a bit of Swift programming now. And I think extensions have gotten really crazy in that language where people put like nothing in the class and the type and then do everything through extensions.
+
+00:11:33.79
+Frank
+I think that that gets a little bit ugly. But um I love extensions for extending other people's libraries and the built-in libraries and creating that, you know, Frankhelpers.cs file everywhere that I possibly can.
+
+00:11:49.13
+Frank
+So that's my favorite new feature coming in C sharp.
+
+00:11:49.12
+James
+Yeah.
+
+00:11:53.14
+Frank
+Yes, it's older than 14, but I'm going to call it 14 years old.
+
+00:11:56.54
+James
+Well, I'll say that the field back properties are also talking about properties. My other favorite feature, like you no longer have to actually create backing fields anymore, just to do special logic, which is super nice.
+
+00:12:05.03
+Frank
+Yes, thank you.
+
+00:12:07.79
+James
+You know, uh, so what this is imagine if you're like, Hey, like when I set something, I want to like check a value that comes in against no, and i want to trim it. i want to do some stuff. And like, then I need to like save that and need to some stuff. You need to like something to like save that.
+
+00:12:21.68
+James
+Cause you need to get her in the setter and the stuff. So now you can just use the field keyword and then you can just get the field, you know, set, set the field and do anything you want.
+
+00:12:28.14
+Frank
+So nice.
+
+00:12:29.94
+James
+It's super duper nice. Yeah.
+
+00:12:31.60
+Frank
+it's It's like the smallest little change ever. And I remember they were really hesitant even putting it in because it was breaking a few people's little bit of code. But those people deserve to be broken. who Who's naming their fields field? That's insane.
+
+00:12:43.04
+Frank
+um I love this feature. If I have to put one more private int underscore backing whatever the heck in my code, it's going to drive me nuts.
+
+00:12:53.44
+Frank
+So I love just using the field keyword.
+
+00:12:53.87
+James
+Oh yeah.
+
+00:12:56.54
+Frank
+Is it a Does it turn blue in your new Visual Studio? It's kind of a keyword. A little bit of a baby com contextual keyword.
+
+00:13:04.57
+James
+I don't know. I'll to see. I'll have actually copy the code into visual studio, 20, 20 seconds and see what happens. Um, that's good question. Yeah. There's but whole bunch of other stuff. Uh, I think no conditional assignment is pretty cool.
+
+00:13:16.87
+James
+You can do question mark dot equals now, which is crazy.
+
+00:13:17.74
+Frank
+um my god forever I keep wanting to write it. And it's funny. Every time I would write it I'd be like, oh yeah, C-sharp doesn't support that. And I'd be like, but what does it actually mean? Like, if the left-hand side is null, is it going to evaluate the right-hand side?
+
+00:13:34.89
+Frank
+Every time I kept thinking about I'm like, oh, I get why they haven't implemented this. They're probably having the same debate in those meetings as I'm having in my head.
+
+00:13:41.34
+James
+Yeah. Yeah.
+
+00:13:41.86
+Frank
+I'm like, what does happen? Does it run the right-hand side and then just not do the assignment? Or does it completely ignore the right-hand side? Well, the right-hand side is complicated and has commas and and things like that.
+
+00:13:52.96
+Frank
+So i actually, i'm looking forward to going through and reading the language spec for that one, because I don't think it's good enough to just read a blog post be like, oh, there's conditional assignments. I want to know in detail, like what is what is not being executed and what is being executed when you use those things.
+
+00:14:08.64
+James
+yeah
+
+00:14:10.06
+Frank
+But I do want to say, even though I think it's a little bit of a gray area, just in my knowledge at the moment, I can't wait to use them because I would, my fingers will use them all the time and I would have to change the code. ah So I'm super excited for that.
+
+00:14:23.69
+James
+And there's a big F sharp 10 section of this blog post to Frank Krueger.
+
+00:14:29.33
+Frank
+Yeah, it's a big section, but it's just a wee, wee upgrades. I think they called it like a stabilization and refinements up updates for F-Sharp. um I gotta be honest, not too many extravagant new features for me. A lot of it's just kind of polished.
+
+00:14:49.05
+Frank
+F-Sharp has these things called computation expressions where you can really enhance the language and create like DSLs in it. And they keep advancing that system. And filling all of but filling in all the little missing parts of it.
+
+00:15:03.06
+Frank
+And it's it's one of the most powerful but parts of F-sharp is these computational expressions. And so they're just having them refine them and make them even more useful to the crazy people out there who are writing who are writing those things. ah Good.
+
+00:15:20.33
+Frank
+I should say there's normal use cases like whenever you're writing async code, you use these things, but you don't have to just use them. Unlike C sharp, you can actually create them and do all sorts of fancy complicated stuff in F sharp.
+
+00:15:34.38
+Frank
+I got to be honest, though, I tend not to create those myself. I use the heck out of them, but I tend not to create them.
+
+00:15:42.06
+James
+And what I love about the blog post is like, it's kind of like a high level TLDR, but then there's like deep dive, like documentation on everything too. Uh, so obviously we're not going to cover every single feature that's in this release, but, uh, yeah, it's kind of cool.
+
+00:15:49.76
+Frank
+Mm-hmm.
+
+00:15:55.03
+James
+Cause even this one, there's like some core libraries of of sharp and some performance improvements and things like that. And better trimming by defaults, you know?
+
+00:16:01.81
+Frank
+trimming trimming we're all trimming now we gotta we gotta to get our tiny little apps you know it's funny um even in even for like a mac apps and ios apps uh the trimmer they keep wanting to turn the trimmer on in my code and i keep using reflection so i i have to keep turning the trimmer off but my code is getting closer and closer to being fully trimmable i'm i'm getting
+
+00:16:03.35
+James
+Yeah. Trimming, trim it down.
+
+00:16:27.16
+Frank
+Pretty good. How are you? Do you turn the trimmer on? Are you full trim? No.
+
+00:16:31.82
+James
+No, I'm, I'm zero, zero trim.
+
+00:16:32.34
+Frank
+Look at you. Zero trim.
+
+00:16:34.45
+James
+Yeah. i got, I don't got time to trim. was like, can't, can't be trimming. Oh, I mean, unless it's a, unless it's a, an iOS app and I have to trim then yeah. id trim it. You have it's in in my Xamarin days, you're forced to trim, right?
+
+00:16:41.88
+Frank
+Yeah.
+
+00:16:44.41
+James
+So you gotta be tri always be trimming. Right.
+
+00:16:46.01
+Frank
+Well, not really.
+
+00:16:46.74
+James
+Uh, ah, ah
+
+00:16:48.06
+Frank
+yeah so there's like... that they would do We ran the linker.
+
+00:16:51.35
+James
+You got to trim.
+
+00:16:53.66
+Frank
+So yeah, we got these two technologies that are very similar, but they're different.
+
+00:16:54.52
+James
+Yeah. It's linger.
+
+00:16:57.90
+Frank
+The trimmer actually pretty different from the linker. um the They accomplish the same thing, trying to shrink your app down.
+
+00:17:04.84
+James
+Yeah.
+
+00:17:05.34
+Frank
+But they're two different techniques, let's say. And one is very aggressive.
+
+00:17:08.71
+James
+Totally.
+
+00:17:09.89
+Frank
+but The trimmer is ultra aggressive. Yeah. And when you um when you write code it's not happy with, oh, it lets you know. It gives you at least a thousand error messages just to remind you you are being naughty about your trimming. So um ah none of that has anything to do with F-sharp rather than they're improving their own library so that they can be trimmed.
+
+00:17:30.33
+James
+Yeah, it's pretty cool.
+
+00:17:30.79
+Frank
+Yeah, I still can't. iCircuit is still like 40 megabytes because I just, I can't get the thing trimmed down.
+
+00:17:38.11
+James
+It's okay. It's okay. you can You can live untrimmed.
+
+00:17:40.23
+Frank
+I think so.
+
+00:17:43.63
+Frank
+Well, you got to be careful because um my IDE continuous, that thing is 0% trimmed. a lot of my things are only partial are partially trimmed. Partial trimming. That's the way to go.
+
+00:17:54.79
+James
+Yeah.
+
+00:17:55.03
+Frank
+Zero trimming. It's like an hour long build, dude. It takes a long time to compile that thing.
+
+00:17:58.57
+James
+Yeah.
+
+00:18:01.27
+James
+Yeah, too long. Yeah.
+
+00:18:02.94
+Frank
+Yeah.
+
+00:18:03.09
+James
+ah Can you explain to me post-quantum cryptography in the library?
+
+00:18:06.92
+Frank
+No, I cannot. James, I really cannot.
+
+00:18:08.39
+James
+Okay, good.
+
+00:18:09.60
+Frank
+i Quantum, quantum, quantum. ah It's just fun to say. um We are not living in a post-quantum world. ah We're up to like three qubits. They're not doing much.
+
+00:18:21.31
+Frank
+No one knows how to program them. We pretend to know how to program them. um So my answer is no. No. um If someone's attacking you with a quantum computer, you can giggle because they just spent trillions of dollars for three qubits to attack you.
+
+00:18:35.81
+James
+Well, now down at 10 has a bunch of post quantum cryptography, which helps it future proof your applications get quantum threats while maintaining compatibility with existing systems.
+
+00:18:36.08
+Frank
+So no.
+
+00:18:45.18
+James
+I mean, that's cool. I like it. I like the team's thinking future proof. I do think like some of the stuff and I'm going to be talking about the AI stuff too. Like this, of this built in, like a lot of the libraries, like Microsoft agent framework and MEAI and all these other MCP stuff. It's like,
+
+00:18:59.85
+James
+Yeah, I mean, I'm actually really glad this stuff is in there. Maybe I'm never going to use it or maybe you won't use it for way out in the future. Or like maybe there's things that are underlying that are just like going to work. But at the same time, it's like it's kind of cool that like.NET is being on the forefront of some of these things, too.
+
+00:19:08.82
+Frank
+Yeah.
+
+00:19:16.14
+James
+You know what I mean? So that may not be apply, but how I look at it is like the team really kind of pushing some of these, you know, boundaries forward in a way.
+
+00:19:27.27
+Frank
+Yeah, um we should do a whole episode on post-quantum, but we'll have to wait about 100 years and then we'll we'll talk about it.
+
+00:19:35.11
+James
+I don't know.
+
+00:19:35.22
+Frank
+I am curious exactly what it means.
+
+00:19:36.65
+James
+i don't know if it's that long.
+
+00:19:37.22
+Frank
+So maybe maybe I'll do some reading up on and see see what everyone's talking about with this post-quantum. It's probably just some new algorithms. You know, the one thing ah encryption people love to do is invent new algorithms and name them after themselves. And so I'm sure that's happened again.
+
+00:19:54.22
+James
+Yeah. Uh, tons of other library stuff, new enhancements and networking web socket streams, TLS 1.3 on Mac OS. Hey, oh, uh, tons of performance stuff, tons of Jason and high enhancements, cryptography updates, tons of just improvements are around the board, tons stuff in the libraries.
+
+00:20:02.53
+Frank
+Hey-o.
+
+00:20:09.31
+James
+But I want to talk about aspire, not done at aspire. It's aspire now because the spires of 100% fully blocked polyglot and it is aspire 13.
+
+00:20:13.29
+Frank
+Oh.
+
+00:20:19.21
+James
+That's what it is.
+
+00:20:19.29
+Frank
+it's How did it get to be 13 years old already? but c Sharp just turned 14.
+
+00:20:22.80
+James
+It's dude. The Aspire teams, they're doing their own thing, man. So aspire.dev is a brand new website you can go to. It's completely different. and It's ah fully not it's not like decoupled from.NET, but there's a lot of decoupling that has happened, to be honest with you. And and the whole idea is kind of what we talked about before of orchestrating front ends, APIs, containers, databases. But...
+
+00:20:43.82
+James
+They've done a whole bunch of stuff. Like they've made it super simple to like do just like a simple app host. You can actually now do like single file like projects. So you can just have like a single file app host and they'll just like figure it out.
+
+00:20:52.87
+Frank
+ah funny
+
+00:20:56.46
+James
+They even added like add C sharp resource and add C sharp app to kind of make it like very like yeah Hey, it's Polyglot. And then they did tons of dashboard enhancements. But the biggest thing is that they really made it like super like independent from.NET, obviously, which I think for the for the greater good, because the whole idea of Aspire was orchestrating these...
+
+00:21:22.48
+James
+you know, applications and yeah, like often I'll have a C sharp or a.NET front end and a.NET backend, but what if I do have a React front end and I have my.NET backend and I have, you know, some Python script, how do I do that?
+
+00:21:34.70
+James
+And like, you'll love it or hate it when you have the word.net in the name, it it kind of calls out that it's for.net developers, it's not for Python developers or not for JavaScript developers.
+
+00:21:43.70
+Frank
+Yeah.
+
+00:21:46.41
+James
+And if you really want to be polyglot, you kind of need to be this standalone thing. So it does all this stuff. It has like crazy amount of like new debugging support, like auto-generated Docker files. Like they have a unified environment variable pattern, a bunch of stuff. I've been using tons of this stuff with The Feedbackflow app, and I'm super loving in it, like deep integrations with the dashboard and stuff too. And the website, Aspire.dev, super pretty. So if you haven't checked it out, definitely do there. still in the.NET and.NET Foundation and stuff like that as a.NET project, that's was' based on. But they're really trying to, you know, big ecosystem, right? Which makes a lot of sense when you think about the problems that it's trying to solve.
+
+00:22:26.08
+Frank
+Can I ask you a dummy question? I feel but I'm embarrassed to even ask because I think all it does is reveal how naive I am. But hey may i ask you a naive question?
+
+00:22:36.42
+James
+Sure.
+
+00:22:37.90
+Frank
+can I use Aspire for ah deploying like production stuff, or is it still meant mostly for development type stuff?
+
+00:22:49.99
+Frank
+Do I have a wonderful experience creating an app and then a miserable time actually deploying it, or can I also use Aspire to do like final production deployments also? And I apologize to anyone if I'm completely missing the boat on the correct uses of this puppy.
+
+00:23:08.27
+Frank
+But it looks like super awesome for development. Am I allowed to do production with it or not?
+
+00:23:13.49
+James
+Yeah, no, yeah, you can aspire to play. They have a see they have a CLI and they have like, you know, built in right-click publish stuff. It's going to depend on like where you want to go and what you are building though. Right. And like how complex different things are.
+
+00:23:27.89
+James
+So if you're like, Hey, I want, you know, my, my, you know, it depends. Let's say you're just like, Hey, I got a backend and a front end and I want to like, you know, send this off to everything's on app service. Like you can basically just throw it in like a little bit of configuration and right-click publish and it'll like spin it up all to Azure, right or there's Amazon you know built-in integrations too.
+
+00:23:52.16
+James
+Now, if you're like, hey, I want to put this on you know you know GitHub pages, or I want to put this on um Cloudflare, or what you know what i mean or like you know gcp or something that that doesn't have an integration, like if the there's the integrations and yes, you can always do custom deployment.
+
+00:23:52.62
+Frank
+Mm-hmm. Mm-hmm.
+
+00:24:09.89
+James
+But from ah from a standpoint, yeah, you can easily to deploy and kind of go. But it's more going to be an opinionated one. But that being said, one of the superpowers is that it can turn any of those different projects or resources, the main components, like your backend or this or that, into containers, into a Dockerfile.
+
+00:24:27.15
+Frank
+Yeah, fair.
+
+00:24:27.71
+James
+And then you could put it anywhere, right?
+
+00:24:27.94
+Frank
+Yeah. Hmm.
+
+00:24:29.11
+James
+So that's the flexibility of it in general um to be able to do that. Like for for feedback flow, I don't deploy it with that. Although because at the time I couldn't do app service or function and functions was in preview.
+
+00:24:42.29
+James
+But now I could, i could just be like, boom. And I probably will. um And as long as you're using like the Azure integrations or the AWS integrations, it will know how to deploy. So like, for example, you could say, hey, I'm going to have a Redis container.
+
+00:24:55.42
+James
+And I'm just going to like, here's a Redis container, boom. And then I have a backend. And like, maybe that's all you have. I have an API and a Redis container and that's all in a database.
+
+00:25:03.61
+Frank
+Mm-hmm. Mm-hmm.
+
+00:25:03.79
+James
+It could take all those, put them in three different containers and you could deploy them. And it would do all the mapping for all of the environment variables and all this stuff for you automagically in the deployed. And you could put that on like AWS AppRunner, or maybe you could put it on container apps, right?
+
+00:25:17.24
+James
+Opinionated um on the deploy. Or you could say, just turn these into Docker files and then go. And it could do that as well. um Those are your options. However, you probably maybe don't want to use Postgres in a container, like always. Like there's managed services. You may, but you might want to use like Azure Redis, right? And that has like a managed service that's easier. You may want to, you may not.
+
+00:25:41.51
+Frank
+Okay.
+
+00:25:41.89
+James
+So you're doing that, then what you would do is you'd say, oh, turn this thing into a container for my backend, deploy that here.
+
+00:25:42.61
+Frank
+Right.
+
+00:25:47.35
+James
+And then I want to use Azure Redis. And the nice thing is you could easily swap with one line of code between Azure, AWS, or just a container.
+
+00:25:53.63
+Frank
+Okay.
+
+00:25:57.81
+James
+It's basically what integration are you using?
+
+00:25:58.37
+Frank
+okay
+
+00:25:59.37
+James
+Are you using the Azure Redis, are you using Redis Redis, are you using AWS, I think there's an AWS Redis, I i assume. that And then everything else continues to work the same because of the interop-ability basically between those.
+
+00:26:12.30
+James
+Does that make sense?
+
+00:26:14.14
+Frank
+It does, actually, um because my biggest concern is usually around data. Like, ah but who cares about a front end? Yeah, you upload it. It works. It kicks off the moment. You know, it's bound to the port. You know, that's fine.
+
+00:26:27.19
+Frank
+It's always the database that I'm afraid of for deployments because you have the old data, which may need to be migrated and all that kind of stuff. So I was curious how you actually handle all that.
+
+00:26:37.88
+Frank
+And what you said actually makes a ton of sense is, like, during development, sure, maybe I'm just running the database in a little container guy. But for deployments, when it's really running really, really, really live, then it's using some app service or something out there. That does make sense.
+
+00:26:53.49
+Frank
+i I like my full control where I actually do have my own containers, but those come with a lot of problems, especially around data migration and making sure that the production data doesn't get mixed with dev data and all that kind of stuff.
+
+00:27:05.59
+James
+Exactly.
+
+00:27:05.88
+Frank
+So I appreciate you helping me out there.
+
+00:27:06.94
+James
+Yeah.
+
+00:27:10.04
+James
+And then the other thing is some of these integrations have like emulators. So like a lot of the Azure services like table storage or SQL server, you can just say dot as emulator in, in development.
+
+00:27:22.31
+James
+So it just basically going to run the service. However, it runs it locally and like emulates the thing, right? Which is kind of cool too. So it's kind of like running Cosmos DB locally.
+
+00:27:30.01
+Frank
+I want to talk. I wanted to clone all the production data onto my machine so I can actually test against real data, you know, and then I'll be like really sure that I'm ready to deployments.
+
+00:27:41.51
+Frank
+But okay.
+
+00:27:41.80
+James
+That'd be cool.
+
+00:27:42.51
+Frank
+I think oh i don't have to spend forever here, but I just needed that clarification. Cause I always got a little confused.
+
+00:27:47.06
+James
+Yeah.
+
+00:27:47.70
+Frank
+I'm like, is this development time only or am I supposed to deploy with these?
+
+00:27:52.38
+James
+Well, there's also a lot of things too that also came in this release around Aspire, which was.NET MAUI support for Aspire too. And Safiya showed, that's a great question.
+
+00:27:59.27
+Frank
+What does that mean?
+
+00:28:02.34
+Frank
+What does it mean?
+
+00:28:02.93
+James
+So what does it mean? ah So what it means, Frank Kruger, is that you could, in all theory, be like, hey, i have my backend here locally, and then I have my front end over here, and I have my mobile application, and you can decide to to have all of the telemetry from your Maui app or.NET application,.NET, iOS, Android, whatever it is, pipe the open telemetry into the dashboard, and you can see how the backend and your mobile app and your desktop app all works together, but
+
+00:28:32.07
+Frank
+I see.
+
+00:28:34.85
+James
+You can also see like simulators in the dashboard and you can say open simulator, like pop open the simulator. You can assign it in the scaffolding.
+
+00:28:41.36
+Frank
+Crazy. That's crazy.
+
+00:28:43.90
+James
+Yeah, it's wild. Like I'd never seen it before until today when Safiya showed it on stage. She's like, have this backend. Like here's the simulator. i just click the button and the simulator pops up. And I was like, whoa, i that's crazy. Like it like deploys the app automatically.
+
+00:28:55.50
+James
+So instead of saying, I'm going to go run my backend, I'm going to run my front end, I'm going to run my mobile app.
+
+00:28:56.65
+Frank
+Yeah.
+
+00:28:59.78
+Frank
+Yeah, sure.
+
+00:29:00.93
+James
+You run the app host and say, i I'm in iOS debug mode.
+
+00:29:01.44
+Frank
+Yeah.
+
+00:29:04.25
+James
+It knows how to run the simulator bingo bango. And then everything's being piped in there along the way. And I'm not sure if it's using like, dev tunnels or something else like the back end API ports or whatever but that'd be cool.
+
+00:29:13.64
+Frank
+Yeah, clever.
+
+00:29:16.52
+Frank
+Was that demo on a Windows machine or on a... ah let' Sorry, was it for iOS? if it And if it was for iOS, was that on a...
+
+00:29:21.58
+James
+iOS.
+
+00:29:22.77
+Frank
+Oh, okay. So was that a Windows machine talking to a Mac or was that a Mac that was on a Mac?
+
+00:29:23.66
+James
+yeah That was on a Mac machine talking to a Mac. Yeah.
+
+00:29:28.52
+Frank
+Yeah, okay.
+
+00:29:29.24
+James
+I assume Android and Windows like locally on on and on ah
+
+00:29:33.35
+Frank
+Yeah.
+
+00:29:34.67
+James
+on Windows. Yeah, and then iOS-y stuff and Mac stuff.
+
+00:29:36.30
+Frank
+A Mac talking to a Mac. Who would have thought?
+
+00:29:38.29
+James
+A Mac talking to a simulator. So that was really cool just to kind of see that all come together.
+
+00:29:42.83
+Frank
+Yeah, that's kind of crazy.
+
+00:29:42.98
+James
+All right.
+
+00:29:43.63
+Frank
+yeah I hadn't seen that demo.
+
+00:29:45.86
+James
+ah We got a bunch of AI stuff. So
+
+00:29:51.45
+Frank
+Ding.
+
+00:29:52.68
+James
+ding.
+
+00:29:53.86
+Frank
+ah Have we not said agent yet today? We we need to say agent at least 20 times within the next couple minutes. So can i can I simplify my agent development, James? Is that possible?
+
+00:30:05.05
+James
+Yes.
+
+00:30:06.35
+Frank
+Good.
+
+00:30:07.28
+James
+Yep. Okay. You can do that now.
+
+00:30:07.81
+Frank
+Can I create agents by simplifying my agent development? that possible?
+
+00:30:12.30
+James
+Yes. so You can create a new agent with the Microsoft agent framework, which is a combination of the best of semantic kernel and auto gen, which are two technologies I never use because they weren't simple enough. I just want to simplify this stuff in general. I'm not, i haven't really built a lot of agents.
+
+00:30:26.22
+James
+Are you building agents to do stuff?
+
+00:30:29.48
+Frank
+It's hard to say because i in general, I want to say no, but I keep saying I'm adding AI features to my apps. And are those agents? It's hard to say. Like, am i the developer of agents? Maybe I am.
+
+00:30:43.42
+Frank
+Feels like it sometimes, especially when you're writing system prompts, you feel like you're an agent programmer. um But in general, no, I haven't been writing like agents to mow my lawn.
+
+00:30:54.60
+Frank
+I haven't written an agent to feed the cat. I do need some agents of those calibers. so Maybe an agent can help me write that agent.
+
+00:31:02.53
+James
+yeah Well, and I think also the agent firm, they can talk to, you know, MCP servers and they can, you know, everything is all Aspire-fied too. So all your AI stuff and all your token usage that all goes into the Aspire dashboard, by the way.
+
+00:31:13.68
+Frank
+Hmm.
+
+00:31:15.38
+James
+So they showed off all the tons of ai integration in there.
+
+00:31:16.48
+Frank
+Hmm.
+
+00:31:18.26
+James
+But yeah, I need to check it out. I need to check out the AI project templates that they just released too. Cause like right now for feedback flow, I'm using the other thing, which is Microsoft extensions AI, which makes it really, really easy to do building blocks.
+
+00:31:29.00
+Frank
+Yeah.
+
+00:31:31.87
+James
+Like do chat completions or do, um, you know, image stuff and, you know, do kind of that real time across like get up models or Olama or Azure, kind of like the classic chat client type of stuff and doing, you know, vector databases and things like that, kind of the traditional stuff that I'm doing.
+
+00:31:51.63
+James
+But inherently, like what I'm doing today for feedback flows, I'm like calling a bunch of APIs for like different services, like for Reddit and for YouTube and all this other stuff.
+
+00:32:01.02
+Frank
+Yeah. Yeah.
+
+00:32:01.37
+James
+I'm calling them back. And then I'm piping all that data into Microsoft extensions AI. But in theory, I'd have like a feedback agent and it'd be like, Hey, feedback agent, I want you to go do this thing.
+
+00:32:09.83
+Frank
+yeah
+
+00:32:13.12
+James
+And the feedback agent was be like, cool. I see what you're saying is like, you want me to go like, look at this thing on Reddit thing and this thing on YouTube. Okay. I'm going to go call those agents, which will go grab that data, return the data for me.
+
+00:32:24.31
+James
+I'll automatically write like right now I'm orchestrating it all myself, but it would orchestrate it.
+
+00:32:26.18
+Frank
+yeah
+
+00:32:28.79
+James
+And then it'd be like, okay, I have this data. Now i'm going to call into another agent, which its entire job is just do the summarization and all this stuff for me, which is probably then calling the Microsoft extensions AI. Right.
+
+00:32:38.93
+James
+I think that's what agents are.
+
+00:32:41.29
+Frank
+yeah Yeah, and I like, that was my original thought on what agents were. that That was maybe like a year ago, though. I think we've at least redefined the word three times since then. um But I do still wish I did more of that stuff.
+
+00:32:51.09
+James
+Yeah.
+
+00:32:54.54
+Frank
+um Like the super high level creation of agents where you're just like, okay, here's a few data sources. Here's a bunch of triggers. Whenever this trigger happens, do this. So scripting, I guess, is it.
+
+00:33:04.74
+James
+yeah
+
+00:33:07.74
+Frank
+I don't feel like I need... I love you, C-sharp. I love you, F-sharp. But I don't feel like I need to be writing C-sharp and F-sharp for a lot of those things. And I wish I was creating more high-level agents that just reacted to high-level triggers, high-level data flows and
+
+00:33:20.39
+James
+yeah
+
+00:33:22.42
+Frank
+did a lot of handoff. Like, I think we got really excited about MCP and all that kind of stuff. But in the end, I do hope we go back to that original definition of agents of maybe these somewhat smaller things that are just our favorite word proactively or reactively doing things for you.
+
+00:33:40.84
+James
+Yeah, I think so too. think that'd be pretty cool. um
+
+00:33:44.81
+Frank
+So I need it in my apps.
+
+00:33:44.81
+James
+Well, you can do all that.
+
+00:33:48.15
+Frank
+I can do all that. I've written my own libraries to do all that. I have cross intelligence. I don't need no Microsoft Extensions AI.
+
+00:33:53.64
+James
+Wow.
+
+00:33:55.20
+Frank
+But um Microsoft Extensions AI is a lot more powerful because it has multi. It's multimodal, multimodal.
+
+00:34:01.27
+James
+You know what you should...
+
+00:34:04.47
+James
+You know what you should do is you should implement like iChat client or whatever for your cross-lib thingy.
+
+00:34:08.29
+Frank
+Yeah.
+
+00:34:10.63
+Frank
+Yeah, david David said, Frank, why haven't you implemented the this interface yet?
+
+00:34:12.46
+James
+No.
+
+00:34:15.94
+Frank
+And I'm just like, well, get off my back. I really should though, so I can just plug it into Microsoft extensions.
+
+00:34:23.99
+James
+Yeah, basically all you do is you implement this thing and you can say like, you know, like give me a new cross intelligence client and it returned an iChat client and then the rest of my code work. So I could just do chat client complete async.
+
+00:34:33.79
+Frank
+Yeah.
+
+00:34:34.98
+James
+And what's cool about that is then you could, ah you Frank, it could be really, really simple, which is like you then don't need to implement like Azure open AI or open AI or like, you know, anthropic endpoints or whatever you're calling into.
+
+00:34:52.47
+James
+Like that already exists in iChat client, right? So like if you return an iChat client, you could be like, oh, is ichat is is the cross-intelligence available?
+
+00:34:55.44
+Frank
+Yeah. Yeah. Yeah.
+
+00:35:01.13
+James
+It's not. Oh, then let me just grab this other iChat client that already exists.
+
+00:35:05.58
+Frank
+yeah
+
+00:35:05.73
+James
+And then you wouldn't need to implement those things because it would all just work inherently for you.
+
+00:35:10.58
+Frank
+Yeah, and that is the world we're going to have to live in also, um especially being app developers where ah we've we've talked about this before, but roughly speaking, like you kind of want to have a free tier for your app where people can just use it and using maybe kind of a dumber model.
+
+00:35:14.99
+James
+Mm-hmm.
+
+00:35:27.19
+Frank
+And then um if you have people paying into it, make it easy for them to access a more advanced model. always hard, like, as a developer. Am I developing something for someone else or am I developing it for myself? So I'm always in the I'm developing it for someone else kind of world where I'm trying to think of how how I would use these things.
+
+00:35:44.18
+Frank
+But for myself, I hope well hope I'll get back to your original definition of agent someday.
+
+00:35:44.49
+James
+yeah
+
+00:35:50.63
+James
+Agents. ah We can also develop MCP servers like I do with a bunch of the MCP stuff that's built in. and Tons of improvements. There's always new specs coming out. But let's get into the frameworks.
+
+00:36:02.69
+James
+Frank, we're only halfway through this post. Let's get into ASP.NET Core and Blazor going on. um Bunch of stuff.
+
+00:36:09.82
+Frank
+like Blazor's taking over the world. Everyone's blazoring all the time. You know, i it was funny.
+
+00:36:15.42
+James
+Are they?
+
+00:36:16.01
+Frank
+i I feel like it. Well, so I wanted to create a WebAssembly app, like a little C-sharp WebAssembly app. And for the life of me, I could not figure out how to do it because...
+
+00:36:28.67
+Frank
+Back when I originally did WebAssembly stuff for C Sharp, it was a very manual process. You followed someone's blog post on how to do it. It was very gross. Nowadays, if you search for WebAssembly in C Sharp, it's all Blazor, Blazor, Blazor.
+
+00:36:41.91
+James
+Yeah.
+
+00:36:42.11
+Frank
+And you can't, no one describes how to do it without Blazor because everyone's just doing it with Blazor.
+
+00:36:42.77
+James
+Mm-hmm.
+
+00:36:47.69
+Frank
+So that's why I'm saying Blazor is taking over because that's all I see whenever I try to do those kinds of things. You absolutely can still write your own WebAssembly stuff without Blazor, but good luck Googling for any of that because it's all Blazor talk nowadays.
+
+00:37:05.10
+James
+A lot of Blazor talk. Yeah, no. and And there's still a lot of core improvements. We'll talk about APIs, but they did a bunch of stuff with like memory pool eviction for long running applications. It'll automatically do a bunch of memory stuff for you, releasing idle memory back to the system, pass key support, more native AOT enhancements.
+
+00:37:21.71
+James
+Yeah. When it comes to Blazor, Dan had a rock solid, awesome demo talking about all the new state management stuff, tons of performance and like preloading optimizations and
+
+00:37:26.14
+Frank
+It
+
+00:37:32.70
+James
+Tons of like form validation and input. I mean, there's like tons of stuff in here. He showed like something was like the launch and the reload, like went down from like 30 seconds, like three seconds or something like crazy.
+
+00:37:44.26
+James
+Basically it was bananas.
+
+00:37:44.92
+Frank
+it You know, I don't even believe you on the three second one because it is so aggressively caching things like that initial startup time is still a little gross in my opinion.
+
+00:37:55.71
+Frank
+It's hard to work around, but it's a good like 12, 13 megabyte download you have to do. But after that, you just don't notice it. like it's And I had the hardest time like, where is all the caching happening? Where is it storing this stuff? Because it's not using my network to go get it. It's just coming from somewhere magical. So um I know there's still the two split sides of Blazor.
+
+00:38:16.62
+Frank
+There's the server-backed one and the WASM one, but it's even hard to tell which one's running from time to time.
+
+00:38:19.23
+James
+Yeah.
+
+00:38:23.24
+Frank
+Like, is this happening with WebSockets or is this happening with WebAssembly?
+
+00:38:23.46
+James
+yeah
+
+00:38:26.42
+Frank
+And they hide the WebAssembly so well you can't even figure out which one's running. It's kind of hilarious.
+
+00:38:31.02
+James
+Yeah, it's wild. So just really cool to see tons of enhancements. And there's tons of new templates too, which I think are really cool. Like the AI templates and things like that. They're all like blazerified. So you can use like, see all that stuff working together seamlessly. So I really like that just sort of showing more of like a full stack type of web application that you're actually probably building in general, which I really, really like, um, because to me, I'm usually, i mean, i usually start with like one or two templates. Like it's like, okay, I'm probably going to start with like a,
+
+00:38:58.01
+James
+ah just do a Blazor WebAssembly app and like that's it or like I need a back end with some databases and some other stuff for some AI stuff and like now you can kind of like get it spun up like really easily which I kind of like as well it's like show me how to do it so I can kind of pick and choose if I'm going to build that type of app right so it's kind of nice yeah
+
+00:39:12.98
+Frank
+Yeah. and And for me, because i'm I'm still kind of a web web head in my own way, um they've improved the JavaScript interop with Blazor, which is just always nice to have because...
+
+00:39:28.20
+Frank
+There'd be a lot of JavaScript libraries out there, and a lot of them you're going to want to use.
+
+00:39:30.35
+James
+Yeah. Yeah.
+
+00:39:32.44
+Frank
+So improving the interop with that. You know, it's funny in this world. It's like you need good interop with C, C++, plus plus and JavaScript. Now, it's kind of funny, but ah it's good to see them improving that.
+
+00:39:42.40
+James
+yeah
+
+00:39:44.37
+Frank
+I think they've already they've always had decent JavaScript interops, so it's interesting to see the enhancements they've made here.
+
+00:39:50.98
+James
+Oh yeah. Uh, tons of stuff with APIs, open API 3.1 on by default, tons of, tons of open API stuff, just nonstop, tons of new, uh, minimal, uh, API improvements built in validations, which is kind of crazy. you can do just like automatically turn on query validation.
+
+00:40:10.35
+James
+for your headers and request bodies, like which like a single line of code. Then you can tell it how it validates and fails and return a 400 bad requests automatically. Service and events, SSE, you gotta have it nowadays.
+
+00:40:22.23
+James
+And then ah tons of like custom stuff, but they have new metrics, blazer tracing, web assembly diagnostics, tons of stuff for like the full stack, right? I think one thing that we're kind of seeing is not just by features, but how does it integrate into You know aspire, how's it, and you integrate into the, the, the, the testing, the frameworks, like they've added more support for like browser testing for blazer and things like that too. Like, how is it the end to end as developers of what we need?
+
+00:40:48.77
+James
+Um, which I think is, is, is really lovely, um, on it, but let's get to down at Maui, Frank.
+
+00:40:53.19
+Frank
+Oh. Okay, okay. I just want real quick shout out. They improved their JSON schema support, which you wouldn't think I would care anything about JSON schema. Like it's not, it's not a i AI networks. All they want to talk is JSON and all they want to talk is JSON schema.
+
+00:41:09.67
+Frank
+So it's actually all this open ah open API stuff I don't really care about.
+
+00:41:09.75
+James
+Yep.
+
+00:41:15.36
+Frank
+I do care about JSON schema. So it's nice to see that improved.
+
+00:41:16.75
+James
+Skiva. Yes, important. I agree. I agree.
+
+00:41:20.41
+Frank
+Okay, Maui time. It's Maui time. So do we have a new button? Is there a new button? No.
+
+00:41:28.36
+James
+um don't think so. No new button. Oh,
+
+00:41:30.43
+Frank
+There's a new button and you're wrong with secondary buttons on the toolbar. Very important.
+
+00:41:35.09
+James
+that's right. It's true secondary.
+
+00:41:38.01
+Frank
+Always a new place to put buttons in our apps. It's very important to have full control of that toolbar.
+
+00:41:44.84
+James
+I do like that. I wish there was an image so I could see it in action somewhere in the release notes. Like, come on, squad. That would be really cool.
+
+00:41:52.67
+Frank
+Yeah, well, I'll be honest, like, as a native iOS developer, I'm a bit confused these days on how the toolbar works. Because, like, you create a toolbar on iOS, it used to be there's the left-hand side and the right-hand side. You decide, or or you put your little guys at the bottom.
+
+00:42:09.02
+Frank
+One of those places. Now, it's all, like, semantic. It's, like, secondary action, primary action, secondary. navigation action and like where's it going to put it on your navigation bar and toolbar who knows that's up to the operating system so it's funny to see um ma maui has to embrace this world of craziness so secondary toolbars it's funny but like it's one of those little details that's important to making your app feel nativey
+
+00:42:38.65
+James
+Yeah, and I think some of those little things are there too, like safe area edges, which is sort of like the safe area management, like well-known on iOS, but now available everywhere, which is kind of crazy.
+
+00:42:45.20
+Frank
+super important
+
+00:42:48.89
+James
+I've been dealing with this a lot recently.
+
+00:42:49.32
+Frank
+it's It's 2025 and like Google and Amazon still can't get the safe areas correct in their own apps.
+
+00:42:57.89
+James
+Yeah.
+
+00:42:59.35
+Frank
+It's a little embarrassing how slow the industry has been to learn these things. like They're really not complicated in the end. So it's good to see Maui kicking in because if your app has safe area issues, please stop it.
+
+00:43:12.78
+Frank
+Face ID has been out forever.
+
+00:43:12.99
+James
+Yeah.
+
+00:43:14.14
+Frank
+Please fix your app.
+
+00:43:15.96
+James
+Well, and there's, you know, tons of like ah blazer hybrid new stuff that was going on, improved tons of improvements at collection view and carousel view, obviously a new Android 16 and iOS 26 and Mac OS 26 bindings, which we talked about before tons of improvements for startup that are now a lot of things on by default now.
+
+00:43:34.43
+James
+And I was a tons of performance improvements and just like things across the board. But what I'm really excited about is these crazy XAML improvements. And there's two things there are as. global and implicit XML namespaces, which is bananas.
+
+00:43:46.95
+James
+We'll talk about that, but also XAML source generators, which is also bananas, uh, as well, which we'll talk about too.
+
+00:43:47.65
+Frank
+Finally. Sorry.
+
+00:43:54.17
+James
+But yeah, you want to talk about global and implicit XML namespaces. Cause I don't know, Frank, you worked on dub PF. So.
+
+00:44:01.18
+Frank
+ah Yeah, and i I remember when we put the year in there. That's why the year 2003 is in every single file for some reason. um ah So as you know, as everyone knows, who's ever done any XAML, you end up putting 100 silly namespaces at the top of your file because it's like XML and XML has namespaces.
+
+00:44:20.95
+Frank
+It's one reason people hate XML. um But it's actually a really powerful feature of XML. And it was embraced in XAML for um mostly binding to different control libraries. and So using it like namespace is the way you would use namespaces in C sharp.
+
+00:44:37.36
+Frank
+But it definitely gets tedious having to repeat that over and over in every single XAML file. So I forget the exact syntax. I need to go look it up. But somewhere you can squirrel away all your XML namespaces and the magic tooling will break, break XML. Don't tell the XML standards people we're doing this.
+
+00:45:01.64
+Frank
+But it will auto-import those namespaces into your XML. So you don't have to repeat yourself over and over. In a lot of ways, it's like the global usings in C Sharp.
+
+00:45:12.36
+Frank
+um But far better because the XAML usings are way more complicated than XAML. namespaces are way more complicated and harder to remember. And the syntax is always hard for me to remember. and I've been doing this for 20 years. so ah so this is a really nice feature.
+
+00:45:29.56
+Frank
+James, do you know the syntax? I forgot the syntax. Where where where do we squirrel these puppies away to?
+
+00:45:33.87
+James
+You put them in like a, you know how we have like a global CS type of thing for like C sharp namespaces. Now what you do like a global XML and S or whatever you want to call it.
+
+00:45:41.00
+Frank
+Perfect.
+
+00:45:41.57
+James
+And you do basically assembly exports, which is kind of interesting, but you do assembly XML definition. You give it the yeah URL, you give it, you know, the, the name and you can also do prefixes. if it's like my app dot control, you can do definitions and you can do prefixes.
+
+00:45:54.97
+Frank
+Right.
+
+00:45:55.98
+James
+And it makes it super nice. it it It goes from like, Hey, we had a, you know content page and here's a bunch of XML and spaces and this thing and that thing down to like hardly anything at all.
+
+00:46:05.37
+Frank
+yeah
+
+00:46:05.93
+James
+It's like two two lines of code. And then, you know, you can then um get rid of the prefixes as well. So instead of like controls colon this, like my control, you can just say my control, like here's what it is.
+
+00:46:18.79
+James
+So which is super duper nice and like really streamlines it down. I think the templates file new project also just have this implemented by default, by the way, so you can see it.
+
+00:46:25.31
+Frank
+Oh, cool.
+
+00:46:26.49
+James
+So that's that's when you know it's legit when it's like in the file new template. You know what I mean? So that's pretty rad. Yeah.
+
+00:46:34.60
+Frank
+Yeah, and anything that makes XAML more humane, I'm just here for. um
+
+00:46:39.97
+James
+Mm-hmm.
+
+00:46:40.98
+Frank
+there there There was this bad idea many years ago that only tools would generate XAML, but I think that time is long past, and it's all humans writing these things, so anything we can do to and and improve the human experience is worth it.
+
+00:46:51.56
+James
+Yeah.
+
+00:46:54.87
+James
+And the other thing talking about human experience is IntelliSense and XAML compilation has been the thing that kind of XAML-C, if you know from back in the day, has been providing tons of like compilation time, providing IntelliSense, all this other stuff.
+
+00:47:07.09
+James
+Now, source generators, Frank, source generating it up so they're faster, better IntelliSense, reducing overhead, know, on the runtime.
+
+00:47:11.42
+Frank
+Yeah.
+
+00:47:16.23
+James
+And it just like generates stuff automatically, which is great. And you flip this bit on, it's, you know, and and you're good to go.
+
+00:47:19.77
+Frank
+See.
+
+00:47:22.39
+Frank
+This one I know, and I'm sure every XAML developer out there also knows because all it's ever doing to you while you're doing development is yelling at you like, hey, do you want to turn on that XAML compiler? You probably want to do that. It's going to make your app faster. You're going to want to do that.
+
+00:47:36.92
+Frank
+Like, yeah, yeah, I'm doing development. I don't need to turn it on right now. Are you sure? Are you sure it's going to be better? And you're like, okay, gosh darn it. Fine. We'll do it. and So I think we've all been reminded by the tooling over and over again to turn this feature on.
+
+00:47:51.02
+Frank
+So I'm excited that it's it's really in a polished state.
+
+00:47:53.71
+James
+ah
+
+00:47:55.55
+Frank
+Honestly, it's really nice.
+
+00:47:55.68
+James
+Yeah. And a lot of these, and like, honestly, like the other thing about Donna and Maui and Donna 10 is like, there's tons of like polish, like shell, there's like a nav bar visibility and animation enabled.
+
+00:47:57.13
+Frank
+Yeah.
+
+00:48:05.93
+James
+Like, yeah, we don't want my navigation bars to animate as I scroll away. Like soft input, like happening on the keyboard. Like there's tons of windowing stuff. Like one thing that's really cool is like, you can now easily display modal pages as popovers and iOS and Mac catalyst because like,
+
+00:48:20.61
+James
+they're there. You know what I mean? Like you can easily just like put those in there.
+
+00:48:22.80
+Frank
+Yeah.
+
+00:48:24.65
+James
+um There's also like ah tons of enhancements to geolocation and new accessibility extensions. But the one thing I want to call out and huge, huge deal to whoever did this. i don't know if it was community. don't know if was the team, but I've done this and this is the worst.
+
+00:48:39.36
+James
+Two big improvements to MediaPicker, which is the ability to pick photos and take photos with the camera.
+
+00:48:44.33
+Frank
+Oh.
+
+00:48:48.34
+James
+One, you can now easily select multiple files and also have it automatically compress images with the maximum width and maximum height. So if you want 1920 by 1080 720p photos, it'll automatically do it for you. But more importantly, Frank,
+
+00:49:07.52
+James
+It now automatically handles EXIF information. it will auto-rotate your images and it will preserve your EXIF information automatically when you use it, which is amazing.
+
+00:49:19.65
+James
+It's really hard. This is really hard stuff. This is not easy stuff.
+
+00:49:24.51
+Frank
+You know, that i'm I'm giggling a little bit over here because this is actually the stuff I worked on at Microsoft in 2004. So it's kind of like, all right, only took 20 years for it to hit the mainstream. Great, great.
+
+00:49:38.15
+Frank
+um it's It's surprising how few apps actually pay attention to the XF data in JPEGs about that rotation stuff. And honestly, it's hard. um Sorry saying again, as ah as a native iOS developer, Apple has the worst terms for all of it. It's like portrait up and portrait right, and landscape left, landscape pray you right. You're like, what does it mean, Apple? What do any of these things mean?
+
+00:50:00.11
+Frank
+And especially when you like... If you turn the phone sideways in landscape mode, that's actually the correct orientation for the camera. So is that unrotated or is it? Anyway, you want someone else to take care of those problems for you because life is too short to figure out stupid XF rotations.
+
+00:50:13.93
+James
+Yeah.
+
+00:50:19.28
+James
+Totally true. It is absolutely bananas. I have...
+
+00:50:23.31
+Frank
+That's a funny one, though. I love that that's your favorite feature. That that means you've done a lot of camera picking in your career. i don't add a lot of I don't add a lot of camera picking images in my app, so that's kind of funny.
+
+00:50:29.72
+James
+have
+
+00:50:35.49
+James
+we We adopted, there was like a cross media, like are back in the very old, like we were talking about very, very old Xamarin days, there was these libraries that came out. I think you just put the source code like in your libraries, like a component.
+
+00:50:51.56
+James
+And there was one for geolocation, for cameras and for so for something else, picking a file or something.
+
+00:50:56.29
+Frank
+Mm-hmm. Mm-hmm.
+
+00:50:57.22
+James
+And the engineering team they did an amazing job of like building these and abstracting, you know, the platform APIs into a single API. And this lent into like the plugin ecosystem. Those kind of like, kind of didn't go anywhere. And they were like a POC and then the plugin ecosystem around Xamarin at the time really took off, which is creating interfaces and then creating different native integrations. Like we're talking about like, hey i should have one thing that turned into Xamarin essentials.
+
+00:51:24.92
+James
+Right. And for the longest time, one of the plugins that I decided to maintain was the geolocation plugin and the media plugin as well, which had come over from those original Xamarin libraries.
+
+00:51:34.39
+Frank
+Right.
+
+00:51:36.57
+James
+And they were very complicated because those APIs are so complicated and got way more complicated too. But then what ended up happening is we eventually rolled those into Xamarin essentials and into Dynate Maui themselves. They're just in the box. The, the,
+
+00:51:52.05
+James
+the batteries are in in there, right? Which is so cool that you can get access to clipboard and geolocation and text-to-speech all these other things. But for the longest time, I had to keep maintaining geolocation and also the media picker because it wasn't feature parody.
+
+00:52:06.88
+James
+It was like some of the stuff was in there.
+
+00:52:07.81
+Frank
+OK.
+
+00:52:08.53
+James
+So now I feel like it's pretty much good to go. I mean, those are already deprecated libraries that I no longer support anyways, but I don't feel as bad about it anymore, if that makes sense.
+
+00:52:11.47
+Frank
+Ah.
+
+00:52:14.00
+Frank
+Yeah.
+
+00:52:16.67
+Frank
+Did you have automatic image sizing in there? Because I mean, that's a nice feature, because these cameras are taking stupid resolution photos these days.
+
+00:52:19.21
+James
+I didn't.
+
+00:52:23.82
+Frank
+So it's really nice to have that in there.
+
+00:52:24.14
+James
+I, I did. i wouldn't say they're the most optimized thing in the entire world, but it definitely did it. The XF data I finally did get working, but I would say on iOS, pretty okay, but Android, it's like the wild west.
+
+00:52:36.98
+James
+You know what i mean? It's just like impossible.
+
+00:52:38.13
+Frank
+Okay.
+
+00:52:38.50
+James
+And like, i wouldn't get it right 100% of the time and it's still complicated.
+
+00:52:42.14
+Frank
+Oh. Okay. Exif.
+
+00:52:44.51
+James
+I, that being said, i take photos on iPhone and sometimes I open them up in an applicant and it's still not even right.
+
+00:52:44.74
+Frank
+It's hard. But I...
+
+00:52:51.02
+James
+Sometimes I open up in my iPhone and it's not even correct. It's like, come on, Apple.
+
+00:52:55.26
+Frank
+Sometimes when you the screen dims, even the iPhone doesn't rotate back. So rotation's a hard thing. It just is.
+
+00:53:00.74
+James
+It's a hard thing.
+
+00:53:02.18
+Frank
+i Actually, I want to go back to soft area edges one more time. Sorry, safe area edges.
+
+00:53:06.94
+James
+Okay.
+
+00:53:08.74
+Frank
+ah Because you said something about um the soft keyboard, and I was a little bit confused because I hadn't read that. And so I was doing some quick reading while you were talking about your media. experience And ah there's a really nice feature about the safe area and sets that I run into a lot with my apps.
+
+00:53:25.22
+Frank
+And it's when do you obey the keyboard taking up half the screen and when don't you? There are times when you just want to keep your content. Like you want the safe area so that um the bottom of the screen is still functional. Buttons are out of the way so that people can still tab away your app, get rid of your app.
+
+00:53:46.27
+Frank
+But then the keyboard comes up, oh no, if you have a text entry box, you want to make sure that text entry box moves to the correct place.
+
+00:53:52.21
+James
+you
+
+00:53:53.48
+Frank
+And it's amazing, like in 2025, how many apps still get that wrong?
+
+00:53:57.22
+James
+All the time. All the time.
+
+00:53:58.73
+Frank
+And so i just want to say a good job to the Maui people who actually made it configurable. So when you are writing UIs that obey these safe areas, you can say whether it should um pay attention to the keyboard or not, basically.
+
+00:54:15.52
+Frank
+And it's really nice to give you, the developer, that control because there are times when it's like, okay, it's fine. If the keyboard wants to be on top of this UI, it's totally fine. There are other times when you have a text box, you absolutely must not allow the keyboard to go over the area. So it's i'm I'm just happy to see them put a thought into it and not just say it's going to work one way or the other.
+
+00:54:37.61
+Frank
+We'll give you the option. So... ah Anyone who maybe your safe areas are a little bit weird because it wasn't baked into Maui completely before, probably worth going through all your anywhere you have a text box in your app and making sure it works correctly.
+
+00:54:54.37
+James
+Yeah, makes sense. There's all sorts of other good stuff in here as well. There's a bunch of deprecations as well. They deprecated, they remove, I think messaging center is officially
+
+00:55:04.41
+Frank
+Oh.
+
+00:55:04.38
+James
+but been made internal, which they've only given us four years to move off of it, but that's about it. Yeah. So.
+
+00:55:13.62
+Frank
+ah You know, you can write your own CQRS system.
+
+00:55:17.35
+James
+Yeah. I mean, just use the community toolkit. You're good to go. There's ones that's tried and true that have been used all throughout windows as well already.
+
+00:55:19.94
+Frank
+Yeah.
+
+00:55:22.96
+James
+Um, Frank, we are almost an hour in uh, what else do we want to talk about?
+
+00:55:23.18
+Frank
+Yeah.
+
+00:55:25.71
+Frank
+Okay. Pop-ups.
+
+00:55:27.56
+James
+There's but new CLI stuff. You want to talk about CLI stuff?
+
+00:55:31.15
+Frank
+There's CLI stuff. what what What is there to add to the CLI? Oh, wait. Does.NET New finally like give me keys? Are they going to add color to.NET New? That would be kind of nice.
+
+00:55:43.98
+Frank
+I think.NET New needs color.
+
+00:55:46.22
+James
+Uh, let's see, there's, uh, Dona test has unified test execution with the Microsoft testing platform.
+
+00:55:52.88
+Frank
+Okay, this is actually kind of cool because I was looking at adding my own testing thing because, you know, there's actually not a great iOS tester out there. Sorry, XUnit. Sorry, NUnit. You're all failing it. iOS tests.
+
+00:56:03.58
+James
+Wow.
+
+00:56:03.81
+Frank
+um So I've actually been, yeah, sorry.
+
+00:56:03.82
+James
+Burn.
+
+00:56:06.21
+Frank
+But hey, they deserve it. ah So I've actually been thinking about running my own text executor. And I was asking the AI, how do you do this? They're like, well, there's the old way, and then there's brand new way in.NET 10.
+
+00:56:17.20
+Frank
+So I haven't actually learned how to do it myself, but I've been thinking about it a lot because i i want to up my own testing game on iOS.
+
+00:56:23.13
+James
+Hmm.
+
+00:56:26.75
+James
+Hmm. That's cool. Like that.
+
+00:56:28.25
+Frank
+Yeah, so it's neat.
+
+00:56:28.71
+James
+Um, there's native tab completion scripts for PowerShell for different popular shells, like bash fish, PowerShell, this new shell.
+
+00:56:35.94
+Frank
+Fish, thank goodness.
+
+00:56:38.95
+James
+Uh, you can easily.
+
+00:56:39.94
+Frank
+That's actually cool.
+
+00:56:41.07
+James
+Yeah. You know, you can easily now, once you set up tab completion, then I see allies triggered by the down at command and the shell by passing the tab key. And then you can like, you know, easily tap around and do stuff. Um,
+
+00:56:52.44
+Frank
+See, now that one should be Microsoft.Extensions.ai powered also. Because, you know, tab completion is nice in the shell.
+
+00:56:56.56
+James
+There you go.
+
+00:56:58.48
+Frank
+But I think we've all grown to prefer co-pilot's way of like, just do just do my work for me. You know I want.
+
+00:57:04.71
+James
+Yes. There's container images for console apps now. So you can easily, without requiring a Docker image, you can say enable SDK and then boom, you're good to go. There's one shot tool execution, which is like DNX script.
+
+00:57:14.89
+Frank
+Crazy.
+
+00:57:16.85
+James
+So you can easily boom, execute the script source. Like here it is package, go, go to town. That's cool..NET, DNX, which is like you know UV or like NPX, that's existence now, that's in the box.
+
+00:57:35.67
+Frank
+TSX, TypeScript.
+
+00:57:35.64
+James
+It's kind a big deal. TSX, TypeScript, TSX, and all the Xs.
+
+00:57:38.29
+Frank
+Yep.
+
+00:57:41.13
+James
+um
+
+00:57:41.41
+Frank
+There's no SwiftX. they They really need to work on that.
+
+00:57:43.08
+James
+No, uh, there's platform specific down at tools supporting multiple runtime, self-contained trim, AOT options, which are really cool. Uh, there's like a, you can do CLI schemas so you can like export the schema, which is actually kind of cool to be honest with you.
+
+00:57:57.31
+James
+So this is, this is really cool. This is actually really cool. It's like open API, but for the CLI, so you could give it a CLI schema and it'll output, a machine readable description of all the commands, arguments, and subcommands that you've built into your CLI, which is really cool.
+
+00:58:11.96
+Frank
+This is so AI forward. Okay, got it.
+
+00:58:14.81
+James
+Yeah.
+
+00:58:15.27
+Frank
+I had to click it to believe it.
+
+00:58:15.51
+James
+I see. Yeah.
+
+00:58:17.43
+Frank
+I'm like, no, you must be joking. No, that they they did this. They did this. You can have it output JSON. So it's like, it's your command dash dash help, but in JSON format. Much better.
+
+00:58:26.83
+James
+I like it. There's all sorts of good stuff inside of there. So really, really cool. And of course, ah tons of ah improvements. You can now do a file based publishing and tons of native AOT support, but stuff built in as well.
+
+00:58:41.38
+James
+So tons of CLI stuff going in and, uh, you know, just the Donat SDK, man, it just is rock solid.
+
+00:58:48.26
+Frank
+Mm-hmm.
+
+00:58:49.29
+James
+You what mean? It's just good.
+
+00:58:51.40
+Frank
+Yeah, I'm actually curious. um They were talking about the, um ah this is something i'll I'll need to look into some more, but the multiple runtime identifiers, the tooling's always been a little bit weird around that.
+
+00:59:03.17
+Frank
+Like, um for example, when you want to build a Mac app these days, you build the x86 version and the ARM64 version. But in general, that's just kind of done for you when you do a release build or you do a publish build. It's just a little bit of magic.
+
+00:59:18.90
+James
+Okay.
+
+00:59:19.11
+Frank
+And forever since.NET 3.4.5 something, you've been able to specify multiple runtime identifiers, but it tends to confuse the heck out of Nougat and it tends to to confuse the heck out of all the build tools when you specify multiple runtimes at the same time.
+
+00:59:37.72
+Frank
+um So I'm curious to see what improvements they've made there. It sounds like a deep, dark, nasty place in.NET, but I've spent a lot of time in those deep, dark, nasty places. So I'm actually kind of curious what improvements they've made there.
+
+00:59:51.65
+Frank
+um It's an area I try not to touch anymore because it is it is scary, but um generally allow the tools to do it for you. But every so often, you want to specify multiple runtimes.
+
+01:00:03.45
+James
+yeah exactly yeah so it's kind of interesting uh and that brings us to visual studio 2026 which is brand new release like we talked about a little bit but i'll just break it down for you really quick cause i know you're on a mac all the time but visual studio 2026 um i'll break it down into like the four key segments that i think that they break it kind of out in the in the blog post like first is performance like i like that they just kind of lead it with performance like listen
+
+01:00:15.53
+Frank
+Yeah.
+
+01:00:31.84
+James
+We're gonna make it super fast. Like they are like, we're gonna make it. So solution load times are way faster. We're gonna make it. So extensions, the whole IDE is butter smooth X, Y, Z.
+
+01:00:42.51
+James
+They did a side by side comparison of visual studio and Vs code, like loading at the same exact like time, like just boom, there's boom.
+
+01:00:49.12
+Frank
+good
+
+01:00:49.98
+James
+It's good to go. Um, and they've seen huge improvements across the board. So like being able to, to, to really just make it butter smooth and I will totally a lot with that there's like less hangings, there's less, this it's snappier performance. It just feels all in all faster.
+
+01:01:07.24
+James
+They've done tons of improvements around like UI blocking operations to make it not block the UI. so everything loads up pretty fast. I mean, it's pretty impressive. Like even just like loading some of these projects. I'm wow, it's actually loading crazy fast. And just like the annoying of loading things is, is,
+
+01:01:24.41
+James
+no longer a problem. Like i actually find sometimes my VS code has too much extensions and they got to activate extensions and do stuff.
+
+01:01:26.28
+Frank
+Fantastic.
+
+01:01:30.58
+James
+Right. So it's like, it's pretty butter fast to be honest with you.
+
+01:01:33.24
+Frank
+For real, right?
+
+01:01:34.57
+James
+Yeah.
+
+01:01:35.24
+Frank
+Isn't it funny? Like, yeah. So sorry, I have to commentate even though I don't use this thing, but my love is Visual Studio, man. I love it as a product. um But yeah, you got this big, heavy Visual Studio IDE thing and then come this little slim VS Code thing and it just pops up and a text editor and all that stuff.
+
+01:01:52.62
+Frank
+But nowadays VS Code has gotten kind of chubby on its own. And so it's really smart of them to just be like, hey, what if we just made Visual Studio fast?
+
+01:02:01.70
+James
+Fast.
+
+01:02:01.99
+Frank
+It's kind of genius. Like, I just kind of love it. Like, what if you had all the power of Visual Studio, but fast.
+
+01:02:08.74
+James
+Fast. Let's do that.
+
+01:02:09.42
+Frank
+Really genius, yeah.
+
+01:02:10.86
+James
+Yeah. And I think down in the blog, they talk about like these paper cuts, which, you know, I love this. Like when I worked at Xamarin, I think, I don't know if it was like, i don't know if it was Nat or was whatever, when he came in, he's like, we have ah you know a hundred days. We're going to fix a hundred things in a hundred days. Right. Like it's good common phrase, but like they, in the last 12 months that fixed more than 5,000 bugs, implemented 300 new feature requests from like the community, from like tickets coming in.
+
+01:02:34.39
+James
+like it is like the rapid pace and like they're accelerating the work basically, you know, like nonstop on top of it. And that's the stuff that's cool. So like you mad, so they were talking like him and Rachel were talking at the keynote, like,
+
+01:02:47.79
+James
+Sometimes it's a small thing. It's like, it's the padding, it's the margins, the stuff that you're interacting with that should be faster, should be smoother, should be in the right place, should give you more space, like spacing it out. Like their team is really thinking about all of that as well, which is cool.
+
+01:03:00.11
+James
+And I think some of that's customizations. They redid the entire like theming system and things like that from, from bottom to top to make it so you can really make custom themes.
+
+01:03:05.09
+Frank
+yeah
+
+01:03:08.56
+James
+As we know, if you're a VS code user, like myself, people love custom themes like everyone's got your own theme. Like if you're not shipping Frank Kruger three theme number 28, you're doing something wrong. You know what I mean? So like, that's super duper important.
+
+01:03:20.20
+Frank
+I just like the screenshot that they have in the um the release notes because it looks like a very Apple screenshot of all the different colors Visual Studio can be. So just reminder, everyone out there, make sure you set your set your own personal color for that puppy.
+
+01:03:30.20
+James
+Yep.
+
+01:03:34.54
+James
+Exactly. Yeah. And, um, so that's all in there. And then of course there's tons of, um, co-pilot and, uh, AI infusing throughout. Right. So like the team has been adding tons of features of visual studio, 2022, they're all in the box for 2026, obviously. so adaptive pace mermaid chart rendering like you know mcp server support are all built into there obviously all the different models custom models so you can like hook it up to olama your own like bring your own key providers the mcp registry stuff is in there get contacts like
+
+01:04:11.77
+James
+applying all these things as well, which is really cool. But one of the bigger features that they've added is new agents actually. So, um, there is now a profiler agent and a debugger agent and a test agent that are built into the box help you generate tests. These are custom agents that knew how to do custom things like the debugger agent knows how to talk to the debugger and get all of the debugging information and parse all the debugging information about applications.
+
+01:04:40.09
+James
+And it knows how to do that because it's like Visual Studio specific. And they know how to do all this stuff. And the profiler agent understands how the profiler works.
+
+01:04:48.38
+Frank
+Oh.
+
+01:04:48.35
+James
+Actually, this is actually like the best one, which is like, it knows how to do this. It knows and understands like.NET benchmark stuff and all these things and how to, you know, find bottlenecks and improve your code and do all this stuff. And it will like legitimately like run and optimize and analyze profiling stuff, which I know you're an expert in, but nobody else in the entire planet understands how to do any of that stuff. I don't, that's for sure.
+
+01:05:08.79
+Frank
+Look, I love profilers, so now now you're making me a tiny bit jealous. i've i've I've always loved the Visual Studio Profiler. It's always been really first class.
+
+01:05:16.80
+James
+It's good.
+
+01:05:17.82
+Frank
+um Yeah, making me a little jelly.
+
+01:05:20.17
+James
+And this one, like it'll run that profiler and then analyze that stuff and then like
+
+01:05:24.61
+Frank
+I don't know if I fully trust it. like There's a lot of details to get correct when you're analyzing code, but I love that someone's working on it.
+
+01:05:32.83
+James
+Pretty good. I was using the debugger agent because as I was migrating an app and I was using maps map sui and ah was migrating the app and at some version they went from like four to five and they like you had to add this like add ski map sui thing into your Maui thing.
+
+01:05:40.22
+Frank
+Mm-hmm.
+
+01:05:48.93
+James
+I could just not figure it out for the life of me.
+
+01:05:50.83
+Frank
+Mm-hmm.
+
+01:05:51.81
+James
+And like, I would hit a exception. It would throw, and there's a button that's like, start the debugger agent. And it was like, it sets all the context, all this stuff. And it like goes to work and it's like, there, like, here's your problem.
+
+01:06:03.78
+James
+Cause like a lot of those logs are like, you know, it's like, it's not like it started on, on, and it was like, I was using the app doing this. If I went to a section, boom, it blew up. Right. It wasn't until use the control.
+
+01:06:12.94
+Frank
+Yeah.
+
+01:06:14.42
+James
+so like parsed everything under the sun and it just, and it just worked and it was, it was wild. It was like, so cool.
+
+01:06:21.93
+Frank
+That's cool. Yeah.
+
+01:06:22.89
+James
+Yeah.
+
+01:06:23.91
+Frank
+I mean, profiling, you you look for the biggest block, and then you attack it. And then you find the next biggest block, and you attack it. So I'm just curious to see how it attacks those kinds of things.
+
+01:06:34.19
+James
+Yeah.
+
+01:06:34.33
+Frank
+I have a Visual Studio.
+
+01:06:34.43
+James
+And
+
+01:06:36.21
+Frank
+I'll install this guy.
+
+01:06:37.88
+James
+ah for developers who want to purchase standalone professional license, Visual Studio 2026 will be available in the Microsoft store. Let's say you Xcode in the app store. are you getting the Microsoft store?
+
+01:06:47.33
+Frank
+It's about time.
+
+01:06:47.52
+James
+What? Wow.
+
+01:06:49.11
+Frank
+It's about time. Fantastic.
+
+01:06:50.62
+James
+That's crazy. That's crazy.
+
+01:06:52.74
+Frank
+Microsoft remembered they had a store.
+
+01:06:55.26
+James
+That's bananas. That's cool. No, so.
+
+01:06:58.58
+Frank
+um it's a It's a small thing, but it's around the profiling. I like that they actually have a benchmark.net template built in. I mean, templates. Who cares about templates? But I care about templates.
+
+01:07:08.06
+James
+I care about them, bud.
+
+01:07:08.41
+Frank
+And um yeah, so profiling is one thing, but it's good to be a little proactive about it. like I often have a question like, should I code it this way or should I code it that way? And like you could ask an AI, but it's going to be like, eh, there's pros and cons to both. They're like yeah, I know there's pros and cons to both. Which one should I do?
+
+01:07:25.00
+Frank
+And sometimes it's best to just do like a little benchmark guy and just write it both ways and see which one's actually faster.
+
+01:07:25.42
+James
+Exactly. Yeah.
+
+01:07:33.52
+Frank
+Because its nothing beats real measured data versus just guessing and using 10-year-old assumptions.
+
+01:07:33.91
+James
+Yeah.
+
+01:07:41.15
+James
+Yeah, exactly. Yeah. Anyways, there's about a bajillion things more. I've only obviously it's only been day one. only got to watch half the videos.
+
+01:07:48.83
+Frank
+Yep.
+
+01:07:49.00
+James
+still have to work. You know what I mean? I'm i'm at home. ah Tons of more. Oh, I want to mention two other things. Oh, I forgot to mention this.
+
+01:07:54.96
+Frank
+oh
+
+01:07:54.96
+James
+So let's talk about community news, two really big ah communities. things We should brought this up in the Maui section. So I want to bring up first and foremost that like, In the world of Maui, last year they announced like a partnership with the Syncfusion team, and they're being core contributors to the project and increasing the velocity and closing bugs and crushing stuff.
+
+01:08:12.00
+Frank
+ye
+
+01:08:15.37
+James
+And David dave was talking about like the the the usage of down at Maui is up 35%, and the number of issues being created is down 25%.
+
+01:08:26.49
+Frank
+nice Okay, great.
+
+01:08:27.22
+James
+which is pretty good.
+
+01:08:27.65
+Frank
+Yeah. yeah Oh, yeah.
+
+01:08:28.60
+James
+Now, the numbers of PRs being created are like up 45%, and the number of PRs being merged are up 35%.
+
+01:08:37.75
+Frank
+Interesting.
+
+01:08:37.84
+James
+There's more features and more things being added and more different things from the different teams. Lots of work going on, is cool, but they extended that you know all that stuff, which is good. and Then ah Sam from Uno was there, and Uno, our good friends over at Uno, um who also do multi-platform development, they um are now like you know partners as well, and they are contributing to the Maui core.
+
+01:09:05.24
+Frank
+Oh, nice.
+
+01:09:06.30
+James
+So they are they're updating and helping maintain SkiaSharp.
+
+01:09:06.63
+Frank
+Okay.
+
+01:09:10.47
+James
+They're also maintaining lot of the core binding libraries and adding bindings to the iOS and Android bits and pieces. And then they are also adding...
+
+01:09:21.30
+James
+ah Maui support to Uno, which means that you can now ah bring your Maui applications over to Uno and embed them in Uno applications and or bring them into new platforms basically as well. And you can mix and match these things together, which is really cool. So if you want the flexibility of of doing that and it'll render the Maui UI so you can blend it, you mix and match those worlds.
+
+01:09:45.68
+Frank
+Oh, crazy.
+
+01:09:47.16
+James
+So if you wanted something super tailored on a screen and needed something, you can easily now embed things back and forth, which is really cool. But then the other thing that happened, you know, in the world of like, i think, okay, I get hub universe. One of the things that was really cool was like VS code, you know, not just being the AI code editor with amazing copilot infusion, but also like The fact that like, you know, the open AI codex is a first class boom inside the agent sessions. You can sign in with your copilot subscription, like the agent HQ where everything is like is speaking similar languages and all works together cohesively. Like that's pretty cool. It's open platform. It's open source..NET MAUI kind of becoming that open.NET platform.
+
+01:10:27.44
+James
+platform to build a multi-platform apps.
+
+01:10:27.56
+Frank
+Oh,
+
+01:10:29.44
+James
+Yeah, it's in the box. You can do it. But our good friends over at Avalonia UI just announced support for bringing.NET MAUI applications directly over to Linux and the browser powered by Avalonia's regimen.
+
+01:10:43.60
+Frank
+oh the browser.
+
+01:10:47.03
+James
+Yeah, yeah. Over to your browser. It's in the browser. Boom.
+
+01:10:51.00
+Frank
+I've heard of that before. That's fantastic. um i'm Honestly, i I'm very happy. Maui has... I don't know about the Linux story. Everyone, you'll have to fill me in. I'm a Linux user, but I haven't been trying to get Maui in Linux ever.
+
+01:11:05.88
+Frank
+But Maui on the web is a big deal. That's fantastic.
+
+01:11:08.39
+James
+Yeah.
+
+01:11:09.10
+Frank
+So, yeah. Oh, look. Blazor's finally getting some competition. So you can write your full-featured,
+
+01:11:20.56
+Frank
+what do I, I'm gonna say word reactive without saying reactive, very interactive apps without having to mess with ah the JavaScript or the DOM. You can just take your Maui app and put it on the web.
+
+01:11:32.55
+Frank
+It's been a goal of mine for years. I did it back in Xamarin.Forms. I was never able to finish the work for Maui. So I'm very happy someone has stepped up and gotten Maui back on the web. I say back, Maui's never been on the web.
+
+01:11:48.09
+Frank
+But you know what I mean.
+
+01:11:49.28
+James
+and so I agree.
+
+01:11:49.59
+Frank
+It's good that it's on the web because the more platforms this multi-app user interface thing is on, the better.
+
+01:11:58.55
+James
+um And this one's a little bit different because it's actually like a Avalonia rendering engine. So it's rendering it in like their back end compared to like the Uno stuff, which is like, hey, I'm going to render the Maui stuff Maui inside of a new applications embedding.
+
+01:12:12.41
+James
+So it's kind of like different different approaches, but cool, the flexibility part of it. And they had Mike James, i don't know where he found this old project, like the oldest employee director, which is like one of the original Xamarin sample apps.
+
+01:12:22.99
+Frank
+Oh, gosh.
+
+01:12:24.03
+James
+Mike James, she's Louise, like the oldest ah photos of the team in there as well, which I remember that application. There was like the standard to like monkey applications as well, which I love to see, which is good.
+
+01:12:35.76
+Frank
+Mm-hmm.
+
+01:12:36.16
+James
+um And yeah, so it's really cool. It's just like really neat to be able to see it being flexible. And people are like, I really want to run this app on here. And it's like this cool, all these companies like working together for the greater good, for the ecosystem, for the community, for the broader ecosystem.
+
+01:12:50.54
+Frank
+Yeah.
+
+01:12:51.68
+James
+It's not a competition, people. It's a thing. We work together. the The tides rise, tides rise all, is that what it's called?
+
+01:12:56.73
+Frank
+ah
+
+01:13:00.21
+James
+I don't know what it's called, whatever it is. High tide, it's high tide and the tides, the tide ah tides coming in and then,
+
+01:13:02.80
+Frank
+Tides rides all boats. Something.
+
+01:13:06.73
+James
+The starfish are there when the tide goes out and you wait in the tide pools.
+
+01:13:09.68
+Frank
+So many sea metaphors.
+
+01:13:11.58
+James
+Yes. right. right, Frank, let's get, let's get out of here. It's on hour 15.
+
+01:13:14.70
+Frank
+Okay.
+
+01:13:15.09
+James
+That we, that's the, the keynote was an hour.
+
+01:13:16.46
+Frank
+Is anyone still here? hi everyone.
+
+01:13:17.93
+James
+but The keynote was an hour 30.
+
+01:13:18.41
+Frank
+i'm I'm very happy you made it to the end.
+
+01:13:20.47
+James
+yeah, you made, if you did like subscribe to all the things it's good for this week's merge companies. Until next time, I'm Jason Watson, Mac now.
+
+01:13:25.60
+Frank
+And I'm Frank Kruger. Thanks for watching and and listening.
+
+01:13:28.54
+James
+Peace.
+

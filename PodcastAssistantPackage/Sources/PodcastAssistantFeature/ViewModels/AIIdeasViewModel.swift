@@ -12,7 +12,7 @@ public class AIIdeasViewModel: ObservableObject {
     
     @Published public var titleSuggestions: [String] = []
     @Published public var generatedDescription: String = ""
-    @Published public var descriptionLength: DescriptionLength = .medium
+    @Published public var descriptionLength: DescriptionGenerationService.DescriptionLength = .medium
     @Published public var socialPosts: [SocialPost] = []
     @Published public var chapterMarkers: [ChapterMarker] = []
     
@@ -24,12 +24,46 @@ public class AIIdeasViewModel: ObservableObject {
     
     @Published public var errorMessage: String?
     @Published public var modelAvailable: Bool = false
+    @Published public var statusMessage: String = ""
+    @Published public var progressDetails: String = ""
     
     // MARK: - Dependencies
     
     public let episode: Episode
     public var modelContext: ModelContext?
+    
+    private let titleService = TitleGenerationService()
+    private let descriptionService = DescriptionGenerationService()
+    private let socialService = SocialPostGenerationService()
+    private let chapterService = ChapterGenerationService()
     private let transcriptCleaner = TranscriptCleaner()
+    
+    // MARK: - Computed Properties
+    
+    public var transcriptLength: Int {
+        episode.transcriptInputText?.count ?? 0
+    }
+    
+    public var cleanedTranscriptLength: Int {
+        guard let transcript = episode.transcriptInputText else { return 0 }
+        return transcriptCleaner.cleanForAI(transcript).count
+    }
+    
+    public var transcriptLengthFormatted: String {
+        formatCharacterCount(transcriptLength)
+    }
+    
+    public var cleanedTranscriptLengthFormatted: String {
+        formatCharacterCount(cleanedTranscriptLength)
+    }
+    
+    private func formatCharacterCount(_ count: Int) -> String {
+        if count >= 1000 {
+            let thousands = Double(count) / 1000.0
+            return String(format: "%.1fK", thousands)
+        }
+        return "\(count)"
+    }
     
     // MARK: - Initialization
     
@@ -64,39 +98,14 @@ public class AIIdeasViewModel: ObservableObject {
         
         isGeneratingTitles = true
         errorMessage = nil
+        statusMessage = "Analyzing transcript for title ideas..."
         
         do {
-            let session = LanguageModelSession(
-                instructions: "You are a creative podcast producer who writes engaging, concise episode titles."
-            )
-            
-            let cleanedTranscript = transcriptCleaner.cleanForAI(transcript)
-            let truncatedTranscript = String(cleanedTranscript.prefix(12000))
-            
-            let prompt = """
-            You are generating titles for a podcast episode based on its transcript.
-            
-            Analyze the transcript and identify the topics that are discussed the most.
-            Focus primarily on the main topics that take up the majority of the conversation.
-            The title should reflect what listeners will spend most of their time hearing about.
-            You can mention secondary topics briefly, but prioritize the core subject matter.
-            
-            Generate 5 creative, concise titles for this podcast episode.
-            Keep titles under 10 words each.
-            Make them engaging, descriptive, and SEO-friendly.
-            
-            Episode Transcript:
-            \(truncatedTranscript)
-            """
-            
-            let response = try await session.respond(
-                to: prompt,
-                generating: TitleSuggestionsPOCO.self
-            )
-            
-            titleSuggestions = response.content.titles
+            titleSuggestions = try await titleService.generateTitles(from: transcript)
+            statusMessage = "Generated \(titleSuggestions.count) title suggestions"
         } catch {
             errorMessage = "Failed to generate titles: \(error.localizedDescription)"
+            statusMessage = ""
         }
         
         isGeneratingTitles = false
@@ -111,53 +120,18 @@ public class AIIdeasViewModel: ObservableObject {
         
         isGeneratingDescription = true
         errorMessage = nil
+        statusMessage = "Creating \(descriptionLength.rawValue) description..."
         
         do {
-            let session = LanguageModelSession(
-                instructions: "You are a podcast producer who writes compelling episode descriptions."
+            generatedDescription = try await descriptionService.generateDescription(
+                from: transcript,
+                title: episode.title,
+                length: descriptionLength
             )
-            
-            let lengthGuidance: String
-            switch descriptionLength {
-            case .short:
-                lengthGuidance = "in 2-3 sentences (50-75 words)"
-            case .medium:
-                lengthGuidance = "in 1-2 paragraphs (100-150 words)"
-            case .long:
-                lengthGuidance = "in 3-4 paragraphs (200-300 words)"
-            }
-            
-            let cleanedTranscript = transcriptCleaner.cleanForAI(transcript)
-            let truncatedTranscript = String(cleanedTranscript.prefix(12000))
-            
-            let prompt = """
-            You are writing a compelling podcast episode description based on its transcript.
-            
-            Analyze the transcript carefully and identify:
-            - The main topics that dominate the conversation (what takes up most of the time)
-            - Key insights, valuable takeaways, or unique perspectives shared
-            - The overall narrative or flow of the discussion
-            
-            Write a description \(lengthGuidance) that:
-            - Focuses primarily on the main topics discussed
-            - Highlights the value and key takeaways for listeners
-            - Uses engaging, conversational language
-            - Captures what makes this episode worth listening to
-            
-            Episode title: \(episode.title)
-            
-            Episode Transcript:
-            \(truncatedTranscript)
-            """
-            
-            let response = try await session.respond(
-                to: prompt,
-                generating: EpisodeDescriptionResponsePOCO.self
-            )
-            
-            generatedDescription = response.content.description
+            statusMessage = "Description generated (\(generatedDescription.count) characters)"
         } catch {
             errorMessage = "Failed to generate description: \(error.localizedDescription)"
+            statusMessage = ""
         }
         
         isGeneratingDescription = false
@@ -172,63 +146,21 @@ public class AIIdeasViewModel: ObservableObject {
         
         isGeneratingSocial = true
         errorMessage = nil
+        statusMessage = "Generating social media posts..."
         
         do {
-            let session = LanguageModelSession(
-                instructions: "You are a social media expert who creates engaging posts for different platforms."
+            let posts = try await socialService.generateSocialPosts(
+                from: transcript,
+                title: episode.title
             )
             
-            let cleanedTranscript = transcriptCleaner.cleanForAI(transcript)
-            let truncatedTranscript = String(cleanedTranscript.prefix(10000))
-            
-            let prompt = """
-            You are creating social media posts to promote a podcast episode based on its transcript.
-            
-            First, analyze the transcript and identify:
-            - The main topics that dominate the conversation (what listeners will spend most time hearing)
-            - Key insights, interesting quotes, or takeaways from these main topics
-            - Secondary topics that can be mentioned briefly as hooks
-            
-            Create 3 platform-specific social media posts:
-            
-            1. **Twitter/X** (max 280 characters):
-               - Use 2-3 relevant emojis to make it eye-catching
-               - Lead with the main topic or a compelling hook
-               - Conversational and engaging tone
-               - Include a call-to-action (implied: listen to episode)
-            
-            2. **LinkedIn** (150-200 words):
-               - Professional but approachable tone
-               - Start with the main topic/insight that professionals would find valuable
-               - Include 1-2 relevant emojis (sparingly, professionally)
-               - Focus on business value, learning outcomes, or industry insights
-               - End with what listeners will gain from the episode
-            
-            3. **Threads** (2-3 short paragraphs):
-               - Casual and conversational tone
-               - Use 3-5 emojis throughout to add personality
-               - Start with a hook about the main topic
-               - Share an interesting detail or quote from the episode
-               - Create curiosity about secondary topics without spoiling everything
-            
-            Episode title: \(episode.title)
-            
-            Episode Transcript:
-            \(truncatedTranscript)
-            """
-            
-            let response = try await session.respond(
-                to: prompt,
-                generating: SocialPostsResponsePOCO.self
-            )
-            
-            socialPosts = [
-                SocialPost(platform: .twitter, content: response.content.twitter),
-                SocialPost(platform: .linkedin, content: response.content.linkedin),
-                SocialPost(platform: .threads, content: response.content.threads)
-            ]
+            socialPosts = posts.map {
+                SocialPost(platform: SocialPlatform(rawValue: $0.platform.rawValue) ?? .twitter, content: $0.content)
+            }
+            statusMessage = "Generated \(socialPosts.count) social posts"
         } catch {
             errorMessage = "Failed to generate social posts: \(error.localizedDescription)"
+            statusMessage = ""
         }
         
         isGeneratingSocial = false
@@ -243,48 +175,32 @@ public class AIIdeasViewModel: ObservableObject {
         
         isGeneratingChapters = true
         errorMessage = nil
+        statusMessage = "Condensing transcript into segments..."
+        progressDetails = ""
         
         do {
-            let session = LanguageModelSession(
-                instructions: "You are a podcast editor who creates chapter markers for episodes."
+            let chapters = try await chapterService.generateChapters(
+                from: transcript,
+                progressHandler: { [weak self] message in
+                    Task { @MainActor in
+                        self?.progressDetails = message
+                    }
+                }
             )
             
-            let cleanedTranscript = transcriptCleaner.cleanForAI(transcript)
-            let truncatedTranscript = String(cleanedTranscript.prefix(15000))
-            
-            let prompt = """
-            You are creating chapter markers for a podcast episode based on its transcript.
-            
-            Analyze the transcript and identify natural topic shifts or major discussion points.
-            Create 5-10 chapter markers that help listeners navigate the episode.
-            
-            For each chapter:
-            - Provide a timestamp in MM:SS or HH:MM:SS format
-            - Create a short, descriptive title (under 8 words)
-            - Write a one-sentence summary
-            
-            Start the first chapter at 00:00.
-            Space chapters evenly throughout the episode.
-            Focus on major topics or discussion shifts.
-            
-            Episode Transcript:
-            \(truncatedTranscript)
-            """
-            
-            let response = try await session.respond(
-                to: prompt,
-                generating: ChapterMarkersResponsePOCO.self
-            )
-            
-            chapterMarkers = response.content.chapters.map {
+            chapterMarkers = chapters.map {
                 ChapterMarker(
                     timestamp: $0.timestamp,
                     title: $0.title,
                     summary: $0.summary
                 )
             }
+            statusMessage = "Generated \(chapterMarkers.count) chapter markers"
+            progressDetails = ""
         } catch {
             errorMessage = "Failed to generate chapters: \(error.localizedDescription)"
+            statusMessage = ""
+            progressDetails = ""
         }
         
         isGeneratingChapters = false
@@ -292,12 +208,14 @@ public class AIIdeasViewModel: ObservableObject {
     
     public func generateAll() async {
         isGeneratingAll = true
+        statusMessage = "Starting comprehensive AI generation..."
         
         await generateTitles()
         await generateDescription()
         await generateSocialPosts()
         await generateChapters()
         
+        statusMessage = "All AI content generated successfully"
         isGeneratingAll = false
     }
     
@@ -326,10 +244,15 @@ public class AIIdeasViewModel: ObservableObject {
     }
     
     public func copyChaptersAsYouTube() {
-        var output = ""
-        for marker in chapterMarkers {
-            output += "\(marker.timestamp) - \(marker.title)\n"
-        }
+        let output = chapterService.formatAsYouTube(
+            chapterMarkers.map {
+                ChapterGenerationService.ChapterMarker(
+                    timestamp: $0.timestamp,
+                    title: $0.title,
+                    summary: $0.summary
+                )
+            }
+        )
         copyToClipboard(output)
     }
     
@@ -343,12 +266,6 @@ public class AIIdeasViewModel: ObservableObject {
 // MARK: - Supporting Types
 
 public extension AIIdeasViewModel {
-    enum DescriptionLength: String, CaseIterable {
-        case short = "Short"
-        case medium = "Medium"
-        case long = "Long"
-    }
-    
     struct ChapterMarker: Identifiable {
         public let id = UUID()
         public var timestamp: String
@@ -374,49 +291,5 @@ public extension AIIdeasViewModel {
             case .threads: return "text.bubble.fill"
             }
         }
-    }
-}
-
-// MARK: - Generable Structs for LLM Structured Output (Private to avoid conflicts)
-
-@Generable
-private struct TitleSuggestionsPOCO {
-    @Guide(description: "Five creative, concise podcast episode titles", .count(5))
-    var titles: [String]
-}
-
-@Generable
-private struct EpisodeDescriptionResponsePOCO {
-    @Guide(description: "A compelling episode description")
-    var description: String
-}
-
-@Generable
-private struct SocialPostsResponsePOCO {
-    @Guide(description: "Twitter post (max 280 characters)")
-    var twitter: String
-    
-    @Guide(description: "LinkedIn post (professional tone, 150-200 words)")
-    var linkedin: String
-    
-    @Guide(description: "Threads post (casual tone, 2-3 paragraphs)")
-    var threads: String
-}
-
-@Generable
-private struct ChapterMarkersResponsePOCO {
-    @Guide(description: "Chapter markers with timestamps and titles")
-    var chapters: [Chapter]
-    
-    @Generable
-    struct Chapter {
-        @Guide(description: "Timestamp in MM:SS or HH:MM:SS format")
-        var timestamp: String
-        
-        @Guide(description: "Short, descriptive chapter title (under 8 words)")
-        var title: String
-        
-        @Guide(description: "One-sentence summary of this chapter")
-        var summary: String
     }
 }
