@@ -144,7 +144,7 @@ public struct AIIdeasView: View {
                     .font(.headline)
                 Spacer()
                 Picker("Length", selection: $viewModel.descriptionLength) {
-                    ForEach(AIIdeasViewModel.DescriptionLength.allCases, id: \.self) { length in
+                    ForEach(DescriptionGenerationService.DescriptionLength.allCases, id: \.self) { length in
                         Text(length.rawValue).tag(length)
                     }
                 }
