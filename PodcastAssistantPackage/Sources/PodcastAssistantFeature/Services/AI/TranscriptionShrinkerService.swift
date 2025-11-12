@@ -16,11 +16,11 @@ public class TranscriptionShrinkerService {
         public var similarityThreshold: Double
         
         public init(
-            windowSize: Int = 40,
-            overlapPercentage: Double = 0.4,
+            windowSize: Int = 30,
+            overlapPercentage: Double = 0.5,
             targetSegmentCount: Int = 25,
             minSecondsBetweenSegments: Double = 20,
-            similarityThreshold: Double = 0.7
+            similarityThreshold: Double = 0.6
         ) {
             self.windowSize = windowSize
             self.overlapPercentage = overlapPercentage
@@ -215,36 +215,40 @@ public class TranscriptionShrinkerService {
     ) async throws -> [CondensedSegment] {
         let session = LanguageModelSession(
             instructions: """
-            You are a transcript condenser who identifies topic transitions and merges segments.
+            You are a transcript condenser who aggressively merges segments to reduce count.
             
             CRITICAL RULES:
-            1. Focus ONLY on topic boundaries - ignore speaker names and introductions
-            2. Merge adjacent segments discussing the same topic
+            1. Focus ONLY on major topic boundaries - ignore speaker names and introductions
+            2. AGGRESSIVELY merge segments discussing similar or related topics
             3. Preserve the EARLIEST timestamp when merging
-            4. Target 70-80% reduction in segment count
-            5. Create concise summaries capturing key discussion points
+            4. Target 85-90% reduction in segment count
+            5. Create brief summaries that capture the essence of longer discussions
+            6. Only create a new segment when the topic SIGNIFICANTLY changes
             
-            Output: Condensed segments with timestamps and summaries.
+            Output: Highly condensed segments with timestamps and summaries.
             """
         )
         
         let segmentsText = segments.map { "\($0.timestamp) \($0.text)" }.joined(separator: "\n")
         
         let prompt = """
-        Condense these timestamped transcript segments by identifying topic transitions.
+        Aggressively condense these timestamped transcript segments by merging related topics.
         
         Rules:
-        - Merge segments on the SAME topic, keeping earliest timestamp
-        - Create NEW segment when topic CHANGES significantly
-        - Ignore speaker introductions, greetings, filler content
-        - Focus on substantive discussion points
-        - Aim to reduce segment count by 70-80%
+        - AGGRESSIVELY merge segments on RELATED topics, keeping earliest timestamp
+        - Only create NEW segment when topic SIGNIFICANTLY shifts to something completely different
+        - Ignore speaker introductions, greetings, transitions, filler content
+        - Focus on substantive discussion points and major topic changes
+        - Aim to reduce segment count by 85-90%
+        - Combine multiple related points into comprehensive summaries
         
         This is window \(windowNumber) of \(totalWindows).
         
         For each condensed segment provide:
         - timestamp: The EARLIEST timestamp from merged segments
-        - summary: One-sentence summary of topic discussed
+        - summary: Brief summary capturing the key points discussed (1-2 sentences max)
+        
+        Be VERY aggressive in merging. Prefer fewer, more comprehensive segments.
         
         Segments:
         \(segmentsText)
@@ -295,25 +299,48 @@ public class TranscriptionShrinkerService {
         log("🧩 [Shrinker] Starting deduplication and merging to target \(config.targetSegmentCount)")
         
         // Step 1: Remove duplicates based on similarity
-        var deduplicated = removeDuplicates(
+        let deduplicated = removeDuplicates(
             condensedSegments,
             similarityThreshold: config.similarityThreshold
         )
         log("🔍 [Shrinker] After deduplication: \(deduplicated.count) segments")
         
-        // Step 2: Merge adjacent segments on same topic until target reached
-        while deduplicated.count > config.targetSegmentCount {
-            deduplicated = mergeAdjacentSegments(deduplicated)
+        // Step 2: First pass - merge very similar adjacent segments
+        var merged = mergeAdjacentSegments(deduplicated, threshold: 0.4)
+        log("🔗 [Shrinker] After first merge pass: \(merged.count) segments")
+        
+        // Step 3: Second pass - more aggressive merging if still above target
+        if merged.count > config.targetSegmentCount * 2 {
+            merged = mergeAdjacentSegments(merged, threshold: 0.3)
+            log("🔗 [Shrinker] After second merge pass: \(merged.count) segments")
+        }
+        
+        // Step 4: Final aggressive merge to hit target
+        var iterations = 0
+        while merged.count > config.targetSegmentCount && iterations < 10 {
+            let beforeCount = merged.count
+            merged = mergeAdjacentSegments(merged, threshold: 0.25)
+            iterations += 1
             
-            if deduplicated.count <= config.targetSegmentCount {
+            // If we're not making progress, break
+            if merged.count == beforeCount {
                 break
             }
+            
+            log("🔗 [Shrinker] Iteration \(iterations): \(merged.count) segments")
         }
-        log("✅ [Shrinker] After merging: \(deduplicated.count) segments")
         
-        // Step 3: Convert to RefinedSegments with time ranges
+        // Step 5: If still over target, merge by time gaps
+        if merged.count > config.targetSegmentCount {
+            merged = mergeByTimeProximity(merged, targetCount: config.targetSegmentCount)
+            log("⏰ [Shrinker] After time-based merging: \(merged.count) segments")
+        }
+        
+        log("✅ [Shrinker] Final count: \(merged.count) segments")
+        
+        // Step 6: Convert to RefinedSegments with time ranges
         let refined = convertToRefinedSegments(
-            deduplicated,
+            merged,
             originalSegments: originalSegments
         )
         
@@ -348,7 +375,7 @@ public class TranscriptionShrinkerService {
         return result
     }
     
-    private func mergeAdjacentSegments(_ segments: [CondensedSegment]) -> [CondensedSegment] {
+    private func mergeAdjacentSegments(_ segments: [CondensedSegment], threshold: Double = 0.4) -> [CondensedSegment] {
         guard segments.count > 1 else { return segments }
         
         var result: [CondensedSegment] = []
@@ -367,7 +394,7 @@ public class TranscriptionShrinkerService {
             // Check if segments are similar enough to merge
             let similarity = current.summary.similarityScore(to: next.summary)
             
-            if similarity >= 0.5 { // Lower threshold for adjacent merging
+            if similarity >= threshold {
                 // Merge the two segments
                 let merged = CondensedSegment(
                     timestamp: current.timestamp, // Keep earlier timestamp
@@ -382,6 +409,37 @@ public class TranscriptionShrinkerService {
         }
         
         return result
+    }
+    
+    private func mergeByTimeProximity(_ segments: [CondensedSegment], targetCount: Int) -> [CondensedSegment] {
+        guard segments.count > targetCount else { return segments }
+        
+        var sorted = segments.sorted { $0.timestamp.timestampToSeconds() < $1.timestamp.timestampToSeconds() }
+        
+        while sorted.count > targetCount {
+            // Find the pair with the smallest time gap
+            var minGapIndex = 0
+            var minGap = Double.infinity
+            
+            for i in 0..<(sorted.count - 1) {
+                let gap = sorted[i + 1].timestamp.timestampToSeconds() - sorted[i].timestamp.timestampToSeconds()
+                if gap < minGap {
+                    minGap = gap
+                    minGapIndex = i
+                }
+            }
+            
+            // Merge the pair with smallest gap
+            let merged = CondensedSegment(
+                timestamp: sorted[minGapIndex].timestamp,
+                summary: "\(sorted[minGapIndex].summary) \(sorted[minGapIndex + 1].summary)"
+            )
+            
+            sorted.remove(at: minGapIndex + 1)
+            sorted[minGapIndex] = merged
+        }
+        
+        return sorted
     }
     
     private func convertToRefinedSegments(
