@@ -9,21 +9,23 @@ public class TranscriptionShrinkerService {
     // MARK: - Configuration
     
     public struct ShrinkConfig {
-        public var windowSize: Int
-        public var overlapPercentage: Double
+        /// Maximum characters per window (estimated JSON size for LLM context)
+        public var maxWindowCharacters: Int
+        /// Overlap size in characters for context preservation
+        public var overlapCharacters: Int
         public var targetSegmentCount: Int
         public var minSecondsBetweenSegments: Double
         public var similarityThreshold: Double
         
         public init(
-            windowSize: Int = 30,
-            overlapPercentage: Double = 0.5,
+            maxWindowCharacters: Int = 6000,
+            overlapCharacters: Int = 1000,
             targetSegmentCount: Int = 25,
             minSecondsBetweenSegments: Double = 20,
             similarityThreshold: Double = 0.6
         ) {
-            self.windowSize = windowSize
-            self.overlapPercentage = overlapPercentage
+            self.maxWindowCharacters = maxWindowCharacters
+            self.overlapCharacters = overlapCharacters
             self.targetSegmentCount = targetSegmentCount
             self.minSecondsBetweenSegments = minSecondsBetweenSegments
             self.similarityThreshold = similarityThreshold
@@ -147,12 +149,12 @@ public class TranscriptionShrinkerService {
         config: ShrinkConfig
     ) async throws -> [CondensedSegment] {
         log("🔍 [Shrinker] Starting condensation with sliding windows")
-        log("📊 [Shrinker] Config: window=\(config.windowSize), overlap=\(Int(config.overlapPercentage * 100))%, target=\(config.targetSegmentCount)")
+        log("📊 [Shrinker] Config: maxChars=\(config.maxWindowCharacters), overlapChars=\(config.overlapCharacters), target=\(config.targetSegmentCount)")
         
         let windows = createSegmentWindows(
             segments,
-            windowSize: config.windowSize,
-            overlapPercentage: config.overlapPercentage
+            maxWindowCharacters: config.maxWindowCharacters,
+            overlapCharacters: config.overlapCharacters
         )
         
         log("📦 [Shrinker] Created \(windows.count) windows")
@@ -161,7 +163,7 @@ public class TranscriptionShrinkerService {
         
         for (index, window) in windows.enumerated() {
             let windowNumber = index + 1
-            log("⏳ [Shrinker] Processing window \(windowNumber)/\(windows.count) - \(window.count) segments")
+            log("⏳ [Shrinker] Processing window \(windowNumber)/\(windows.count) - \(window.count) segments (~\(estimateCharCount(window)) chars)")
             
             let condensedWindow = try await condenseSegmentWindow(
                 window,
@@ -173,36 +175,72 @@ public class TranscriptionShrinkerService {
             allCondensedSegments.append(condensedWindow)
         }
         
-        let merged = mergeCondensedWindows(allCondensedSegments, overlapPercentage: config.overlapPercentage)
+        let merged = mergeCondensedWindows(allCondensedSegments, overlapCharacters: config.overlapCharacters)
         log("🧩 [Shrinker] Merged windows: \(merged.count) condensed segments")
         
         return merged
     }
     
+    /// Estimate character count for a window (timestamp + text + JSON overhead)
+    private func estimateCharCount(_ segments: [TranscriptSegment]) -> Int {
+        segments.reduce(0) { sum, segment in
+            // Estimate: timestamp (10) + text + JSON overhead (50)
+            sum + segment.timestamp.count + segment.text.count + 60
+        } + 20 // Window overhead
+    }
+    
+    /// Create windows based on character count instead of fixed segment count
+    /// More adaptive to variable-length content (follows TranscriptSummarizer pattern)
     private func createSegmentWindows(
         _ segments: [TranscriptSegment],
-        windowSize: Int,
-        overlapPercentage: Double
+        maxWindowCharacters: Int,
+        overlapCharacters: Int
     ) -> [[TranscriptSegment]] {
         guard !segments.isEmpty else { return [] }
-        guard segments.count > windowSize else { return [segments] }
-        
-        let overlapSize = Int(Double(windowSize) * overlapPercentage)
-        let stepSize = windowSize - overlapSize
         
         var windows: [[TranscriptSegment]] = []
-        var startIndex = 0
+        var currentWindow: [TranscriptSegment] = []
+        var currentCharCount = 0
+        var nextSegmentIndex = 0
         
-        while startIndex < segments.count {
-            let endIndex = min(startIndex + windowSize, segments.count)
-            let window = Array(segments[startIndex..<endIndex])
-            windows.append(window)
+        while nextSegmentIndex < segments.count {
+            let segment = segments[nextSegmentIndex]
+            let segmentCharCount = segment.timestamp.count + segment.text.count + 60
             
-            startIndex += stepSize
+            currentWindow.append(segment)
+            currentCharCount += segmentCharCount
+            nextSegmentIndex += 1
             
-            if endIndex == segments.count {
-                break
+            // Check if window is full
+            if currentCharCount >= maxWindowCharacters {
+                windows.append(currentWindow)
+                
+                // Create overlap by backfilling segments from previous window
+                var newWindow: [TranscriptSegment] = []
+                var overlapCount = 0
+                var backIndex = nextSegmentIndex - 1
+                
+                while overlapCount < overlapCharacters && backIndex >= 0 {
+                    let overlapSegment = currentWindow[currentWindow.count - (nextSegmentIndex - backIndex)]
+                    let overlapCharCount = overlapSegment.timestamp.count + overlapSegment.text.count + 60
+                    
+                    newWindow.insert(overlapSegment, at: 0)
+                    overlapCount += overlapCharCount
+                    backIndex -= 1
+                    
+                    if backIndex < 0 || (nextSegmentIndex - backIndex - 1) >= currentWindow.count {
+                        break
+                    }
+                }
+                
+                currentWindow = newWindow
+                currentCharCount = overlapCount
             }
+        }
+        
+        // Add final window if it has content
+        if !currentWindow.isEmpty {
+            windows.append(currentWindow)
         }
         
         return windows
@@ -282,9 +320,11 @@ public class TranscriptionShrinkerService {
         }
     }
     
+    /// Merge overlapping windows by removing duplicate segments from overlap regions
+    /// Uses character-based overlap estimation
     private func mergeCondensedWindows(
         _ windows: [[CondensedSegment]],
-        overlapPercentage: Double
+        overlapCharacters: Int
     ) -> [CondensedSegment] {
         guard !windows.isEmpty else { return [] }
         guard windows.count > 1 else { return windows[0] }
@@ -293,9 +333,24 @@ public class TranscriptionShrinkerService {
         
         for (index, window) in windows.enumerated() {
             if index == 0 {
+                // First window - take all segments
                 merged.append(contentsOf: window)
             } else {
-                let skipCount = Int(Double(window.count) * overlapPercentage)
+                // Subsequent windows - skip overlap portion
+                // Estimate overlap in segments by character count
+                var overlapCharsSkipped = 0
+                var skipCount = 0
+                
+                for segment in window {
+                    let segmentChars = segment.timestamp.count + segment.summary.count + 60
+                    if overlapCharsSkipped < overlapCharacters {
+                        overlapCharsSkipped += segmentChars
+                        skipCount += 1
+                    } else {
+                        break
+                    }
+                }
+                
                 let uniqueSegments = Array(window.dropFirst(skipCount))
                 merged.append(contentsOf: uniqueSegments)
             }

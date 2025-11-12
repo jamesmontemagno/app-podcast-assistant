@@ -42,8 +42,8 @@ public class ChapterGenerationService {
         // Step 1: Shrink transcript using TranscriptionShrinkerService
         // Configure for chapter generation: target ~25 segments for analysis
         let shrinkConfig = TranscriptionShrinkerService.ShrinkConfig(
-            windowSize: 50,
-            overlapPercentage: 0.4,
+            maxWindowCharacters: 8000,    // Larger windows for chapter context
+            overlapCharacters: 1500,      // More overlap for topic continuity
             targetSegmentCount: 25,
             minSecondsBetweenSegments: 20,
             similarityThreshold: 0.7

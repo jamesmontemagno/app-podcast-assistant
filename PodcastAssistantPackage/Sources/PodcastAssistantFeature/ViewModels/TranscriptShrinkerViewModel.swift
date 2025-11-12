@@ -144,9 +144,15 @@ public class TranscriptShrinkerViewModel: ObservableObject {
         let startTime = Date()
         
         do {
+            // Convert UI sliders to character-based config
+            // windowSize slider (10-100) → maxWindowCharacters (2000-12000)
+            // overlapPercent slider (20-80) → overlapCharacters (400-4800)
+            let maxChars = Int(windowSize) * 120  // ~120 chars per "segment unit"
+            let overlapChars = Int((overlapPercent / 100.0) * Double(maxChars))
+            
             let config = TranscriptionShrinkerService.ShrinkConfig(
-                windowSize: Int(windowSize),
-                overlapPercentage: overlapPercent / 100.0,
+                maxWindowCharacters: maxChars,
+                overlapCharacters: overlapChars,
                 targetSegmentCount: Int(targetCount),
                 minSecondsBetweenSegments: 20,
                 similarityThreshold: similarityThreshold
