@@ -94,30 +94,36 @@ public class TranscriptShrinkerViewModel: ObservableObject {
             return
         }
         
-        isParsing = true
-        errorMessage = nil
-        processingLog = []
-        originalSegments = []
+        await MainActor.run {
+            isParsing = true
+            errorMessage = nil
+            processingLog = []
+            originalSegments = []
+        }
         
-        addLog("📝 Starting transcript parsing...")
-        addLog("📊 Raw transcript: \(rawTranscriptLength) characters, \(rawTranscriptLines) lines")
+        await MainActor.run {
+            addLog("📝 Starting transcript parsing...")
+            addLog("📊 Raw transcript: \(rawTranscriptLength) characters, \(rawTranscriptLines) lines")
+        }
         
         // Parse with progress updates
-        await Task { @MainActor in
-            addLog("🔍 Detecting timestamp format...")
-            originalSegments = parseTranscriptIntoSegments(rawTranscript)
-            addLog("✅ Parsed \(originalSegments.count) segments")
+        let segments = parseTranscriptIntoSegments(rawTranscript)
+        
+        await MainActor.run {
+            addLog("🔍 Detected timestamp format, extracting segments...")
+            self.originalSegments = segments
+            addLog("✅ Parsed \(segments.count) segments")
             
-            if originalSegments.isEmpty {
-                errorMessage = "No timestamped segments found. Check transcript format."
+            if segments.isEmpty {
+                self.errorMessage = "No timestamped segments found. Check transcript format."
                 addLog("⚠️ No segments found - transcript may not contain timestamps")
             } else {
-                addLog("⏱️ Duration: \(totalDuration)")
-                addLog("📝 Words: ~\(estimatedWordCount)")
+                addLog("⏱️ Duration: \(self.totalDuration)")
+                addLog("📝 Words: ~\(self.estimatedWordCount)")
             }
-        }.value
-        
-        isParsing = false
+            
+            self.isParsing = false
+        }
     }
     
     /// Shrinks the transcript using current configuration
@@ -127,11 +133,13 @@ public class TranscriptShrinkerViewModel: ObservableObject {
             return
         }
         
-        isShrinking = true
-        errorMessage = nil
-        processingLog = []
-        stats = nil
-        refinedSegments = []
+        await MainActor.run {
+            isShrinking = true
+            errorMessage = nil
+            processingLog = []
+            stats = nil
+            refinedSegments = []
+        }
         
         let startTime = Date()
         
@@ -144,31 +152,39 @@ public class TranscriptShrinkerViewModel: ObservableObject {
                 similarityThreshold: similarityThreshold
             )
             
-            guard let transcript = episode.transcriptInputText else {
+            guard let transcript = rawTranscript.isEmpty ? episode.transcriptInputText : rawTranscript else {
                 throw NSError(domain: "TranscriptShrinker", code: 1, userInfo: [NSLocalizedDescriptionKey: "No transcript"])
             }
             
-            refinedSegments = try await shrinkerService.shrinkTranscript(
+            let refined = try await shrinkerService.shrinkTranscript(
                 transcript,
                 config: config
             )
             
             let processingTime = Date().timeIntervalSince(startTime)
             
-            stats = ShrinkStats(
-                originalCount: originalSegments.count,
-                refinedCount: refinedSegments.count,
-                reductionPercent: calculateReductionPercent(),
-                processingTimeSeconds: processingTime,
-                windowsProcessed: calculateWindowCount()
-            )
+            await MainActor.run {
+                self.refinedSegments = refined
+                
+                self.stats = ShrinkStats(
+                    originalCount: self.originalSegments.count,
+                    refinedCount: refined.count,
+                    reductionPercent: self.calculateReductionPercent(),
+                    processingTimeSeconds: processingTime,
+                    windowsProcessed: self.calculateWindowCount()
+                )
+            }
             
         } catch {
-            errorMessage = "Shrinking failed: \(error.localizedDescription)"
-            processingLog.append("❌ Error: \(error.localizedDescription)")
+            await MainActor.run {
+                self.errorMessage = "Shrinking failed: \(error.localizedDescription)"
+                self.processingLog.append("❌ Error: \(error.localizedDescription)")
+            }
         }
         
-        isShrinking = false
+        await MainActor.run {
+            self.isShrinking = false
+        }
     }
     
     /// Exports refined segments to a text file
