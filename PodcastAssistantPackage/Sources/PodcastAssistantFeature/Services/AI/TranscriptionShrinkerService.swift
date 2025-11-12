@@ -18,7 +18,7 @@ public class TranscriptionShrinkerService {
         public var similarityThreshold: Double
         
         public init(
-            maxWindowCharacters: Int = 6000,
+            maxWindowCharacters: Int = 5000,
             overlapCharacters: Int = 1000,
             targetSegmentCount: Int = 25,
             minSecondsBetweenSegments: Double = 20,

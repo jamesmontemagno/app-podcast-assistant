@@ -33,26 +33,48 @@ public class ChapterGenerationService {
     /// Generates chapter markers based on the episode transcript
     /// Step 1: Use TranscriptionShrinkerService to condense transcript into refined segments
     /// Step 2: Analyze refined segments to identify topic shifts and create chapters
-    /// - Parameter transcript: The episode transcript text
+    /// - Parameters:
+    ///   - transcript: The episode transcript text
+    ///   - progressHandler: Optional callback for progress updates
     /// - Returns: Array of 5-10 chapter markers
     /// - Throws: Error if generation fails
-    public func generateChapters(from transcript: String) async throws -> [ChapterMarker] {
+    public func generateChapters(
+        from transcript: String,
+        progressHandler: ((String) -> Void)? = nil
+    ) async throws -> [ChapterMarker] {
         print("📝 [ChapterGen] Starting chapter generation")
         
         // Step 1: Shrink transcript using TranscriptionShrinkerService
         // Configure for chapter generation: target ~25 segments for analysis
         let shrinkConfig = TranscriptionShrinkerService.ShrinkConfig(
-            maxWindowCharacters: 8000,    // Larger windows for chapter context
+            maxWindowCharacters: 5000,    // Larger windows for chapter context
             overlapCharacters: 1500,      // More overlap for topic continuity
             targetSegmentCount: 25,
             minSecondsBetweenSegments: 20,
             similarityThreshold: 0.7
         )
         
+        // Hook up progress handler to shrinker
+        shrinkerService.logHandler = { message in
+            // Extract useful progress info from log messages
+            if message.contains("Parsed") {
+                progressHandler?(message.replacingOccurrences(of: "📊 [Shrinker] ", with: ""))
+            } else if message.contains("Processing window") {
+                progressHandler?(message.replacingOccurrences(of: "⏳ [Shrinker] ", with: ""))
+            } else if message.contains("condensed") {
+                progressHandler?(message.replacingOccurrences(of: "✅ [Shrinker] ", with: ""))
+            } else if message.contains("Merged") || message.contains("After deduplication") {
+                progressHandler?(message.replacingOccurrences(of: "🧩 [Shrinker] ", with: "").replacingOccurrences(of: "🔍 [Shrinker] ", with: ""))
+            }
+        }
+        
         let refinedSegments = try await shrinkerService.shrinkTranscript(
             transcript,
             config: shrinkConfig
         )
+        
+        // Clear handler
+        shrinkerService.logHandler = nil
         
         print("📊 [ChapterGen] Received \(refinedSegments.count) refined segments")
         

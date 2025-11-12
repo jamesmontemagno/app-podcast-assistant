@@ -25,6 +25,7 @@ public class AIIdeasViewModel: ObservableObject {
     @Published public var errorMessage: String?
     @Published public var modelAvailable: Bool = false
     @Published public var statusMessage: String = ""
+    @Published public var progressDetails: String = ""
     
     // MARK: - Dependencies
     
@@ -175,9 +176,17 @@ public class AIIdeasViewModel: ObservableObject {
         isGeneratingChapters = true
         errorMessage = nil
         statusMessage = "Condensing transcript into segments..."
+        progressDetails = ""
         
         do {
-            let chapters = try await chapterService.generateChapters(from: transcript)
+            let chapters = try await chapterService.generateChapters(
+                from: transcript,
+                progressHandler: { [weak self] message in
+                    Task { @MainActor in
+                        self?.progressDetails = message
+                    }
+                }
+            )
             
             chapterMarkers = chapters.map {
                 ChapterMarker(
@@ -187,9 +196,11 @@ public class AIIdeasViewModel: ObservableObject {
                 )
             }
             statusMessage = "Generated \(chapterMarkers.count) chapter markers"
+            progressDetails = ""
         } catch {
             errorMessage = "Failed to generate chapters: \(error.localizedDescription)"
             statusMessage = ""
+            progressDetails = ""
         }
         
         isGeneratingChapters = false

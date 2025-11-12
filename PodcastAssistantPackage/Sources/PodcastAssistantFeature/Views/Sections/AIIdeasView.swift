@@ -50,13 +50,29 @@ public struct AIIdeasView: View {
                 // Status message bar
                 if !viewModel.statusMessage.isEmpty {
                     Divider()
-                    HStack(spacing: 8) {
-                        Image(systemName: "sparkles")
-                            .foregroundStyle(.blue)
-                        Text(viewModel.statusMessage)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Spacer()
+                    VStack(spacing: 4) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "sparkles")
+                                .foregroundStyle(.blue)
+                            Text(viewModel.statusMessage)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                        }
+                        
+                        if !viewModel.progressDetails.isEmpty {
+                            HStack(spacing: 8) {
+                                Image(systemName: "gearshape.2")
+                                    .foregroundStyle(.blue.opacity(0.7))
+                                    .font(.caption2)
+                                Text(viewModel.progressDetails)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                Spacer()
+                            }
+                        }
                     }
                     .padding()
                     .background(Color.blue.opacity(0.1))
