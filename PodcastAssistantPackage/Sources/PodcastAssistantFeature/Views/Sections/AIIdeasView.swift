@@ -47,6 +47,21 @@ public struct AIIdeasView: View {
                     .padding(16)
                 }
                 
+                // Status message bar
+                if !viewModel.statusMessage.isEmpty {
+                    Divider()
+                    HStack(spacing: 8) {
+                        Image(systemName: "sparkles")
+                            .foregroundStyle(.blue)
+                        Text(viewModel.statusMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color.blue.opacity(0.1))
+                }
+                
                 if let error = viewModel.errorMessage {
                     Divider()
                     HStack(spacing: 8) {

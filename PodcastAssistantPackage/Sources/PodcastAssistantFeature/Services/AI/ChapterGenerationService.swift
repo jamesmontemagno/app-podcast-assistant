@@ -68,10 +68,25 @@ public class ChapterGenerationService {
     private func identifyChaptersFromSegments(_ segments: [RefinedSegment]) async throws -> [ChapterMarker] {
         print("🔍 [ChapterGen] Starting chapter identification from \(segments.count) segments")
         
-        // Calculate ideal chapters per window based on total segments
-        // Target: 6 average chapters, max 10 total
-        let targetTotalChapters = 6
-        let maxTotalChapters = 10
+        // Calculate duration from last segment's end timestamp
+        let durationMinutes: Double
+        if let lastSegment = segments.last {
+            let durationSeconds = lastSegment.endTimestamp.timestampToSeconds()
+            durationMinutes = durationSeconds / 60.0
+        } else {
+            durationMinutes = 0
+        }
+        
+        // Target: 5 chapters per 30 minutes of content
+        // For a 60 minute episode: ~10 chapters
+        // For a 30 minute episode: ~5 chapters
+        // Minimum: 3 chapters, Maximum: 12 chapters
+        let calculatedTarget = max(3, min(12, Int((durationMinutes / 30.0) * 5)))
+        let targetTotalChapters = calculatedTarget
+        let maxTotalChapters = calculatedTarget + 2  // Allow slightly more if needed
+        
+        print("⏱️ [ChapterGen] Episode duration: \(String(format: "%.1f", durationMinutes)) minutes")
+        print("🎯 [ChapterGen] Target chapters: \(targetTotalChapters) (max: \(maxTotalChapters))")
         
         // If segments fit in one window, process directly
         let maxSegmentsPerWindow = 25
@@ -93,10 +108,10 @@ public class ChapterGenerationService {
         }
         
         // Calculate chapters per window to hit our target
-        let chaptersPerWindow = max(2, targetTotalChapters / windows.count)
+        let chaptersPerWindow = max(1, targetTotalChapters / windows.count)
         
         print("📦 [ChapterGen] Processing chapter identification in \(windows.count) windows (size: \(windowSize))")
-        print("🎯 [ChapterGen] Target: ~\(chaptersPerWindow) chapters per window, \(targetTotalChapters) total (max \(maxTotalChapters))")
+        print("🎯 [ChapterGen] Target: ~\(chaptersPerWindow) chapters per window")
         
         var allChapters: [ChapterMarker] = []
         
@@ -122,9 +137,9 @@ public class ChapterGenerationService {
         // Merge and deduplicate chapters from all windows
         var finalChapters = mergeChapters(allChapters)
         
-        // If we still have too many chapters, intelligently reduce to max 10
+        // If we have too many chapters, reduce to target
         if finalChapters.count > maxTotalChapters {
-            finalChapters = reduceToTargetChapters(finalChapters, target: maxTotalChapters)
+            finalChapters = reduceToTargetChapters(finalChapters, target: targetTotalChapters)
         }
         
         print("✨ [ChapterGen] Final chapter count: \(finalChapters.count)")
@@ -161,14 +176,17 @@ public class ChapterGenerationService {
         Create chapter markers for this podcast episode from these refined segments.
         
         \(windowContext)Each line shows a time range followed by a summary of that segment.
-        Identify where major topic shifts occur and create chapters at those points.
+        Identify where MAJOR topic shifts occur and create chapters at those points.
+        
+        IMPORTANT: Be VERY selective - only create chapters for significant topic changes.
+        Think of chapters as major sections viewers would skip to, not every minor topic.
         
         Guidelines:
-        - Create \(targetChapters)-\(maxChapters) chapters for this segment window
-        - Focus on MAJOR topic shifts only - be selective
+        - Create EXACTLY \(targetChapters) chapters (maximum \(maxChapters))
+        - Only mark MAJOR topic transitions - ignore minor shifts
+        - Each chapter should represent 5-10+ minutes of distinct content
         \(chapterGuidance)- For each chapter, extract the start timestamp from the time range (e.g., "00:00.29" from "[00:00.29 - 03:00.71]")
         - Use timestamps that align with where topics actually shift in the segments below
-        - Only create a new chapter when the topic significantly changes
         - Create descriptive titles (under 8 words)
         - Provide a one-sentence summary per chapter
         
@@ -208,11 +226,12 @@ public class ChapterGenerationService {
                 continue
             }
             
-            // Skip if too close to previous chapter (within 30 seconds)
+            // Skip if too close to previous chapter
+            // Minimum 3 minutes (180 seconds) between chapters for better spacing
             if let lastChapter = merged.last {
                 let lastSeconds = timestampToSeconds(lastChapter.timestamp)
                 let currentSeconds = timestampToSeconds(chapter.timestamp)
-                if currentSeconds - lastSeconds < 30 {
+                if currentSeconds - lastSeconds < 180 {
                     continue
                 }
             }

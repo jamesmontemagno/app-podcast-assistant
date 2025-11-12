@@ -24,6 +24,7 @@ public class AIIdeasViewModel: ObservableObject {
     
     @Published public var errorMessage: String?
     @Published public var modelAvailable: Bool = false
+    @Published public var statusMessage: String = ""
     
     // MARK: - Dependencies
     
@@ -96,11 +97,14 @@ public class AIIdeasViewModel: ObservableObject {
         
         isGeneratingTitles = true
         errorMessage = nil
+        statusMessage = "Analyzing transcript for title ideas..."
         
         do {
             titleSuggestions = try await titleService.generateTitles(from: transcript)
+            statusMessage = "Generated \(titleSuggestions.count) title suggestions"
         } catch {
             errorMessage = "Failed to generate titles: \(error.localizedDescription)"
+            statusMessage = ""
         }
         
         isGeneratingTitles = false
@@ -115,6 +119,7 @@ public class AIIdeasViewModel: ObservableObject {
         
         isGeneratingDescription = true
         errorMessage = nil
+        statusMessage = "Creating \(descriptionLength.rawValue) description..."
         
         do {
             generatedDescription = try await descriptionService.generateDescription(
@@ -122,8 +127,10 @@ public class AIIdeasViewModel: ObservableObject {
                 title: episode.title,
                 length: descriptionLength
             )
+            statusMessage = "Description generated (\(generatedDescription.count) characters)"
         } catch {
             errorMessage = "Failed to generate description: \(error.localizedDescription)"
+            statusMessage = ""
         }
         
         isGeneratingDescription = false
@@ -138,6 +145,7 @@ public class AIIdeasViewModel: ObservableObject {
         
         isGeneratingSocial = true
         errorMessage = nil
+        statusMessage = "Generating social media posts..."
         
         do {
             let posts = try await socialService.generateSocialPosts(
@@ -148,8 +156,10 @@ public class AIIdeasViewModel: ObservableObject {
             socialPosts = posts.map {
                 SocialPost(platform: SocialPlatform(rawValue: $0.platform.rawValue) ?? .twitter, content: $0.content)
             }
+            statusMessage = "Generated \(socialPosts.count) social posts"
         } catch {
             errorMessage = "Failed to generate social posts: \(error.localizedDescription)"
+            statusMessage = ""
         }
         
         isGeneratingSocial = false
@@ -164,6 +174,7 @@ public class AIIdeasViewModel: ObservableObject {
         
         isGeneratingChapters = true
         errorMessage = nil
+        statusMessage = "Condensing transcript into segments..."
         
         do {
             let chapters = try await chapterService.generateChapters(from: transcript)
@@ -175,8 +186,10 @@ public class AIIdeasViewModel: ObservableObject {
                     summary: $0.summary
                 )
             }
+            statusMessage = "Generated \(chapterMarkers.count) chapter markers"
         } catch {
             errorMessage = "Failed to generate chapters: \(error.localizedDescription)"
+            statusMessage = ""
         }
         
         isGeneratingChapters = false
@@ -184,12 +197,14 @@ public class AIIdeasViewModel: ObservableObject {
     
     public func generateAll() async {
         isGeneratingAll = true
+        statusMessage = "Starting comprehensive AI generation..."
         
         await generateTitles()
         await generateDescription()
         await generateSocialPosts()
         await generateChapters()
         
+        statusMessage = "All AI content generated successfully"
         isGeneratingAll = false
     }
     
