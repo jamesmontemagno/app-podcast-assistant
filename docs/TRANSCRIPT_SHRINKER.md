@@ -79,7 +79,7 @@ Summarized segments are displayed with:
 
 ## UI Components
 
-### Three-Column Layout
+### Two-Column Layout
 
 1. **Left Column: Original Transcript**
    - Editable text area for input

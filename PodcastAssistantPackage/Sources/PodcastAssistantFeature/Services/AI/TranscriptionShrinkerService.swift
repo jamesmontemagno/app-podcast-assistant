@@ -144,7 +144,7 @@ You will be given a series of transcript segments, each with a timestamp, speake
 
 Focus on the key points, main ideas, and important details discussed in the segments. Avoid including trivial or repetitive information.
 
-When summarizing, you can complete elide short back-and-forth exchanges that do not add significant value to the overall content.
+When summarizing, you can completely elide short back-and-forth exchanges that do not add significant value to the overall content.
 
 For example, given the following transcript segments:
 """
