@@ -71,6 +71,14 @@ This folder contains comprehensive documentation for the Podcast Assistant macOS
 - Usage workflows
 - Best practices and troubleshooting
 
+### 🔬 TRANSCRIPT_SHRINKER.md
+**Transcript summarization** (macOS 26+ only)
+- AI-powered transcript condensation
+- Input format requirements (timestamp/speaker/text)
+- Windowing and summarization algorithm
+- Usage examples and best practices
+- Based on TranscriptSummarizer reference implementation
+
 ### ⚙️ SETTINGS.md
 **Settings and customization**
 - About section
@@ -117,6 +125,9 @@ This folder contains comprehensive documentation for the Podcast Assistant macOS
 
 **Learn about translation features**
 → Read `TRANSLATION.md`
+
+**Use transcript summarization**
+→ Read `TRANSCRIPT_SHRINKER.md`
 
 **Customize app settings**
 → Read `SETTINGS.md`
