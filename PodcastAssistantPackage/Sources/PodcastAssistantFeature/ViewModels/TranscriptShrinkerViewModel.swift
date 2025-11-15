@@ -9,21 +9,20 @@ public class TranscriptShrinkerViewModel: ObservableObject {
     // MARK: - Published State
     
     @Published public var rawTranscript: String = ""
-    @Published public var originalSegments: [TranscriptSegment] = []
-    @Published public var refinedSegments: [RefinedSegment] = []
+    @Published public var originalSegments: [TranscriptSegmentWithSpeaker] = []
+    @Published public var windows: [TranscriptWindow] = []
+    @Published public var summarizedSegments: [SummarizedSegment] = []
     
     // Configuration
-    @Published public var windowSize: Double = 40
-    @Published public var overlapPercent: Double = 40
-    @Published public var targetCount: Double = 25
-    @Published public var similarityThreshold: Double = 0.7
+    @Published public var maxWindowCharacters: Int = 5000
+    @Published public var overlap: Double = 0.2
     
     // UI State
     @Published public var isParsing: Bool = false
-    @Published public var isShrinking: Bool = false
+    @Published public var isSummarizing: Bool = false
+    @Published public var summaryProgress: Float = 0.0
     @Published public var processingLog: [String] = []
     @Published public var errorMessage: String?
-    @Published public var stats: ShrinkStats?
     
     // MARK: - Dependencies
     
@@ -42,32 +41,18 @@ public class TranscriptShrinkerViewModel: ObservableObject {
         originalSegments.count
     }
     
-    public var refinedSegmentCount: Int {
-        refinedSegments.count
+    public var windowCount: Int {
+        windows.count
     }
     
-    public var rawTranscriptLength: Int {
-        rawTranscript.count
+    public var summarizedSegmentCount: Int {
+        summarizedSegments.count
     }
     
-    public var rawTranscriptLines: Int {
-        rawTranscript.components(separatedBy: .newlines).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.count
-    }
-    
-    public var rawWordCount: Int {
-        rawTranscript.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.count
-    }
-    
-    public var totalDuration: String {
-        guard let lastSegment = originalSegments.last else { return "0:00" }
-        let seconds = lastSegment.timestamp.timestampToSeconds()
-        return formatDuration(seconds)
-    }
-    
-    public var estimatedWordCount: Int {
-        originalSegments.reduce(0) { sum, segment in
-            sum + segment.text.components(separatedBy: .whitespaces).count
-        }
+    public var reductionPercent: String {
+        guard originalSegmentCount > 0, summarizedSegmentCount > 0 else { return "0%" }
+        let percent = (1.0 - Double(summarizedSegmentCount) / Double(originalSegmentCount)) * 100
+        return String(format: "%.1f%%", percent)
     }
     
     // MARK: - Initialization
@@ -87,256 +72,88 @@ public class TranscriptShrinkerViewModel: ObservableObject {
     
     // MARK: - Actions
     
-    /// Parses the transcript into segments
-    public func parseTranscript() async {
-        guard !rawTranscript.isEmpty else {
-            errorMessage = "No transcript available"
-            return
-        }
-        
-        await MainActor.run {
-            isParsing = true
-            errorMessage = nil
-            processingLog = []
-            originalSegments = []
-        }
-        
-        await MainActor.run {
-            addLog("📝 Starting transcript parsing...")
-            addLog("📊 Raw transcript: \(rawTranscriptLength) characters, \(rawTranscriptLines) lines")
-        }
-        
-        // Parse with progress updates
-        let segments = parseTranscriptIntoSegments(rawTranscript)
-        
-        await MainActor.run {
-            addLog("🔍 Detected timestamp format, extracting segments...")
-            self.originalSegments = segments
-            addLog("✅ Parsed \(segments.count) segments")
-            
-            if segments.isEmpty {
-                self.errorMessage = "No timestamped segments found. Check transcript format."
-                addLog("⚠️ No segments found - transcript may not contain timestamps")
-            } else {
-                addLog("⏱️ Duration: \(self.totalDuration)")
-                addLog("📝 Words: ~\(self.estimatedWordCount)")
-            }
-            
-            self.isParsing = false
-        }
+    /// Updates segments and windows based on current transcript
+    public func updateSegments(from text: String) {
+        originalSegments = parseSegments(from: text)
+        windows = createWindows(originalSegments, maxWindowCharCount: maxWindowCharacters, overlap: overlap)
     }
     
-    /// Shrinks the transcript using current configuration
-    public func shrinkTranscript() async {
-        guard !originalSegments.isEmpty else {
-            errorMessage = "Parse transcript first"
-            return
-        }
-        
-        await MainActor.run {
-            isShrinking = true
-            errorMessage = nil
+    /// Summarizes the transcript using current configuration
+    public func summarize() {
+        Task {
+            summarizedSegments.removeAll()
+            
+            var count = 0
+            isSummarizing = true
+            summaryProgress = 0.0
             processingLog = []
-            stats = nil
-            refinedSegments = []
-        }
-        
-        let startTime = Date()
-        
-        do {
-            // Convert UI sliders to character-based config
-            // windowSize slider (10-100) → maxWindowCharacters (2000-12000)
-            // overlapPercent slider (20-80) → overlapCharacters (400-4800)
-            let maxChars = Int(windowSize) * 120  // ~120 chars per "segment unit"
-            let overlapChars = Int((overlapPercent / 100.0) * Double(maxChars))
+            errorMessage = nil
             
-            let config = TranscriptionShrinkerService.ShrinkConfig(
-                maxWindowCharacters: maxChars,
-                overlapCharacters: overlapChars,
-                targetSegmentCount: Int(targetCount),
-                minSecondsBetweenSegments: 20,
-                similarityThreshold: similarityThreshold
-            )
-            
-            guard let transcript = rawTranscript.isEmpty ? episode.transcriptInputText : rawTranscript else {
-                throw NSError(domain: "TranscriptShrinker", code: 1, userInfo: [NSLocalizedDescriptionKey: "No transcript"])
-            }
-            
-            let refined = try await shrinkerService.shrinkTranscript(
-                transcript,
-                config: config
-            )
-            
-            let processingTime = Date().timeIntervalSince(startTime)
-            
-            await MainActor.run {
-                self.refinedSegments = refined
-                
-                self.stats = ShrinkStats(
-                    originalCount: self.originalSegments.count,
-                    refinedCount: refined.count,
-                    reductionPercent: self.calculateReductionPercent(),
-                    processingTimeSeconds: processingTime,
-                    windowsProcessed: self.calculateWindowCount()
+            do {
+                let config = TranscriptionShrinkerService.ShrinkConfig(
+                    maxWindowCharacters: maxWindowCharacters,
+                    overlap: overlap
                 )
+                
+                let results = try await shrinkerService.shrinkTranscript(
+                    rawTranscript,
+                    config: config
+                )
+                
+                summarizedSegments = results
+                
+            } catch {
+                errorMessage = "Summarization failed: \(error.localizedDescription)"
+                processingLog.append("❌ Error: \(error.localizedDescription)")
             }
             
-        } catch {
-            await MainActor.run {
-                self.errorMessage = "Shrinking failed: \(error.localizedDescription)"
-                self.processingLog.append("❌ Error: \(error.localizedDescription)")
-            }
-        }
-        
-        await MainActor.run {
-            self.isShrinking = false
-        }
-    }
-    
-    /// Exports refined segments to a text file
-    public func exportRefinedSegments() {
-        guard !refinedSegments.isEmpty else { return }
-        
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.plainText]
-        panel.nameFieldStringValue = "\(episode.title)-refined.txt"
-        panel.canCreateDirectories = true
-        
-        panel.begin { response in
-            if response == .OK, let url = panel.url {
-                let content = self.formatRefinedSegmentsForExport()
-                do {
-                    try content.write(to: url, atomically: true, encoding: .utf8)
-                } catch {
-                    self.errorMessage = "Export failed: \(error.localizedDescription)"
-                }
-            }
+            isSummarizing = false
         }
     }
     
     // MARK: - Private Helpers
     
-    private func addLog(_ message: String) {
-        processingLog.append(message)
+    private func parseSegments(from text: String) -> [TranscriptSegmentWithSpeaker] {
+        let parts = text.split(separator: "\n\n")
+        return parts.compactMap { part in
+            let trimmed = part.trimmingCharacters(in: .whitespacesAndNewlines)
+            let lines = trimmed.split(separator: "\n", maxSplits: 2, omittingEmptySubsequences: false)
+            if lines.count >= 3 {
+                let timestamp = String(lines[0]).trimmingCharacters(in: .whitespacesAndNewlines)
+                let speaker = String(lines[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+                let segmentText = String(lines[2]).trimmingCharacters(in: .whitespacesAndNewlines)
+                return TranscriptSegmentWithSpeaker(timestamp: timestamp, speaker: speaker, text: segmentText)
+            } else {
+                return nil
+            }
+        }
     }
     
-    private func parseTranscriptIntoSegments(_ transcript: String) -> [TranscriptSegment] {
-        let transcriptCleaner = TranscriptCleaner()
-        let cleanedTranscript = transcriptCleaner.cleanForChapters(transcript)
-        var segments: [TranscriptSegment] = []
-        let lines = cleanedTranscript.components(separatedBy: .newlines)
+    private func createWindows(_ originalSegments: [TranscriptSegmentWithSpeaker], maxWindowCharCount: Int, overlap: Double) -> [TranscriptWindow] {
+        var windows: [TranscriptWindow] = []
+        var window: TranscriptWindow = TranscriptWindow(segments: [])
         
-        var currentTimestamp: String?
-        var currentText = ""
-        
-        let timestampPattern = #/^(\d{1,2}:\d{2}(?::\d{2})?(?:\.\d{2})?)\s*(.*)$/#
-        
-        for line in lines {
-            let trimmedLine = line.trimmingCharacters(in: .whitespaces)
-            guard !trimmedLine.isEmpty else { continue }
+        for seg in originalSegments {
+            window.segments.append(seg)
             
-            if let match = try? timestampPattern.firstMatch(in: trimmedLine) {
-                if let timestamp = currentTimestamp, !currentText.isEmpty {
-                    segments.append(TranscriptSegment(
-                        timestamp: timestamp,
-                        text: currentText.trimmingCharacters(in: .whitespaces)
-                    ))
+            if window.jsonCharCount >= maxWindowCharCount {
+                windows.append(window)
+                var newWindow = TranscriptWindow(segments: [])
+                // Add some overlap
+                let overlapChars = Int(Double(maxWindowCharCount) * overlap)
+                var nextSegIndex = window.segments.count - 1
+                while newWindow.jsonCharCount < overlapChars, nextSegIndex >= 0 {
+                    newWindow.segments.insert(window.segments[nextSegIndex], at: 0)
+                    nextSegIndex -= 1
                 }
-                
-                currentTimestamp = String(match.output.1)
-                currentText = String(match.output.2)
-            } else if currentTimestamp != nil {
-                currentText += " " + trimmedLine
-            } else {
-                if currentTimestamp == nil {
-                    currentTimestamp = "00:00"
-                    currentText = trimmedLine
-                } else {
-                    currentText += " " + trimmedLine
-                }
+                window = newWindow
             }
         }
         
-        if let timestamp = currentTimestamp, !currentText.isEmpty {
-            segments.append(TranscriptSegment(
-                timestamp: timestamp,
-                text: currentText.trimmingCharacters(in: .whitespaces)
-            ))
+        if !window.segments.isEmpty {
+            windows.append(window)
         }
         
-        return segments
-    }
-    
-    private func calculateReductionPercent() -> Double {
-        guard originalSegments.count > 0 else { return 0 }
-        return (1.0 - Double(refinedSegments.count) / Double(originalSegments.count)) * 100
-    }
-    
-    private func calculateWindowCount() -> Int {
-        // Estimate based on character-based windowing
-        let maxChars = Int(windowSize) * 120
-        let overlapChars = Int((overlapPercent / 100.0) * Double(maxChars))
-        let stepChars = maxChars - overlapChars
-        
-        guard !originalSegments.isEmpty else { return 0 }
-        
-        // Estimate total characters in transcript
-        let totalChars = originalSegments.reduce(0) { sum, segment in
-            sum + segment.timestamp.count + segment.text.count + 60
-        }
-        
-        guard totalChars > maxChars else { return 1 }
-        
-        // Estimate number of windows needed
-        let estimatedWindows = 1 + ((totalChars - maxChars) / stepChars)
-        return max(1, estimatedWindows)
-    }
-    
-    private func formatDuration(_ seconds: Double) -> String {
-        let hours = Int(seconds) / 3600
-        let minutes = (Int(seconds) % 3600) / 60
-        let secs = Int(seconds) % 60
-        
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, secs)
-        } else {
-            return String(format: "%d:%02d", minutes, secs)
-        }
-    }
-    
-    private func formatRefinedSegmentsForExport() -> String {
-        var output = "# Refined Transcript Segments\n"
-        output += "# Episode: \(episode.title)\n"
-        output += "# Original segments: \(originalSegments.count)\n"
-        output += "# Refined segments: \(refinedSegments.count)\n"
-        output += "# Reduction: \(String(format: "%.1f", calculateReductionPercent()))%\n\n"
-        
-        for segment in refinedSegments {
-            output += "[\(segment.timeRange)] \(segment.summary)\n"
-            output += "  (Covers \(segment.segmentsCovered) original segments)\n\n"
-        }
-        
-        return output
-    }
-}
-
-// MARK: - Supporting Types
-
-@available(macOS 26.0, *)
-public extension TranscriptShrinkerViewModel {
-    struct ShrinkStats {
-        public let originalCount: Int
-        public let refinedCount: Int
-        public let reductionPercent: Double
-        public let processingTimeSeconds: Double
-        public let windowsProcessed: Int
-        
-        public var processingTimeFormatted: String {
-            String(format: "%.1fs", processingTimeSeconds)
-        }
-        
-        public var reductionPercentFormatted: String {
-            String(format: "%.1f%%", reductionPercent)
-        }
+        return windows
     }
 }
