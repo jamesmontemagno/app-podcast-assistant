@@ -4,7 +4,7 @@ import SwiftData
 /// Transcript Shrinker View - based on TranscriptSummarizer reference implementation
 @available(macOS 26.0, *)
 public struct TranscriptShrinkerView: View {
-    @Bindable var episode: Episode
+    let episode: Episode
     @Environment(\.modelContext) private var modelContext
     
     @StateObject private var viewModel: TranscriptShrinkerViewModel

@@ -218,7 +218,8 @@ Here are the transcript segments to summarize:
 
 /// Segment with speaker information (used for parsing)
 @Generable(description: "A piece of dialog from a recorded transcript.")
-struct TranscriptSegmentWithSpeaker {
+struct TranscriptSegmentWithSpeaker: Identifiable {
+    var id: String { timestamp }
     let timestamp: String
     let speaker: String
     let text: String
