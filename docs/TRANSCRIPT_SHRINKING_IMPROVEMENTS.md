@@ -1,202 +1,125 @@
-# Transcript Shrinking Improvements
+# Transcript Shrinking Implementation History
+
+## Current Implementation (November 2025)
+
+The transcript shrinker has been **completely replaced** with a simpler implementation based on [praeclarum/TranscriptSummarizer](https://github.com/praeclarum/TranscriptSummarizer).
+
+**See [`TRANSCRIPT_SHRINKER.md`](TRANSCRIPT_SHRINKER.md) for current documentation.**
+
+## Changes from Previous Implementation
+
+### What Was Removed (~600 lines)
+
+1. **Multi-pass deduplication and merging** - Complex similarity-based deduplication
+2. **Target segment count enforcement** - Iterative merging to hit specific count
+3. **Time-proximity based merging** - Complex algorithm for merging by time gaps
+4. **Refined segment conversion** - Extra layer converting condensed to refined segments
+5. **Complex configuration** - Multiple tuning parameters (similarity threshold, min seconds, etc.)
+6. **Overlap skipping logic** - Complex character-based skip calculation
+
+### What Was Added/Simplified
+
+1. **Direct parsing** - Parse `timestamp\nspeaker\ntext\n\n` format directly
+2. **Simple windowing** - Character-based with percentage overlap
+3. **Direct summarization** - Windows → Summaries (one LLM call per window)
+4. **Cleaner prompts** - Based on proven examples from reference implementation
+5. **Simpler configuration** - Just `maxWindowCharacters` and `overlap` percentage
+
+### Key Architectural Changes
+
+**Before:**
+```
+Raw Transcript 
+  → Parse (complex regex) 
+  → Window (fixed segment count)
+  → Condense (LLM)
+  → Merge Windows (complex overlap skip)
+  → Deduplicate (similarity scoring)
+  → Merge Adjacent (iterative, threshold-based)
+  → Merge by Time (if still over target)
+  → Convert to Refined
+  → Output
+```
+
+**After:**
+```
+Raw Transcript
+  → Parse (simple split on \n\n)
+  → Window (character-based with overlap)
+  → Summarize (LLM)
+  → Output
+```
+
+### Benefits of New Implementation
+
+✅ **Simpler code**: ~600 lines removed  
+✅ **More predictable**: Follows proven pattern  
+✅ **Easier to maintain**: Clear, straightforward logic  
+✅ **Better aligned**: Matches reference implementation  
+✅ **Cleaner UI**: Direct display of segments and windows  
+
+### Migration Guide
+
+If you were using the old implementation:
+
+**Old Configuration:**
+```swift
+let config = ShrinkConfig(
+    maxWindowCharacters: 6000,
+    overlapCharacters: 1000,
+    targetSegmentCount: 25,
+    minSecondsBetweenSegments: 20,
+    similarityThreshold: 0.6
+)
+```
+
+**New Configuration:**
+```swift
+let config = ShrinkConfig(
+    maxWindowCharacters: 5000,
+    overlap: 0.2  // 20% overlap
+)
+```
+
+**Input Format Changed:**
+
+Old: Flexible timestamp formats on single lines  
+New: Strict `timestamp\nspeaker\ntext\n\n` format
+
+See [`TRANSCRIPT_SHRINKER.md`](TRANSCRIPT_SHRINKER.md) for format specification.
+
+---
+
+## Historical Implementation Details (Pre-November 2025)
+
+<details>
+<summary>Click to view previous implementation notes</summary>
 
 ## Summary
 
-Incorporated best practices from [praeclarum/TranscriptSummarizer](https://github.com/praeclarum/TranscriptSummarizer) to improve `TranscriptionShrinkerService` window creation and overlap handling.
+Previous implementation incorporated best practices from [praeclarum/TranscriptSummarizer](https://github.com/praeclarum/TranscriptSummarizer) but added complex multi-pass processing.
 
-## Key Improvements
+## Key Features (Now Removed)
 
-### 1. **Character-Based Window Sizing** (vs Fixed Segment Count)
+### 1. **Character-Based Window Sizing**
 
-**Previous Approach:**
-- Fixed segment count per window (e.g., 30 segments)
-- Didn't account for variable segment lengths
-- Could create windows with wildly different total content sizes
+### 1. **Character-Based Window Sizing**
 
-**New Approach:**
-```swift
-public struct ShrinkConfig {
-    /// Maximum characters per window (estimated JSON size)
-    public var maxWindowCharacters: Int = 6000
-    
-    /// Overlap size in characters for context preservation
-    public var overlapCharacters: Int = 1000
-}
-```
+Used character-based window sizing with fixed character overlap.
 
-**Benefits:**
-- ✅ **Adaptive sizing**: Handles variable-length segments naturally
-- ✅ **Consistent LLM context**: Each window has similar total content size
-- ✅ **Better performance**: Avoids overloading LLM with too much text or under-utilizing with too little
+### 2. **Multi-Pass Processing**
 
-### 2. **Backfill Overlap Strategy** (vs Skip-Forward)
+Used multiple passes:
+- Pass 1: Parse segments
+- Pass 2: Condense with sliding windows
+- Pass 3: Deduplicate and merge to target count
 
-**Previous Approach:**
-- Skip forward segments by percentage when merging windows
-- Example: Skip 50% of next window's segments
+### 3. **Complex Deduplication**
 
-**New Approach:**
-```swift
-// Create overlap by backfilling segments from previous window
-var newWindow: [TranscriptSegment] = []
-var overlapCount = 0
-var backIndex = nextSegmentIndex - 1
+Used similarity scoring and iterative merging to reduce segment count.
 
-while overlapCount < overlapCharacters && backIndex >= 0 {
-    let overlapSegment = currentWindow[...]
-    newWindow.insert(overlapSegment, at: 0)
-    overlapCount += overlapCharCount
-    backIndex -= 1
-}
-```
+</details>
 
-**Benefits:**
-- ✅ **Better context preservation**: Guarantees specific amount of overlap
-- ✅ **Smooth transitions**: LLM sees same content in consecutive windows
-- ✅ **More predictable**: Character-based overlap is consistent regardless of segment distribution
+---
 
-### 3. **Character Count Estimation**
-
-Added `estimateCharCount()` helper:
-```swift
-private func estimateCharCount(_ segments: [TranscriptSegment]) -> Int {
-    segments.reduce(0) { sum, segment in
-        // Estimate: timestamp (10) + text + JSON overhead (50)
-        sum + segment.timestamp.count + segment.text.count + 60
-    } + 20 // Window overhead
-}
-```
-
-**Benefits:**
-- ✅ **Accurate sizing**: Accounts for JSON serialization overhead
-- ✅ **Better logging**: Shows estimated character count per window
-- ✅ **Tunable limits**: Easy to adjust based on LLM context window size
-
-## Configuration Changes
-
-### Before:
-```swift
-let config = ShrinkConfig(
-    windowSize: 50,              // Fixed segment count
-    overlapPercentage: 0.4,      // 40% overlap by segment count
-    targetSegmentCount: 25
-)
-```
-
-### After:
-```swift
-let config = ShrinkConfig(
-    maxWindowCharacters: 6000,   // ~6KB per window
-    overlapCharacters: 1000,     // ~1KB overlap
-    targetSegmentCount: 25
-)
-```
-
-### Presets by Use Case:
-
-**Chapter Generation** (ChapterGenerationService):
-```swift
-maxWindowCharacters: 8000,    // Larger windows for more context
-overlapCharacters: 1500,      // More overlap for topic continuity
-```
-
-**General Shrinking** (TranscriptShrinkerViewModel):
-```swift
-maxWindowCharacters: 6000,    // Balanced
-overlapCharacters: 1000       // 15-20% overlap
-```
-
-## Implementation Details
-
-### Window Creation Algorithm
-
-1. **Build windows dynamically**:
-   - Start with empty window
-   - Add segments until character limit reached
-   - Create new window with overlap from previous
-
-2. **Overlap handling**:
-   - Backfill segments from end of previous window
-   - Continue until overlap character target reached
-   - Ensures smooth context transition
-
-3. **Merge windows**:
-   - First window: Take all segments
-   - Subsequent windows: Skip overlap portion based on character estimation
-   - Deduplicate similar segments in Pass 3
-
-### Backward Compatibility
-
-UI sliders in `TranscriptShrinkerViewModel` convert to character-based config:
-```swift
-// windowSize slider (10-100) → maxWindowCharacters (2000-12000)
-let maxChars = Int(windowSize) * 120  // ~120 chars per "segment unit"
-
-// overlapPercent slider (20-80) → overlapCharacters
-let overlapChars = Int((overlapPercent / 100.0) * Double(maxChars))
-```
-
-This maintains existing UI behavior while using improved algorithm under the hood.
-
-## Performance Impact
-
-**Expected improvements:**
-- 🚀 **More consistent window sizes**: Reduces variance in processing time
-- 🎯 **Better quality**: Character-based overlap preserves more context
-- 📊 **Predictable behavior**: Easier to tune for different transcript types
-
-**Trade-offs:**
-- Slightly more complex window creation logic
-- Minor overhead from character counting (negligible)
-
-## Testing Recommendations
-
-1. **Test with variable-length segments**:
-   - Short exchanges (1-2 sentences each)
-   - Long monologues (multiple paragraphs)
-   - Mixed content
-
-2. **Verify overlap quality**:
-   - Check that consecutive windows share meaningful context
-   - Ensure no duplicate content in final output (Pass 3 deduplication)
-
-3. **Compare configurations**:
-   - Try different maxWindowCharacters (4000-10000)
-   - Adjust overlapCharacters (500-2000)
-   - Measure quality of resulting segments
-
-## References
-
-- **Source**: [TranscriptSummarizer/TranscriptView.swift](https://github.com/praeclarum/TranscriptSummarizer/blob/main/TranscriptSummarizer/TranscriptView.swift)
-- **Pattern**: Character-based windowing with backfill overlap
-- **Inspiration**: Production-tested approach for WWDC transcript summarization
-
-## Future Enhancements
-
-Potential improvements identified but not yet implemented:
-
-1. **Progress Tracking**: Add per-window progress updates
-   ```swift
-   summaryProgress = Float(windowsProcessed) / Float(totalWindows)
-   ```
-
-2. **Dynamic Window Sizing**: Adjust window size based on content density
-   - Larger windows for sparse content
-   - Smaller windows for dense technical discussions
-
-3. **Smart Overlap**: Vary overlap based on topic continuity
-   - More overlap when topic shifts detected
-   - Less overlap within same topic
-
-## Migration Notes
-
-**Breaking Changes:**
-- `ShrinkConfig.windowSize` → `ShrinkConfig.maxWindowCharacters`
-- `ShrinkConfig.overlapPercentage` → `ShrinkConfig.overlapCharacters`
-
-**Updated Files:**
-- `/Services/AI/TranscriptionShrinkerService.swift` - Core algorithm
-- `/Services/AI/ChapterGenerationService.swift` - Chapter-specific config
-- `/ViewModels/TranscriptShrinkerViewModel.swift` - UI slider mapping
-
-**No UI Changes**: Existing UI continues to work with conversion layer.
+**For current implementation details, see [`TRANSCRIPT_SHRINKER.md`](TRANSCRIPT_SHRINKER.md)**
