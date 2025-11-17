@@ -81,6 +81,13 @@ public class TranscriptionShrinkerService {
         return allSummarizedSegments
     }
     
+    /// Summarizes a single window (for progressive UI updates)
+    /// - Parameter window: The window to summarize
+    /// - Returns: Array of summarized segments
+    public func summarizeWindow(_ window: TranscriptWindow) async throws -> [SummarizedSegment] {
+        return try await summarize(window: window)
+    }
+    
     // MARK: - Parsing
     
     /// Parse transcript into segments
@@ -138,15 +145,15 @@ public class TranscriptionShrinkerService {
     private func summarize(window: TranscriptWindow) async throws -> [SummarizedSegment] {
         let session = LanguageModelSession {
             """
-You are an expert at summarizing recorded transcripts of podcast conversations.
-
-You will be given a series of transcript segments, each with a timestamp, speaker name, and text and your goal is to produce a concise summary of the content.
-
-Focus on the key points, main ideas, and important details discussed in the segments. Avoid including trivial or repetitive information.
-
-When summarizing, you can completely elide short back-and-forth exchanges that do not add significant value to the overall content.
-
-For example, given the following transcript segments:
+    You are an expert at summarizing recorded transcripts of podcast conversations.
+    
+    You will be given a series of transcript segments, each with a timestamp, speaker name, and text and your goal is to produce a concise summary of the content.
+    
+    Focus on the key points, main ideas, and important details discussed in the segments. Avoid including trivial or repetitive information.
+    
+    When summarizing, you can completely elide short back-and-forth exchanges that do not add significant value to the overall content.
+    
+    For example, given the following transcript segments:
 """
             TranscriptWindow(segments: [
                 TranscriptSegmentWithSpeaker(timestamp: "00:15:03", speaker: "Alice", text: "I had a terrible day today. First, I missed my bus, then I spilled coffee all over my new shirt."),
@@ -171,11 +178,10 @@ Long monologues or detailed explanations should be summarized to capture the ess
 You might produce the summary:
 """
             [SummarizedSegment(firstSegmentTimestamp: "00:30:10", summary: "Charlie discussed the impact of quantum computing on cryptography, highlighting the need for quantum-resistant algorithms due to vulnerabilities in current encryption methods.")]
-"""
         }
         
         let prompt = Prompt {
-"""
+            """
 Here are the transcript segments to summarize:
 """
             window
@@ -218,25 +224,35 @@ Here are the transcript segments to summarize:
 
 /// Segment with speaker information (used for parsing)
 @Generable(description: "A piece of dialog from a recorded transcript.")
-struct TranscriptSegmentWithSpeaker: Identifiable {
-    var id: String { timestamp }
-    let timestamp: String
-    let speaker: String
-    let text: String
+public struct TranscriptSegmentWithSpeaker: Identifiable {
+    public var id: String { timestamp }
+    public let timestamp: String
+    public let speaker: String
+    public let text: String
     
     var jsonCharCount: Int {
         timestamp.count + speaker.count + text.count + 50
+    }
+    
+    public init(timestamp: String, speaker: String, text: String) {
+        self.timestamp = timestamp
+        self.speaker = speaker
+        self.text = text
     }
 }
 
 /// A window of segments to be processed together
 @Generable(description: "A contiguous section of a recorded transcript.")
-struct TranscriptWindow: Identifiable {
-    var id: String { segments.first?.timestamp ?? "0" }
-    var segments: [TranscriptSegmentWithSpeaker]
+public struct TranscriptWindow: Identifiable {
+    public var id: String { segments.first?.timestamp ?? "0" }
+    public var segments: [TranscriptSegmentWithSpeaker]
     
     var jsonCharCount: Int {
         segments.reduce(0) { $0 + $1.jsonCharCount } + 20
+    }
+    
+    public init(segments: [TranscriptSegmentWithSpeaker]) {
+        self.segments = segments
     }
 }
 

@@ -77,17 +77,57 @@ public struct TranscriptShrinkerView: View {
                         .font(.title2)
                     if viewModel.isSummarizing {
                         ProgressView(value: viewModel.summaryProgress)
+                            .frame(width: 200)
+                        Text("\(Int(viewModel.summaryProgress * 100))%")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .padding()
                 
                 if !viewModel.summarizedSegments.isEmpty {
                     HStack {
+                        Text("\(viewModel.summarizedSegmentCount) summaries")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Text("•")
+                            .foregroundStyle(.secondary)
                         Text("Reduction: \(viewModel.reductionPercent)")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                     .padding(.horizontal)
+                }
+                
+                // Processing Log
+                if !viewModel.processingLog.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Processing Log:")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        ScrollViewReader { proxy in
+                            ScrollView {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    ForEach(Array(viewModel.processingLog.enumerated()), id: \.offset) { index, log in
+                                        Text(log)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .id(index)
+                                    }
+                                }
+                            }
+                            .frame(height: 100)
+                            .onChange(of: viewModel.processingLog.count) { _, _ in
+                                if let lastIndex = viewModel.processingLog.indices.last {
+                                    withAnimation {
+                                        proxy.scrollTo(lastIndex, anchor: .bottom)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
                 }
                 
                 List(viewModel.summarizedSegments) { summarized in

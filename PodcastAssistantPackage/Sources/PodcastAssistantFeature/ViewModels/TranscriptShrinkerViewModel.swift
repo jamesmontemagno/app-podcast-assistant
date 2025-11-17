@@ -90,17 +90,29 @@ public class TranscriptShrinkerViewModel: ObservableObject {
             errorMessage = nil
             
             do {
-                let config = TranscriptionShrinkerService.ShrinkConfig(
-                    maxWindowCharacters: maxWindowCharacters,
-                    overlap: overlap
-                )
+                // Process each window individually to update UI progressively
+                let totalWindows = windows.count
+                processingLog.append("🚀 Starting summarization of \(totalWindows) windows")
                 
-                let results = try await shrinkerService.shrinkTranscript(
-                    rawTranscript,
-                    config: config
-                )
+                for (index, window) in windows.enumerated() {
+                    processingLog.append("⏳ Processing window \(index + 1)/\(totalWindows) (\(window.segments.count) segments)")
+                    
+                    // Create a temporary service instance for this window
+                    let service = TranscriptionShrinkerService()
+                    let summarized = try await service.summarizeWindow(window)
+                    
+                    // Add results immediately to update UI
+                    summarizedSegments.append(contentsOf: summarized)
+                    
+                    // Update progress
+                    count += 1
+                    summaryProgress = Float(count) / Float(totalWindows)
+                    
+                    processingLog.append("✅ Window \(index + 1) complete: \(summarized.count) summaries")
+                }
                 
-                summarizedSegments = results
+                let reduction = reductionPercent
+                processingLog.append("✨ Complete: \(originalSegmentCount) → \(summarizedSegmentCount) segments (\(reduction) reduction)")
                 
             } catch {
                 errorMessage = "Summarization failed: \(error.localizedDescription)"
