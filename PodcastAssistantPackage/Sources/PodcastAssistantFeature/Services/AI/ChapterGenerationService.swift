@@ -45,13 +45,10 @@ public class ChapterGenerationService {
         print("📝 [ChapterGen] Starting chapter generation")
         
         // Step 1: Shrink transcript using TranscriptionShrinkerService
-        // Configure for chapter generation: target ~25 segments for analysis
+        // Configure for chapter generation: larger windows for chapter context
         let shrinkConfig = TranscriptionShrinkerService.ShrinkConfig(
-            maxWindowCharacters: 5000,    // Larger windows for chapter context
-            overlapCharacters: 1500,      // More overlap for topic continuity
-            targetSegmentCount: 25,
-            minSecondsBetweenSegments: 20,
-            similarityThreshold: 0.7
+            maxWindowCharacters: 6000,    // Larger windows for chapter context
+            overlap: 0.15                  // More overlap for topic continuity
         )
         
         // Hook up progress handler to shrinker
@@ -61,14 +58,12 @@ public class ChapterGenerationService {
                 progressHandler?(message.replacingOccurrences(of: "📊 [Shrinker] ", with: ""))
             } else if message.contains("Processing window") {
                 progressHandler?(message.replacingOccurrences(of: "⏳ [Shrinker] ", with: ""))
-            } else if message.contains("condensed") {
-                progressHandler?(message.replacingOccurrences(of: "✅ [Shrinker] ", with: ""))
-            } else if message.contains("Merged") || message.contains("After deduplication") {
-                progressHandler?(message.replacingOccurrences(of: "🧩 [Shrinker] ", with: "").replacingOccurrences(of: "🔍 [Shrinker] ", with: ""))
+            } else if message.contains("Complete") {
+                progressHandler?(message.replacingOccurrences(of: "✨ [Shrinker] ", with: ""))
             }
         }
         
-        let refinedSegments = try await shrinkerService.shrinkTranscript(
+        let summarizedSegments = try await shrinkerService.shrinkTranscript(
             transcript,
             config: shrinkConfig
         )
@@ -76,12 +71,31 @@ public class ChapterGenerationService {
         // Clear handler
         shrinkerService.logHandler = nil
         
+        // Convert SummarizedSegments to RefinedSegments for chapter identification
+        let refinedSegments = convertToRefinedSegments(summarizedSegments)
+        
         print("📊 [ChapterGen] Received \(refinedSegments.count) refined segments")
         
         // Step 2: Identify topic shifts and create chapters from refined segments
         let chapters = try await identifyChaptersFromSegments(refinedSegments)
         
         return chapters
+    }
+    
+    // MARK: - Conversion Helpers
+    
+    /// Converts SummarizedSegments from the transcript shrinker to RefinedSegments for chapter identification
+    private func convertToRefinedSegments(_ summarizedSegments: [SummarizedSegment]) -> [RefinedSegment] {
+        return summarizedSegments.enumerated().map { index, segment in
+            // For SummarizedSegment, we only have firstSegmentTimestamp
+            // Use it as both start and end (chapter service only needs end timestamp for duration calculation)
+            RefinedSegment(
+                startTimestamp: segment.firstSegmentTimestamp,
+                endTimestamp: segment.firstSegmentTimestamp,
+                summary: segment.summary,
+                originalSegmentIndices: [index]
+            )
+        }
     }
     
     // MARK: - Chapter Identification
