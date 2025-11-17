@@ -205,7 +205,7 @@ public class ChapterGenerationService {
         
         let windowContext = totalWindows > 1 ? "This is window \(windowNumber) of \(totalWindows). " : ""
         let chapterGuidance = windowNumber == 1 ? 
-            "- First chapter MUST start at 00:00 (or the first timecode if different)\n" : 
+            "- First chapter MUST start at 00:00:00 (or the first timecode if different)\n" : 
             "- Focus on major topic shifts within this segment range\n"
         
         let prompt = """
@@ -221,8 +221,9 @@ public class ChapterGenerationService {
         - Create EXACTLY \(targetChapters) chapters (maximum \(maxChapters))
         - Only mark MAJOR topic transitions - ignore minor shifts
         - Each chapter should represent 5-10+ minutes of distinct content
-        \(chapterGuidance)- For each chapter, extract the start timestamp from the time range (e.g., "00:00.29" from "[00:00.29 - 03:00.71]")
+        \(chapterGuidance)- For each chapter, extract the start timestamp from the time range
         - Use timestamps that align with where topics actually shift in the segments below
+        - Format timestamps as MM:SS or HH:MM:SS (will be normalized automatically)
         - Create descriptive titles (under 8 words)
         - Provide a one-sentence summary per chapter
         
@@ -237,13 +238,25 @@ public class ChapterGenerationService {
             generating: ChapterMarkersResponsePOCO.self
         )
         
-        return response.content.chapters.map {
+        // Normalize all timestamps to HH:MM:SS format
+        var normalizedChapters = response.content.chapters.map { chapter in
             ChapterMarker(
-                timestamp: $0.timestamp,
-                title: $0.title,
-                summary: $0.summary
+                timestamp: normalizeTimestamp(chapter.timestamp),
+                title: chapter.title,
+                summary: chapter.summary
             )
         }
+        
+        // Ensure first chapter starts at 00:00:00 if this is the first window
+        if windowNumber == 1, let firstChapter = normalizedChapters.first {
+            normalizedChapters[0] = ChapterMarker(
+                timestamp: "00:00:00",
+                title: firstChapter.title,
+                summary: firstChapter.summary
+            )
+        }
+        
+        return normalizedChapters
     }
     
     /// Merges chapters from multiple windows, removing duplicates and overlaps
@@ -299,6 +312,21 @@ public class ChapterGenerationService {
         }
         
         return seconds
+    }
+    
+    /// Normalizes a timestamp to HH:MM:SS format (no fractional seconds)
+    /// Handles various input formats: MM:SS, MM:SS.ss, HH:MM:SS, HH:MM:SS.ss
+    private func normalizeTimestamp(_ timestamp: String) -> String {
+        // Convert to seconds first
+        let totalSeconds = timestampToSeconds(timestamp)
+        
+        // Extract hours, minutes, seconds
+        let hours = Int(totalSeconds) / 3600
+        let minutes = (Int(totalSeconds) % 3600) / 60
+        let seconds = Int(totalSeconds) % 60
+        
+        // Format as HH:MM:SS
+        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
     }
     
     /// Reduces chapters to target count by keeping most significant topic shifts
