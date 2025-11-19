@@ -39,6 +39,12 @@ private struct SettingsContentView: View {
                         Label("Fonts", systemImage: "textformat")
                     }
                 
+                // MARK: - AI Features Tab
+                AIFeaturesSettingsTab(viewModel: viewModel)
+                    .tabItem {
+                        Label("AI Features", systemImage: "brain")
+                    }
+                
                 // MARK: - About Tab
                 AboutSettingsTab()
                     .tabItem {
@@ -375,6 +381,52 @@ private struct AboutSettingsTab: View {
             }
             .frame(maxWidth: .infinity)
         }
+    }
+}
+
+// MARK: - AI Features Settings Tab
+
+@available(macOS 26.0, *)
+private struct AIFeaturesSettingsTab: View {
+    @ObservedObject var viewModel: SettingsViewModel
+    
+    var body: some View {
+        Form {
+            Section {
+                Text("Configure AI-powered features and content generation")
+                    .foregroundStyle(.secondary)
+            }
+            
+            Section {
+                Stepper("Max Window Characters: \(viewModel.transcriptShrinkerMaxWindowCharacters)", 
+                        value: $viewModel.transcriptShrinkerMaxWindowCharacters, 
+                        in: 3000...10000, 
+                        step: 500)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Overlap: \(Int(viewModel.transcriptShrinkerOverlap * 100))%")
+                    Slider(value: $viewModel.transcriptShrinkerOverlap, in: 0.1...0.4)
+                }
+                
+                Toggle(isOn: $viewModel.transcriptShrinkerFallbackOnError) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Fallback to Original Transcript")
+                            .font(.body)
+                        Text("Use original transcript if shrinking fails")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
+            } header: {
+                Text("Transcript Shrinker")
+            } footer: {
+                Text("The transcript shrinker condenses long transcripts into concise summaries using Apple Intelligence. This improves AI content generation quality by focusing on key topics. Larger window sizes preserve more context, while higher overlap ensures continuity between segments.")
+                    .font(.caption)
+            }
+        }
+        .formStyle(.grouped)
+        .padding(24)
     }
 }
 

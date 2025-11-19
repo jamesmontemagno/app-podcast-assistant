@@ -33,6 +33,8 @@ public struct AIIdeasView: View {
                     VStack(spacing: 16) {
                         transcriptInfoSection
                         Divider()
+                        shrunkTranscriptSection
+                        Divider()
                         titleSuggestionsSection
                         Divider()
                         descriptionSection
@@ -180,11 +182,145 @@ public struct AIIdeasView: View {
         .cornerRadius(8)
     }
     
+    private var shrunkTranscriptSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("Shrunk Transcript", systemImage: "wand.and.stars")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    Task { await viewModel.generateShrunkTranscript() }
+                } label: {
+                    if viewModel.isGeneratingShrunkTranscript {
+                        ProgressView().controlSize(.small)
+                        Text("Generating...")
+                    } else if viewModel.shrunkTranscript.isEmpty {
+                        Label("Generate", systemImage: "sparkles")
+                    } else {
+                        Label("Regenerate", systemImage: "arrow.clockwise")
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(viewModel.isGeneratingShrunkTranscript || viewModel.isGeneratingAll)
+            }
+            
+            // Progress details
+            if !viewModel.progressDetails.isEmpty && viewModel.isGeneratingShrunkTranscript {
+                Text(viewModel.progressDetails)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            
+            // Display area
+            if viewModel.shrunkTranscript.isEmpty {
+                Text("Generate a condensed version of the transcript for better AI content generation")
+                    .foregroundStyle(.secondary)
+                    .font(.subheadline)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    // Reduction stats
+                    if viewModel.shrunkSegmentCount > 0 {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Condensed \(viewModel.originalSegmentCount) segments → \(viewModel.shrunkSegmentCount) summaries (\(viewModel.reductionPercentage)% reduction)")
+                                .font(.caption)
+                                .foregroundStyle(.green)
+                            
+                            HStack(spacing: 16) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("With Timestamps")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    HStack(spacing: 4) {
+                                        Text(viewModel.shrunkTranscriptCharCountFormatted)
+                                            .font(.caption)
+                                            .fontWeight(.semibold)
+                                        Text("chars")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                
+                                Image(systemName: "arrow.right")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Stripped")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    HStack(spacing: 4) {
+                                        Text(viewModel.shrunkTranscriptStrippedCharCountFormatted)
+                                            .font(.caption)
+                                            .fontWeight(.semibold)
+                                            .foregroundStyle(.blue)
+                                        Text("chars")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                
+                                Image(systemName: "arrow.right")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("AI-Ready")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    HStack(spacing: 4) {
+                                        Text(viewModel.shrunkTranscriptCleanedCharCountFormatted)
+                                            .font(.caption)
+                                            .fontWeight(.semibold)
+                                            .foregroundStyle(.purple)
+                                        Text("chars")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                            .padding(.top, 4)
+                        }
+                    }
+                    
+                    ScrollView {
+                        Text(viewModel.shrunkTranscript)
+                            .font(.body)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(height: 200)
+                    .padding(12)
+                    .background(Color(NSColor.textBackgroundColor))
+                    .cornerRadius(8)
+                    
+                    HStack {
+                        Button {
+                            viewModel.copyToClipboard(viewModel.shrunkTranscript)
+                        } label: {
+                            Label("Copy", systemImage: "doc.on.doc")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+        .cornerRadius(8)
+    }
+    
     private var titleSuggestionsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Label("Title Suggestions", systemImage: "textformat.size")
                     .font(.headline)
+                
+                if viewModel.usedShrunkTranscript && !viewModel.titleSuggestions.isEmpty {
+                    Image(systemName: "wand.and.stars.inverse")
+                        .foregroundStyle(.purple)
+                        .help("Generated from condensed transcript")
+                }
+                
                 Spacer()
                 Button {
                     Task { await viewModel.generateTitles() }
@@ -241,6 +377,13 @@ public struct AIIdeasView: View {
             HStack {
                 Label("Episode Description", systemImage: "doc.text")
                     .font(.headline)
+                
+                if viewModel.usedShrunkTranscript && !viewModel.generatedDescription.isEmpty {
+                    Image(systemName: "wand.and.stars.inverse")
+                        .foregroundStyle(.purple)
+                        .help("Generated from condensed transcript")
+                }
+                
                 Spacer()
                 Picker("Length", selection: $viewModel.descriptionLength) {
                     ForEach(DescriptionGenerationService.DescriptionLength.allCases, id: \.self) { length in
@@ -306,6 +449,13 @@ public struct AIIdeasView: View {
             HStack {
                 Label("Social Media Posts", systemImage: "megaphone")
                     .font(.headline)
+                
+                if viewModel.usedShrunkTranscript && !viewModel.socialPosts.isEmpty {
+                    Image(systemName: "wand.and.stars.inverse")
+                        .foregroundStyle(.purple)
+                        .help("Generated from condensed transcript")
+                }
+                
                 Spacer()
                 Button {
                     Task { await viewModel.generateSocialPosts() }

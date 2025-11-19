@@ -45,21 +45,33 @@ public class SocialPostGenerationService {
     /// - Parameters:
     ///   - transcript: The episode transcript text
     ///   - title: The episode title
+    ///   - isShrunkTranscript: Whether the transcript is a shrunk/condensed version
     /// - Returns: Array of social posts for different platforms
     /// - Throws: Error if generation fails
     public func generateSocialPosts(
         from transcript: String,
-        title: String
+        title: String,
+        isShrunkTranscript: Bool = false
     ) async throws -> [SocialPost] {
         let session = LanguageModelSession(
             instructions: "You are a social media expert who creates engaging posts for different platforms."
         )
         
-        let cleanedTranscript = transcriptCleaner.cleanForAI(transcript)
-        let truncatedTranscript = String(cleanedTranscript.prefix(10000))
+        let processedTranscript: String
+        if isShrunkTranscript {
+            // Clean timestamps and extra whitespace from shrunk transcript
+            processedTranscript = transcriptCleaner.cleanForAI(transcript)
+        } else {
+            let cleanedTranscript = transcriptCleaner.cleanForAI(transcript)
+            processedTranscript = String(cleanedTranscript.prefix(10000))
+        }
+        
+        let transcriptNote = isShrunkTranscript
+            ? "Note: This is a condensed AI-generated summary of the full episode transcript.\n\n"
+            : ""
         
         let prompt = """
-        You are creating social media posts to promote a podcast episode based on its transcript.
+        \(transcriptNote)You are creating social media posts to promote a podcast episode based on its transcript.
         
         First, analyze the transcript and identify:
         - The main topics that dominate the conversation (what listeners will spend most time hearing)
@@ -91,7 +103,7 @@ public class SocialPostGenerationService {
         Episode title: \(title)
         
         Episode Transcript:
-        \(truncatedTranscript)
+        \(processedTranscript)
         """
         
         let response = try await session.respond(

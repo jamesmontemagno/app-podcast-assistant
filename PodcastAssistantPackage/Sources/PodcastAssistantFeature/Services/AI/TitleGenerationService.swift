@@ -16,19 +16,31 @@ public class TitleGenerationService {
     // MARK: - Title Generation
     
     /// Generates 5 creative title suggestions based on the episode transcript
-    /// - Parameter transcript: The episode transcript text
+    /// - Parameters:
+    ///   - transcript: The episode transcript text
+    ///   - isShrunkTranscript: Whether the transcript is a shrunk/condensed version
     /// - Returns: Array of 5 title suggestions
     /// - Throws: Error if generation fails
-    public func generateTitles(from transcript: String) async throws -> [String] {
+    public func generateTitles(from transcript: String, isShrunkTranscript: Bool = false) async throws -> [String] {
         let session = LanguageModelSession(
             instructions: "You are a creative podcast producer who writes engaging, concise episode titles."
         )
         
-        let cleanedTranscript = transcriptCleaner.cleanForAI(transcript)
-        let truncatedTranscript = String(cleanedTranscript.prefix(12000))
+        let processedTranscript: String
+        if isShrunkTranscript {
+            // Clean timestamps and extra whitespace from shrunk transcript
+            processedTranscript = transcriptCleaner.cleanForAI(transcript)
+        } else {
+            let cleanedTranscript = transcriptCleaner.cleanForAI(transcript)
+            processedTranscript = String(cleanedTranscript.prefix(12000))
+        }
+        
+        let transcriptNote = isShrunkTranscript
+            ? "Note: This is a condensed AI-generated summary of the full episode transcript.\n\n"
+            : ""
         
         let prompt = """
-        You are generating titles for a podcast episode based on its transcript.
+        \(transcriptNote)You are generating titles for a podcast episode based on its transcript.
         
         Analyze the transcript and identify the topics that are discussed the most.
         Focus primarily on the main topics that take up the majority of the conversation.
@@ -40,7 +52,7 @@ public class TitleGenerationService {
         Make them engaging, descriptive, and SEO-friendly.
         
         Episode Transcript:
-        \(truncatedTranscript)
+        \(processedTranscript)
         """
         
         let response = try await session.respond(

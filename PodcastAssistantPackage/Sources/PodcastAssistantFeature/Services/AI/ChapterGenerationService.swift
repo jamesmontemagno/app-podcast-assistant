@@ -31,45 +31,56 @@ public class ChapterGenerationService {
     // MARK: - Chapter Generation
     
     /// Generates chapter markers based on the episode transcript
-    /// Step 1: Use TranscriptionShrinkerService to condense transcript into refined segments
+    /// Step 1: Use TranscriptionShrinkerService to condense transcript into refined segments (or use pre-shrunk if provided)
     /// Step 2: Analyze refined segments to identify topic shifts and create chapters
     /// - Parameters:
     ///   - transcript: The episode transcript text
+    ///   - preShrunkSegments: Optional pre-shrunk segments to avoid re-processing
     ///   - progressHandler: Optional callback for progress updates
     /// - Returns: Array of 5-10 chapter markers
     /// - Throws: Error if generation fails
     public func generateChapters(
         from transcript: String,
+        preShrunkSegments: [SummarizedSegment]? = nil,
         progressHandler: ((String) -> Void)? = nil
     ) async throws -> [ChapterMarker] {
         print("📝 [ChapterGen] Starting chapter generation")
         
-        // Step 1: Shrink transcript using TranscriptionShrinkerService
-        // Configure for chapter generation: larger windows for chapter context
-        let shrinkConfig = TranscriptionShrinkerService.ShrinkConfig(
-            maxWindowCharacters: 6000,    // Larger windows for chapter context
-            overlap: 0.15                  // More overlap for topic continuity
-        )
+        let summarizedSegments: [SummarizedSegment]
         
-        // Hook up progress handler to shrinker
-        shrinkerService.logHandler = { message in
-            // Extract useful progress info from log messages
-            if message.contains("Parsed") {
-                progressHandler?(message.replacingOccurrences(of: "📊 [Shrinker] ", with: ""))
-            } else if message.contains("Processing window") {
-                progressHandler?(message.replacingOccurrences(of: "⏳ [Shrinker] ", with: ""))
-            } else if message.contains("Complete") {
-                progressHandler?(message.replacingOccurrences(of: "✨ [Shrinker] ", with: ""))
+        // Use pre-shrunk segments if available, otherwise shrink now
+        if let preProcessed = preShrunkSegments {
+            print("📦 [ChapterGen] Using pre-shrunk transcript (\(preProcessed.count) segments)")
+            summarizedSegments = preProcessed
+        } else {
+            print("⚙️ [ChapterGen] Shrinking transcript...")
+            // Step 1: Shrink transcript using TranscriptionShrinkerService
+            // Configure for chapter generation: larger windows for chapter context
+            let shrinkConfig = TranscriptionShrinkerService.ShrinkConfig(
+                maxWindowCharacters: 6000,    // Larger windows for chapter context
+                overlap: 0.15                  // More overlap for topic continuity
+            )
+            
+            // Hook up progress handler to shrinker
+            shrinkerService.logHandler = { message in
+                // Extract useful progress info from log messages
+                if message.contains("Parsed") {
+                    progressHandler?(message.replacingOccurrences(of: "📊 [Shrinker] ", with: ""))
+                } else if message.contains("Processing window") {
+                    progressHandler?(message.replacingOccurrences(of: "⏳ [Shrinker] ", with: ""))
+                } else if message.contains("Complete") {
+                    progressHandler?(message.replacingOccurrences(of: "✨ [Shrinker] ", with: ""))
+                }
             }
+            
+            summarizedSegments = try await shrinkerService.shrinkTranscript(
+                transcript,
+                config: shrinkConfig
+            )
+            
+            // Clear handler
+            shrinkerService.logHandler = nil
         }
-        
-        let summarizedSegments = try await shrinkerService.shrinkTranscript(
-            transcript,
-            config: shrinkConfig
-        )
-        
-        // Clear handler
-        shrinkerService.logHandler = nil
         
         // Convert SummarizedSegments to RefinedSegments for chapter identification
         let refinedSegments = convertToRefinedSegments(summarizedSegments)

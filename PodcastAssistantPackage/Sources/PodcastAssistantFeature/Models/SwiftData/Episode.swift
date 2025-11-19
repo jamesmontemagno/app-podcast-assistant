@@ -147,6 +147,17 @@ public final class Episode {
             hasThumbnailOutput = newValue != nil
         }
     }
+    
+    /// Access shrunk transcript from content relationship
+    public var shrunkTranscript: String? {
+        get { content?.shrunkTranscript }
+        set {
+            if content == nil {
+                content = EpisodeContent()
+            }
+            content?.shrunkTranscript = newValue
+        }
+    }
 }
 
 extension Episode: Identifiable, Hashable {
