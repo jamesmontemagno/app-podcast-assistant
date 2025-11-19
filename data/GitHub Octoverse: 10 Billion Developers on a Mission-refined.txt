@@ -1,0 +1,81 @@
+# Refined Transcript Segments
+# Episode: GitHub Octoverse: 10 Billion Developers on a Mission
+# Original segments: 617
+# Refined segments: 25
+# Reduction: 95.9%
+
+[00:00.29 - 03:00.71] Introduction to Merge Conflict podcast with hosts James and Frank discussing various topics. Frank discusses trivia success, mentioning Halloween theme struggles and overall trivia performance. James and Frank reminisce about co-piloting experiences, leading to a discussion on analyzing Lord of the Rings movies. Frank estimates combined runtime of all three Lord of the Rings movies, concluding at nine hours, 20 minutes. James and Frank estimate total runtime of Lord of the Rings-a-thon, concluding at 11 hours, 22 minutes. James discusses the challenge of watching multiple films back-to-back, emphasizing the need for breaks and snacks.
+  (Covers 48 original segments)
+
+[03:00.71 - 05:24] Frank reflects on his younger self and the added content in the Return of the King's director's cut. Frank expresses interest in understanding large statistics, imagining a visual representation of the number of developers.
+  (Covers 27 original segments)
+
+[05:24 - 06:30] Impressive development rate: 1 developer per second joined GitHub
+  (Covers 9 original segments)
+
+[06:30 - 07:55.66] Over 400 million public repositories, 72M new ones in a year, with significant regional growth 36M developers joined GitHub in a year, 23% YoY growth, 80% use Copilot James mentions over 36M developers joining GitHub annually, with 23% growth year-over-year. Frank and James note GitHub Copilot's rapid adoption, with 36M+ developers using it this year.
+  (Covers 8 original segments)
+
+[07:55.66 - 15:31.08] Frank attributes GitHub's growth to new IDEs, emphasizing acceleration rather than just velocity. James highlights that 82% of GitHub's activity comes from private repositories, growing 33% over 19%. Frank reflects on GitHub's evolution, acknowledging both public and private repository usage. Pricing changes and their impact on GitHub usage. Statistic on contributions to private repositories and GitHub trends.
+  (Covers 73 original segments)
+
+[15:31.08 - 19:48.94] James highlights growth in Jupyter Notebooks and Dockerfiles, with Dockerfiles showing a 120% increase. Frank expresses nostalgia for Jupyter Notebooks, acknowledging their resurgence despite personal reduced usage. James shares increased interest in Dockerfile and containerization, with more dev container work. Frank expresses curiosity about dev containers and their role in production versus development contexts. Frank expresses curiosity about separating dev containers from production Dockerfiles, highlighting the practicality of dev container use. James shifts focus to global coding trends, referencing GitHub data on coding demographics. Frank points out declining growth in the US, while India emerges as a major market for GitHub users. James acknowledges India's rapid growth, emphasizing the increasing number of developers in the region. Frank predicts future growth in the US, highlighting Brazil and Indonesia as significant markets. Frank notes Brazil and Indonesia's rapid growth in developer counts, underscoring global expansion of GitHub's user base. Indonesia's rapid growth from 1 to 4.5 million developers
+  (Covers 46 original segments)
+
+[19:48.94 - 21:40.75] Brazil's developer community is thriving China has slow growth despite large population US ranks last in GitHub growth rate Brazil's strong developer presence Indonesia's significant programming growth Indonesia's role in Southeast Asia's digital economy Developers' steady growth in Asia Pacific Future growth predictions and community highlights
+  (Covers 27 original segments)
+
+[21:40.75 - 23:03.87] Projected growth to 57 million developers by 2030 India's projected growth surpassing US India's potential to overtake US development growth No major hurdles expected in development growth India's quicker potential to overtake US
+  (Covers 11 original segments)
+
+[23:03.87 - 27:03.66] Record contributions to public repositories March leads in new open source contributions March's high contributions linked to stable internet Frank humorously speculates on March's unusually high contribution month, possibly due to optimal internet conditions. Frank notes the mixed seasonal metaphor for technological progress, suggesting readiness for spring and fall advancements. James emphasizes the importance of completing work before summer vacations. Frank shares his personal experience of discovering high-quality open-source libraries, marveling at their abundance and quality. Frank appreciates the vast array of well-developed open-source libraries, noting his limited exposure to them. Frank discovers an AI-recommended library he hadn't heard of, later confirming its quality and recommending it to others. James acknowledges Frank's insightful exploration of open-source libraries, emphasizing GitHub's role in open-source collaboration. Frank recounts exploring multiple open-source libraries, marveling at their extensive contributions and quality. Frank highlights the impressive reach and quality of open-source libraries, underscoring their value despite competition from closed-source projects. James praises GitHub for fostering open-source contributions, despite the presence of closed-source projects. James discusses the fastest-growing open-source contributors, including standards project MCP and Home Assistant. James mentions MCP's rapid growth and highlights Home Assistant as a standout AI-focused open-source project. James praises Home Assistant as a top open-source project with significant year-over-year growth, emphasizing its importance in smart home technology. James identifies VS Code as a rapidly growing open-source project, despite its longstanding history, driven by AI integration. Frank confirms VS Code's rapid growth, attributing it to ongoing developments and AI incorporation. Frank acknowledges the substantial contributions to VS Code, highlighting its evolving role in the open-source community. James notes that while AI features have recently integrated into VS Code, much of its core functionality remains unchanged. Frank agrees with James, recognizing the steady progress and contributions to VS Code's development. Frank introduces UV as a prominent open-source project in the Python community, predicting its continued influence for several years. James confirms UV's significance in Python's open-source landscape, noting its growing adoption and potential longevity. Frank appreciates UV's rapid growth and its representation of Python's open-source ecosystem. James shifts focus to VLM, a high-throughput LLM interface engine, and its frequent mention alongside VS Code. James acknowledges VLM's prominence in the open-source community, frequently appearing alongside major projects.
+  (Covers 45 original segments)
+
+[27:03.66 - 29:07.28] VLM is highlighted as a rapidly growing open-source Python library with significant contributions. VLM's rapid growth is attributed to increasing developer knowledge and interest in machine learning. Codex is noted as an open-source project bridging AI/ML concepts with terminal interfaces. Godot is praised as a popular 2D/3D game engine, with plans for a new learning series. Home Assistant is introduced as an open-source project, gaining recognition among contributors.
+  (Covers 35 original segments)
+
+[29:07.28 - 30:18.32] James and Frank agree on the value of inference engines like Ollama and Llama C++ Introduction to other open source projects like Verl and Volcano Engine Frank expresses curiosity about the LLM deployment framework, Verl James and Frank discuss mobile app frameworks, mentioning Expo and React Native James praises Expo and mentions React Native's benefits over React alone
+  (Covers 16 original segments)
+
+[30:18.32 - 31:30.42] James identifies key open source projects by contributors and growth Frank acknowledges the rapid growth of open source projects James highlights VS Code as the project attracting the most first-time contributors Frank confirms VS Code as a leader among contributors Introduction to VS Code as a top open-source project, attracting first-time contributors, and mentioning Home Assistant's recognition. Exploration of IoT compatibility challenges and VS Code's appeal as a versatile tool.
+  (Covers 14 original segments)
+
+[31:30.42 - 33:00.01] Discussion on emerging technologies like bolt.new, Flutter, and Zen Browser, highlighting the complexity and integration of multiple tech stacks. Examination of top countries by contributors to open-source projects, with a focus on India's growing role and the U.S.'s sustained contributions. India leads in OSS contributors due to developer growth U.S. still leads despite fewer contributors
+  (Covers 13 original segments)
+
+[33:00.01 - 34:03.28] Community health issues in open-source Contrasting India's efficient code submissions with the U.S.'s iterative process, underscoring the latter's slower pace in achieving success. AI's role in simplifying code documentation Call to action for mandatory readme creation
+  (Covers 18 original segments)
+
+[34:03.28 - 35:11.47] Current low adoption of boilerplate and conduct templates Frank expresses frustration with security topics James introduces Dependabot's scanning capabilities
+  (Covers 19 original segments)
+
+[35:11.47 - 41:17] Frank acknowledges the challenges of using Dependabot James highlights positive trends in security alerts Frank appreciates progress in security automation James emphasizes the need to improve security tools James and Frank discuss the need for modernizing CICD pipelines and improving security practices. Frank expresses confidence in his ability to set up CICD systems quickly, though James suggests improvements. James emphasizes the importance of focusing on programming languages for 2025, highlighting TypeScript's growth. Frank and James discuss TypeScript's increasing popularity, noting contributions from JavaScript features. James highlights the rising popularity of TypeScript, noting significant contributor gains. Frank acknowledges TypeScript's growth and shifts perspective, now impressed by its rising usage. Frank admits Python's dominance but expresses support for Python's web development advancements.
+  (Covers 62 original segments)
+
+[41:17 - 43:06] Frank links AI advancements to JavaScript's growth, emphasizing how open-source data fuels AI improvements. James notes Java's steady growth despite C# overtaking it in GitHub usage, while acknowledging Java's enduring presence among developers.
+  (Covers 16 original segments)
+
+[43:06 - 45:19.22] Frank and James discuss Python's leadership in AI projects and enterprise stacks, with Java and C# showing significant contributor growth. Focus on Python's dominance in AI projects and enterprise stacks, along with notable growth in Java and C# contributors Emergence of Cobalt as an AI-assisted tool for modernizing legacy code, highlighting its private development Discovery of Cobalt's use in transitioning away from COBOL, emphasizing its growing presence Identification of Lua and Typist as fastest-growing languages, driven by Roblox and LaTeX alternatives Acknowledgment of Lua's association with Roblox scripting and Typist's rise as a LaTeX alternative
+  (Covers 39 original segments)
+
+[45:19.22 - 47:36] James notes that 80% of new repositories rely on six programming languages Frank criticizes the overuse of C++ and promotes writing C instead James emphasizes AI's pervasive role, particularly in AI-related projects James highlights AI projects' growing methodologies and geographies James finds the blog post's methodology appealing for numbers enthusiasts Frank reflects on AI's impact on programming careers, noting increased programmer numbers
+  (Covers 25 original segments)
+
+[47:36 - 49:05] Frank expresses joy in programming's growth, especially in emerging markets James appreciates C#'s representation in AI and encourages participation in open-source projects James sees potential for C# and .NET in AI development
+  (Covers 10 original segments)
+
+[49:05 - 50:47] James notes Python's momentum and its diverse user base James reflects on the vastness of the web and Python's impressive growth, despite not being his preferred language. James appreciates the active developer community on GitHub and the broader scope of programming languages. James praises the community's growth and GitHub's role in open-source contributions Frank acknowledges AI's influence but also highlights non-AI projects' passion James notes AI-centric focus but values non-AI projects like compiler development. Frank acknowledges the bias in AI-focused projects, while James highlights C#'s inclusion in top lists.
+  (Covers 16 original segments)
+
+[50:47 - 51:53] Frank suggests a need for broader project lists beyond top five to capture smaller developments. Frank expresses interest in languages like Swift, wishing for more comprehensive data views. Frank notes Stack Overflow survey's better representation of smaller languages.
+  (Covers 9 original segments)
+
+[51:53 - 54:09.21] Frank appreciates Stack Overflow's broader survey approach to language growth. James introduces innovationgraph.github.com, tracking language trends. James recommends innovationgraph.github.com for programming language insights. James shares Swift's recent rankings on innovationgraph. Frank congratulates Swift on surpassing Objective-C. James cautions against overanalyzing language popularity trends. Frank appreciates James's Swift tracking skills. Frank criticizes the readability of the graph presentation. James highlights the cyclical nature of programming language popularity James concludes with encouragement to explore data beyond podcasts.
+  (Covers 27 original segments)
+
+[54:09.21 - 09:13:00] James invites listeners to share thoughts on the Octoverse at mergeconflict.fm and mentions following on Twitter Closing remarks with gratitude and farewells from Frank Kruger and James Montemagno
+  (Covers 4 original segments)
+
+[09:13:00 - 54:39.72] AI's rapid growth in developer tools over the past year. Developer activity and GitHub statistics, including contributions and usage. Frank expresses frustration over AI's limited usefulness in bug-closing James highlights developer momentum with significant PR and code push growth Frank shares personal feelings about AI's impact on coding but not bug-closing James mentions the importance of the MCPA certification James discusses developer activity metrics showing more PRs merged than issues closed Frank notes the high volume of PRs merged and the significance of GitHub's pull request system Frank reflects on his coding habits, questioning the necessity of every PR for every commit James mentions the increase in issues created, noting flat comment activity on issues and PRs. Frank reflects on the ease of PRs and their role in maintaining branch protection, despite criticism in the indie community.
+  (Covers 0 original segments)
+

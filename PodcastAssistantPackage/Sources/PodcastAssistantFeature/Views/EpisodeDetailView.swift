@@ -48,6 +48,7 @@ public struct EpisodeDetailView: View {
                 Text("Transcript").tag(EpisodeSection.transcript)
                 Text("Thumbnail").tag(EpisodeSection.thumbnail)
                 Text("AI Ideas").tag(EpisodeSection.aiIdeas)
+                Text("🔬 Debug: Shrinker").tag(EpisodeSection.transcriptShrinker)
             }
             .pickerStyle(.segmented)
             .padding()
@@ -79,6 +80,16 @@ public struct EpisodeDetailView: View {
                     } else {
                         ContentUnavailableView(
                             "AI Ideas Unavailable",
+                            systemImage: "exclamationmark.triangle",
+                            description: Text("Requires macOS 26 or later")
+                        )
+                    }
+                case .transcriptShrinker:
+                    if #available(macOS 26.0, *) {
+                        TranscriptShrinkerView(episode: episode)
+                    } else {
+                        ContentUnavailableView(
+                            "Transcript Shrinker Unavailable",
                             systemImage: "exclamationmark.triangle",
                             description: Text("Requires macOS 26 or later")
                         )
@@ -244,8 +255,18 @@ public struct EpisodeDetailView: View {
             let srtOutput = try converter.convertToSRT(from: transcriptInputText)
             transcriptOutputText = srtOutput
             episode.srtOutputText = srtOutput
+            
+            // Debug output
+            if let debug = converter.lastDebugInfo {
+                print("✅ Conversion successful:")
+                print("   Format: \(debug.formatDescription)")
+                print("   Timestamps: \(debug.timestampsFound)")
+                print("   Speakers: \(debug.speakersFound)")
+                print("   Entries: \(debug.entriesGenerated)")
+            }
         } catch {
-            print("Conversion error: \(error.localizedDescription)")
+            print("❌ Conversion error: \(error.localizedDescription)")
+            // The converter will have debug info even on failure
         }
     }
     
