@@ -12,6 +12,15 @@ public class SettingsViewModel: ObservableObject {
     @AppStorage("selectedTheme") private var selectedThemeRaw: String = AppTheme.system.rawValue
     @AppStorage("autoUpdateThumbnail") public var autoUpdateThumbnail: Bool = false
     
+    @AppStorage("transcriptShrinkerMaxWindowCharacters") 
+    public var transcriptShrinkerMaxWindowCharacters: Int = 5000
+    
+    @AppStorage("transcriptShrinkerOverlap") 
+    public var transcriptShrinkerOverlap: Double = 0.2
+    
+    @AppStorage("transcriptShrinkerFallbackOnError") 
+    public var transcriptShrinkerFallbackOnError: Bool = true
+    
     @Published public var errorMessage: String?
     @Published public var successMessage: String?
     

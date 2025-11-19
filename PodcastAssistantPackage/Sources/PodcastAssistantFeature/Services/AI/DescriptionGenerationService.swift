@@ -39,22 +39,34 @@ public class DescriptionGenerationService {
     ///   - transcript: The episode transcript text
     ///   - title: The episode title
     ///   - length: Desired description length
+    ///   - isShrunkTranscript: Whether the transcript is a shrunk/condensed version
     /// - Returns: Generated description text
     /// - Throws: Error if generation fails
     public func generateDescription(
         from transcript: String,
         title: String,
-        length: DescriptionLength
+        length: DescriptionLength,
+        isShrunkTranscript: Bool = false
     ) async throws -> String {
         let session = LanguageModelSession(
             instructions: "You are a podcast producer who writes compelling episode descriptions."
         )
         
-        let cleanedTranscript = transcriptCleaner.cleanForAI(transcript)
-        let truncatedTranscript = String(cleanedTranscript.prefix(12000))
+        let processedTranscript: String
+        if isShrunkTranscript {
+            // Clean timestamps and extra whitespace from shrunk transcript
+            processedTranscript = transcriptCleaner.cleanForAI(transcript)
+        } else {
+            let cleanedTranscript = transcriptCleaner.cleanForAI(transcript)
+            processedTranscript = String(cleanedTranscript.prefix(12000))
+        }
+        
+        let transcriptNote = isShrunkTranscript
+            ? "Note: This is a condensed AI-generated summary of the full episode transcript.\n\n"
+            : ""
         
         let prompt = """
-        You are writing a compelling podcast episode description based on its transcript.
+        \(transcriptNote)You are writing a compelling podcast episode description based on its transcript.
         
         Analyze the transcript carefully and identify:
         - The main topics that dominate the conversation (what takes up most of the time)
@@ -70,7 +82,7 @@ public class DescriptionGenerationService {
         Episode title: \(title)
         
         Episode Transcript:
-        \(truncatedTranscript)
+        \(processedTranscript)
         """
         
         let response = try await session.respond(

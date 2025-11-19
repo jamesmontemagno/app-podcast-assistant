@@ -23,6 +23,9 @@ public final class EpisodeContent {
     @Attribute(.externalStorage)
     public var thumbnailOutputData: Data?
     
+    @Attribute(.externalStorage)
+    public var shrunkTranscript: String?
+    
     // Relationship back to episode
     public var episode: Episode?
     
@@ -33,7 +36,8 @@ public final class EpisodeContent {
         srtOutputText: String? = nil,
         thumbnailBackgroundData: Data? = nil,
         thumbnailOverlayData: Data? = nil,
-        thumbnailOutputData: Data? = nil
+        thumbnailOutputData: Data? = nil,
+        shrunkTranscript: String? = nil
     ) {
         self.id = UUID().uuidString
         self.transcriptInputText = transcriptInputText
@@ -41,6 +45,7 @@ public final class EpisodeContent {
         self.thumbnailBackgroundData = thumbnailBackgroundData
         self.thumbnailOverlayData = thumbnailOverlayData
         self.thumbnailOutputData = thumbnailOutputData
+        self.shrunkTranscript = shrunkTranscript
     }
 }
 
