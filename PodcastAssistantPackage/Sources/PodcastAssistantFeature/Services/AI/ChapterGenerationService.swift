@@ -84,11 +84,15 @@ public class ChapterGenerationService {
         
         // Convert SummarizedSegments to RefinedSegments for chapter identification
         let refinedSegments = convertToRefinedSegments(summarizedSegments)
+        let totalDurationSeconds = refinedSegments.last?.endTimestamp.timestampToSeconds() ?? 0
         
         print("📊 [ChapterGen] Received \(refinedSegments.count) refined segments")
         
         // Step 2: Identify topic shifts and create chapters from refined segments
-        let chapters = try await identifyChaptersFromSegments(refinedSegments)
+        let chapters = try await identifyChaptersFromSegments(
+            refinedSegments,
+            totalDurationSeconds: totalDurationSeconds
+        )
         
         return chapters
     }
@@ -97,9 +101,8 @@ public class ChapterGenerationService {
     
     /// Converts SummarizedSegments from the transcript shrinker to RefinedSegments for chapter identification
     private func convertToRefinedSegments(_ summarizedSegments: [SummarizedSegment]) -> [RefinedSegment] {
-        return summarizedSegments.enumerated().map { index, segment in
-            // For SummarizedSegment, we only have firstSegmentTimestamp
-            // Use it as both start and end (chapter service only needs end timestamp for duration calculation)
+        // Start with start timestamps; we'll backfill end timestamps using the next segment's start
+        var refined = summarizedSegments.enumerated().map { index, segment in
             RefinedSegment(
                 startTimestamp: segment.firstSegmentTimestamp,
                 endTimestamp: segment.firstSegmentTimestamp,
@@ -107,22 +110,35 @@ public class ChapterGenerationService {
                 originalSegmentIndices: [index]
             )
         }
+        // Use the next segment's start time as this segment's end time for better ranges
+        if refined.count > 1 {
+            for idx in 0..<(refined.count - 1) {
+                let nextStart = refined[idx + 1].startTimestamp
+                let current = refined[idx]
+                refined[idx] = RefinedSegment(
+                    id: current.id,
+                    startTimestamp: current.startTimestamp,
+                    endTimestamp: nextStart,
+                    summary: current.summary,
+                    originalSegmentIndices: current.originalSegmentIndices
+                )
+            }
+        }
+        return refined
     }
     
     // MARK: - Chapter Identification
     
     /// Analyzes refined segments to identify topic shifts and create chapter markers
-    private func identifyChaptersFromSegments(_ segments: [RefinedSegment]) async throws -> [ChapterMarker] {
+    private func identifyChaptersFromSegments(
+        _ segments: [RefinedSegment],
+        totalDurationSeconds: Double
+    ) async throws -> [ChapterMarker] {
         print("🔍 [ChapterGen] Starting chapter identification from \(segments.count) segments")
         
-        // Calculate duration from last segment's end timestamp
-        let durationMinutes: Double
-        if let lastSegment = segments.last {
-            let durationSeconds = lastSegment.endTimestamp.timestampToSeconds()
-            durationMinutes = durationSeconds / 60.0
-        } else {
-            durationMinutes = 0
-        }
+        // Calculate duration from passed total seconds
+        let durationSeconds = max(0, totalDurationSeconds)
+        let durationMinutes = durationSeconds / 60.0
         
         // Target: 5 chapters per 30 minutes of content
         // For a 60 minute episode: ~10 chapters
@@ -143,7 +159,8 @@ public class ChapterGenerationService {
                 windowNumber: 1, 
                 totalWindows: 1,
                 targetChapters: targetTotalChapters,
-                maxChapters: maxTotalChapters
+                maxChapters: maxTotalChapters,
+                totalDurationSeconds: durationSeconds
             )
         }
         
@@ -173,7 +190,8 @@ public class ChapterGenerationService {
                 windowNumber: windowNumber, 
                 totalWindows: totalWindows,
                 targetChapters: chaptersPerWindow,
-                maxChapters: chaptersPerWindow + 1
+                maxChapters: chaptersPerWindow + 1,
+                totalDurationSeconds: durationSeconds
             )
             
             print("✅ [ChapterGen] Window \(windowNumber) identified \(windowChapters.count) chapters")
@@ -183,6 +201,13 @@ public class ChapterGenerationService {
         
         // Merge and deduplicate chapters from all windows
         var finalChapters = mergeChapters(allChapters)
+        finalChapters = validateAndNormalizeChapters(finalChapters, totalDurationSeconds: durationSeconds)
+        finalChapters = fillLargeGaps(
+            finalChapters,
+            segments: segments,
+            maxGapSeconds: 10 * 60,
+            hardCap: maxTotalChapters
+        )
         
         // If we have too many chapters, reduce to target
         if finalChapters.count > maxTotalChapters {
@@ -200,7 +225,8 @@ public class ChapterGenerationService {
         windowNumber: Int, 
         totalWindows: Int,
         targetChapters: Int,
-        maxChapters: Int
+        maxChapters: Int,
+        totalDurationSeconds: Double
     ) async throws -> [ChapterMarker] {
         let session = LanguageModelSession(
             instructions: """
@@ -210,14 +236,19 @@ public class ChapterGenerationService {
         )
         
         // Format segments for analysis - use the time range and summary
-        let segmentsText = segments.map { 
-            "[\($0.timeRange)] \($0.summary)"
+        let maxSummaryLength = 220
+        let segmentsText = segments.map { segment in
+            let summary = segment.summary.count > maxSummaryLength
+                ? String(segment.summary.prefix(maxSummaryLength)) + "…"
+                : segment.summary
+            return "[\(segment.timeRange)] \(summary)"
         }.joined(separator: "\n")
         
         let windowContext = totalWindows > 1 ? "This is window \(windowNumber) of \(totalWindows). " : ""
         let chapterGuidance = windowNumber == 1 ? 
             "- First chapter MUST start at 00:00:00 (or the first timecode if different)\n" : 
             "- Focus on major topic shifts within this segment range\n"
+        let durationGuidance = "- Episode duration is about \(String(format: "%.0f", totalDurationSeconds)) seconds; do not emit timestamps beyond that\n"
         
         let prompt = """
         Create chapter markers for this podcast episode from these refined segments.
@@ -235,6 +266,8 @@ public class ChapterGenerationService {
         \(chapterGuidance)- For each chapter, extract the start timestamp from the time range
         - Use timestamps that align with where topics actually shift in the segments below
         - Format timestamps as MM:SS or HH:MM:SS (will be normalized automatically)
+        \(durationGuidance)
+        - Distribute chapters evenly across this window; avoid any gap > 10 minutes
         - Create descriptive titles (under 8 words)
         - Provide a one-sentence summary per chapter
         
@@ -268,6 +301,90 @@ public class ChapterGenerationService {
         }
         
         return normalizedChapters
+    }
+
+    /// Ensures timestamps are monotonic, within duration, and normalized
+    private func validateAndNormalizeChapters(_ chapters: [ChapterMarker], totalDurationSeconds: Double) -> [ChapterMarker] {
+        guard !chapters.isEmpty else { return [] }
+        let maxSeconds = max(0, totalDurationSeconds)
+        let minSpacing: Double = 90 // keep at least 1.5 minutes between chapters
+        let sorted = chapters.sorted { timestampToSeconds($0.timestamp) < timestampToSeconds($1.timestamp) }
+        var sanitized: [ChapterMarker] = []
+        for chapter in sorted {
+            var seconds = timestampToSeconds(chapter.timestamp)
+            if seconds.isNaN { continue }
+            seconds = max(0, min(maxSeconds, seconds))
+            if let last = sanitized.last, seconds - timestampToSeconds(last.timestamp) < minSpacing { continue }
+            sanitized.append(
+                ChapterMarker(
+                    timestamp: secondsToTimestamp(seconds),
+                    title: chapter.title,
+                    summary: chapter.summary
+                )
+            )
+        }
+        // Ensure the first chapter starts at 00:00:00 if present
+        if let first = sanitized.first {
+            sanitized[0] = ChapterMarker(
+                timestamp: "00:00:00",
+                title: first.title,
+                summary: first.summary
+            )
+        }
+        return sanitized
+    }
+
+    /// Fills large gaps between chapters by inserting chapters at segment boundaries
+    private func fillLargeGaps(
+        _ chapters: [ChapterMarker],
+        segments: [RefinedSegment],
+        maxGapSeconds: Double,
+        hardCap: Int
+    ) -> [ChapterMarker] {
+        guard !chapters.isEmpty, !segments.isEmpty else { return chapters }
+        var filled: [ChapterMarker] = []
+        let clampedMaxGap = max(60, maxGapSeconds)
+        let sortedChapters = chapters.sorted { timestampToSeconds($0.timestamp) < timestampToSeconds($1.timestamp) }
+        let segmentStarts = segments.sorted { $0.startTimestamp.timestampToSeconds() < $1.startTimestamp.timestampToSeconds() }
+        
+        func makeChapter(from segment: RefinedSegment) -> ChapterMarker {
+            let seconds = segment.startTimestamp.timestampToSeconds()
+            let title = segment.summary.split(separator: " ").prefix(8).joined(separator: " ")
+            return ChapterMarker(
+                timestamp: secondsToTimestamp(seconds),
+                title: title.isEmpty ? "Topic Shift" : String(title),
+                summary: segment.summary
+            )
+        }
+        
+        var remainingCap = max(0, hardCap)
+        for (idx, chapter) in sortedChapters.enumerated() {
+            filled.append(chapter)
+            remainingCap = max(0, remainingCap - 1)
+            guard remainingCap > 0 else { continue }
+            let currentSeconds = timestampToSeconds(chapter.timestamp)
+            let nextSeconds: Double
+            if idx + 1 < sortedChapters.count {
+                nextSeconds = timestampToSeconds(sortedChapters[idx + 1].timestamp)
+            } else {
+                nextSeconds = segments.last?.endTimestamp.timestampToSeconds() ?? currentSeconds
+            }
+            let gap = nextSeconds - currentSeconds
+            if gap <= clampedMaxGap { continue }
+            // Find a segment start within the gap, prefer one near the midpoint
+            let midpoint = currentSeconds + gap / 2
+            let candidates = segmentStarts.filter { start in
+                let ts = start.startTimestamp.timestampToSeconds()
+                return ts > currentSeconds + 30 && ts < nextSeconds - 30
+            }
+            guard let candidate = candidates.min(by: { abs($0.startTimestamp.timestampToSeconds() - midpoint) < abs($1.startTimestamp.timestampToSeconds() - midpoint) }) else {
+                continue
+            }
+            filled.append(makeChapter(from: candidate))
+            remainingCap = max(0, remainingCap - 1)
+        }
+        // Resort after inserts
+        return filled.sorted { timestampToSeconds($0.timestamp) < timestampToSeconds($1.timestamp) }
     }
     
     /// Merges chapters from multiple windows, removing duplicates and overlaps
@@ -323,6 +440,15 @@ public class ChapterGenerationService {
         }
         
         return seconds
+    }
+
+    /// Converts seconds to HH:MM:SS
+    private func secondsToTimestamp(_ seconds: Double) -> String {
+        let totalSeconds = max(0, seconds)
+        let hours = Int(totalSeconds) / 3600
+        let minutes = (Int(totalSeconds) % 3600) / 60
+        let secs = Int(totalSeconds) % 60
+        return String(format: "%02d:%02d:%02d", hours, minutes, secs)
     }
     
     /// Normalizes a timestamp to HH:MM:SS format (no fractional seconds)
