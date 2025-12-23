@@ -11,6 +11,10 @@ public class SettingsViewModel: ObservableObject {
     @AppStorage("importedFonts") private var importedFontsJSON: String = "[]"
     @AppStorage("selectedTheme") private var selectedThemeRaw: String = AppTheme.system.rawValue
     @AppStorage("autoUpdateThumbnail") public var autoUpdateThumbnail: Bool = false
+
+    // AI provider & credentials
+    @AppStorage("aiProviderDefault") public var aiProviderDefaultRaw: String = AIProvider.apple.rawValue
+    @AppStorage("openAIAPIKey") public var openAIAPIKey: String = ""
     
     @AppStorage("transcriptShrinkerMaxWindowCharacters") 
     public var transcriptShrinkerMaxWindowCharacters: Int = 5000
@@ -50,6 +54,14 @@ public class SettingsViewModel: ObservableObject {
         }
         set {
             selectedThemeRaw = newValue.rawValue
+            objectWillChange.send()
+        }
+    }
+
+    public var defaultAIProvider: AIProvider {
+        get { AIProvider(rawValue: aiProviderDefaultRaw) ?? .apple }
+        set {
+            aiProviderDefaultRaw = newValue.rawValue
             objectWillChange.send()
         }
     }

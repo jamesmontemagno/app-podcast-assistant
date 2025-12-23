@@ -15,6 +15,9 @@ public final class Episode {
     
     /// Cached flag indicating if thumbnail output exists
     public var hasThumbnailOutput: Bool = false
+
+    /// Optional AI provider override for this episode (falls back to app default)
+    public var aiProvider: String?
     
     public var fontName: String?
     public var fontSize: Double
@@ -159,6 +162,12 @@ public final class Episode {
             }
             content?.shrunkTranscript = newValue
         }
+    }
+
+    /// Convenience typed access to provider override
+    public var aiProviderSelection: AIProvider? {
+        get { aiProvider.flatMap(AIProvider.init(rawValue:)) }
+        set { aiProvider = newValue?.rawValue }
     }
 }
 

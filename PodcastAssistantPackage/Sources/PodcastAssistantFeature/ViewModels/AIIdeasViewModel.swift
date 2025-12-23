@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import SwiftData
 import FoundationModels
+import SwiftIntelligence
 import AppKit
 
 /// ViewModel for AI-powered content generation from episode transcripts
@@ -36,16 +37,20 @@ public class AIIdeasViewModel: ObservableObject {
     @Published public var modelAvailable: Bool = false
     @Published public var statusMessage: String = ""
     @Published public var progressDetails: String = ""
+    @Published public var modalError: String?
     
     // MARK: - Dependencies
     
     public let episode: Episode
     public var modelContext: ModelContext?
+    public private(set) var provider: AIProvider = .apple
+    private var openAIAPIKey: String = ""
     
     private let titleService = TitleGenerationService()
     private let descriptionService = DescriptionGenerationService()
     private let socialService = SocialPostGenerationService()
     private let chapterService = ChapterGenerationService()
+    private let openAIService = OpenAIContentService()
     private let transcriptCleaner = TranscriptCleaner()
     private let shrinkerService = TranscriptionShrinkerService()
     
@@ -104,21 +109,41 @@ public class AIIdeasViewModel: ObservableObject {
     public init(episode: Episode, modelContext: ModelContext? = nil) {
         self.episode = episode
         self.modelContext = modelContext
-        checkModelAvailability()
+        checkModelAvailability(provider: provider, openAIKey: openAIAPIKey)
         loadShrunkTranscriptIfExists()
     }
     
     // MARK: - Model Availability
     
-    private func checkModelAvailability() {
-        let model = SystemLanguageModel.default
-        switch model.availability {
-        case .available:
-            modelAvailable = true
-            errorMessage = nil
-        case .unavailable(let reason):
-            modelAvailable = false
-            errorMessage = "Apple Intelligence unavailable: \(String(describing: reason))"
+    public func updateProvider(_ provider: AIProvider, openAIKey: String) {
+        self.provider = provider
+        self.openAIAPIKey = openAIKey
+        checkModelAvailability(provider: provider, openAIKey: openAIKey)
+    }
+    
+    private func checkModelAvailability(provider: AIProvider, openAIKey: String) {
+        switch provider {
+        case .apple:
+            let model = SystemLanguageModel.default
+            switch model.availability {
+            case .available:
+                modelAvailable = true
+                errorMessage = nil
+            case .unavailable(let reason):
+                modelAvailable = false
+                errorMessage = "Apple Intelligence unavailable: \(String(describing: reason))"
+            }
+        case .openAI:
+            if openAIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                modelAvailable = false
+                errorMessage = "OpenAI API key required. Add it in Settings."
+                modalError = errorMessage
+            } else {
+                IntelligenceModel.openAIApiKey = openAIKey
+                modelAvailable = true
+                errorMessage = nil
+                modalError = nil
+            }
         }
     }
     
@@ -150,6 +175,12 @@ public class AIIdeasViewModel: ObservableObject {
     
     /// Prepare transcript for AI generation - uses shrunk version if available, otherwise original
     private func prepareTranscriptForAI() async -> (text: String, isShrunk: Bool) {
+        // When using OpenAI, use the full transcript to honor remote provider context
+        if provider == .openAI {
+            usedShrunkTranscript = false
+            return (episode.transcriptInputText ?? "", false)
+        }
+
         // Check if shrunk transcript exists and is not empty
         if let shrunk = episode.shrunkTranscript, !shrunk.isEmpty {
             usedShrunkTranscript = true
@@ -193,7 +224,11 @@ public class AIIdeasViewModel: ObservableObject {
                 return
             }
             
-            titleSuggestions = try await titleService.generateTitles(from: transcript, isShrunkTranscript: isShrunk)
+            if provider == .openAI {
+                titleSuggestions = try await openAIService.generateTitles(from: transcript, apiKey: openAIAPIKey)
+            } else {
+                titleSuggestions = try await titleService.generateTitles(from: transcript, isShrunkTranscript: isShrunk)
+            }
             statusMessage = "Generated \(titleSuggestions.count) title suggestions"
         } catch {
             errorMessage = "Failed to generate titles: \(error.localizedDescription)"
@@ -218,12 +253,21 @@ public class AIIdeasViewModel: ObservableObject {
                 return
             }
             
-            generatedDescription = try await descriptionService.generateDescription(
-                from: transcript,
-                title: episode.title,
-                length: descriptionLength,
-                isShrunkTranscript: isShrunk
-            )
+            if provider == .openAI {
+                generatedDescription = try await openAIService.generateDescription(
+                    from: transcript,
+                    title: episode.title,
+                    length: descriptionLength,
+                    apiKey: openAIAPIKey
+                )
+            } else {
+                generatedDescription = try await descriptionService.generateDescription(
+                    from: transcript,
+                    title: episode.title,
+                    length: descriptionLength,
+                    isShrunkTranscript: isShrunk
+                )
+            }
             statusMessage = "Description generated (\(generatedDescription.count) characters)"
         } catch {
             errorMessage = "Failed to generate description: \(error.localizedDescription)"
@@ -248,15 +292,26 @@ public class AIIdeasViewModel: ObservableObject {
                 return
             }
             
-            let posts = try await socialService.generateSocialPosts(
-                from: transcript,
-                title: episode.title,
-                isShrunkTranscript: isShrunk
-            )
-            
-            socialPosts = posts.map {
-                SocialPost(platform: SocialPlatform(rawValue: $0.platform.rawValue) ?? .twitter, content: $0.content)
+            let posts: [SocialPost]
+            if provider == .openAI {
+                let generated = try await openAIService.generateSocialPosts(
+                    from: transcript,
+                    title: episode.title,
+                    apiKey: openAIAPIKey
+                )
+                posts = generated.map { SocialPost(platform: SocialPlatform(rawValue: $0.platform.rawValue) ?? .twitter, content: $0.content) }
+            } else {
+                let generated = try await socialService.generateSocialPosts(
+                    from: transcript,
+                    title: episode.title,
+                    isShrunkTranscript: isShrunk
+                )
+                posts = generated.map {
+                    SocialPost(platform: SocialPlatform(rawValue: $0.platform.rawValue) ?? .twitter, content: $0.content)
+                }
             }
+            
+            socialPosts = posts
             statusMessage = "Generated \(socialPosts.count) social posts"
         } catch {
             errorMessage = "Failed to generate social posts: \(error.localizedDescription)"
@@ -276,35 +331,51 @@ public class AIIdeasViewModel: ObservableObject {
         isGeneratingChapters = true
         errorMessage = nil
         
-        // Check if we have pre-shrunk segments to reuse
-        let preShrunkSegments = cachedShrunkSegments.isEmpty ? nil : cachedShrunkSegments
-        
-        if preShrunkSegments != nil {
-            statusMessage = "Using condensed transcript to generate chapters..."
-        } else {
-            statusMessage = "Condensing transcript into segments..."
-        }
-        
-        progressDetails = ""
-        
         do {
-            let chapters = try await chapterService.generateChapters(
-                from: transcript,
-                preShrunkSegments: preShrunkSegments,
-                progressHandler: { [weak self] message in
-                    Task { @MainActor in
-                        self?.progressDetails = message
-                    }
+            if provider == .openAI {
+                // OpenAI: Send full transcript directly without segmentation
+                statusMessage = "Generating chapters from full transcript..."
+                progressDetails = ""
+                
+                let chapters = try await openAIService.generateChapters(from: transcript, apiKey: openAIAPIKey)
+                chapterMarkers = chapters.map {
+                    ChapterMarker(
+                        timestamp: $0.timestamp,
+                        title: $0.title,
+                        summary: $0.summary
+                    )
                 }
-            )
-            
-            chapterMarkers = chapters.map {
-                ChapterMarker(
-                    timestamp: $0.timestamp,
-                    title: $0.title,
-                    summary: $0.summary
+            } else {
+                // Apple Intelligence: Use segmentation approach
+                let preShrunkSegments = cachedShrunkSegments.isEmpty ? nil : cachedShrunkSegments
+                
+                if preShrunkSegments != nil {
+                    statusMessage = "Using condensed transcript to generate chapters..."
+                } else {
+                    statusMessage = "Condensing transcript into segments..."
+                }
+                
+                progressDetails = ""
+                
+                let chapters = try await chapterService.generateChapters(
+                    from: transcript,
+                    preShrunkSegments: preShrunkSegments,
+                    progressHandler: { [weak self] message in
+                        Task { @MainActor in
+                            self?.progressDetails = message
+                        }
+                    }
                 )
+                
+                chapterMarkers = chapters.map {
+                    ChapterMarker(
+                        timestamp: $0.timestamp,
+                        title: $0.title,
+                        summary: $0.summary
+                    )
+                }
             }
+            
             statusMessage = "Generated \(chapterMarkers.count) chapter markers"
             progressDetails = ""
         } catch {
@@ -317,6 +388,11 @@ public class AIIdeasViewModel: ObservableObject {
     }
     
     public func generateShrunkTranscript() async {
+        guard provider == .apple else {
+            errorMessage = "Transcript shrinker runs on-device only. Switch provider to Apple to use it."
+            modalError = errorMessage
+            return
+        }
         guard modelAvailable else { return }
         guard let transcript = episode.transcriptInputText, !transcript.isEmpty else {
             errorMessage = "No transcript available. Add a transcript first."
@@ -408,7 +484,7 @@ public class AIIdeasViewModel: ObservableObject {
         statusMessage = "Starting comprehensive AI generation..."
         
         // Generate shrunk transcript first if it doesn't exist
-        if episode.shrunkTranscript?.isEmpty ?? true {
+        if provider == .apple, episode.shrunkTranscript?.isEmpty ?? true {
             await generateShrunkTranscript()
         }
         
@@ -425,6 +501,12 @@ public class AIIdeasViewModel: ObservableObject {
     
     public func applyTitle(_ title: String) {
         episode.title = title
+        saveEpisode()
+    }
+    
+    public func applyToPodcast() {
+        guard let firstTitle = titleSuggestions.first else { return }
+        episode.title = firstTitle
         saveEpisode()
     }
     

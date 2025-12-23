@@ -6,6 +6,7 @@ import SwiftData
 public struct TranscriptShrinkerView: View {
     let episode: Episode
     @Environment(\.modelContext) private var modelContext
+    @AppStorage("aiProviderDefault") private var aiProviderDefaultRaw: String = AIProvider.apple.rawValue
     
     @StateObject private var viewModel: TranscriptShrinkerViewModel
     
@@ -26,9 +27,14 @@ public struct TranscriptShrinkerView: View {
                     } label: {
                         Label("Summarize", systemImage: "brain.head.profile")
                     }
-                    .disabled(viewModel.isSummarizing || viewModel.windows.isEmpty)
+                    .disabled(viewModel.isSummarizing || viewModel.windows.isEmpty || resolvedProvider == .openAI)
                 }
                 .padding()
+                if resolvedProvider == .openAI {
+                    Text("Transcript shrinker runs on-device only. Switch provider to On-Device to enable.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 
                 TextEditor(text: Binding(
                     get: { viewModel.rawTranscript },
@@ -145,5 +151,9 @@ public struct TranscriptShrinkerView: View {
                 viewModel.updateSegments(from: viewModel.rawTranscript)
             }
         }
+    }
+    
+    private var resolvedProvider: AIProvider {
+        episode.aiProviderSelection ?? AIProvider(rawValue: aiProviderDefaultRaw) ?? .apple
     }
 }

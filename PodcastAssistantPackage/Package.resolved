@@ -1,0 +1,15 @@
+{
+  "originHash" : "333e841f59b8e455fc7e5dad8e8e1bd15984d62e89c5fa823e4f7fb9255f0b0b",
+  "pins" : [
+    {
+      "identity" : "swiftintelligence",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/praeclarum/SwiftIntelligence",
+      "state" : {
+        "branch" : "main",
+        "revision" : "66fdf15c474a67599b3b40e2ecd75d32bd4bbce9"
+      }
+    }
+  ],
+  "version" : 3
+}

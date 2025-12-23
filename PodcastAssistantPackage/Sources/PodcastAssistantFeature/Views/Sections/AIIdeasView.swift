@@ -8,6 +8,9 @@ public struct AIIdeasView: View {
     let episode: Episode
     let podcast: Podcast
     @StateObject private var viewModel: AIIdeasViewModel
+    @AppStorage("aiProviderDefault") private var aiProviderDefaultRaw: String = AIProvider.apple.rawValue
+    @AppStorage("openAIAPIKey") private var openAIAPIKey: String = ""
+    @State private var providerSelection: AIProvider = .apple
     
     @Environment(\.modelContext) private var modelContext
     
@@ -31,6 +34,7 @@ public struct AIIdeasView: View {
             } else {
                 ScrollView {
                     VStack(spacing: 16) {
+                        providerPickerSection
                         transcriptInfoSection
                         Divider()
                         shrunkTranscriptSection
@@ -96,15 +100,34 @@ public struct AIIdeasView: View {
         }
         .onAppear {
             viewModel.modelContext = modelContext
+            providerSelection = resolvedProvider
+            viewModel.updateProvider(resolvedProvider, openAIKey: openAIAPIKey)
         }
+        .onChange(of: providerSelection) { _, newValue in
+            episode.aiProviderSelection = newValue
+            try? modelContext.save()
+            viewModel.updateProvider(newValue, openAIKey: openAIAPIKey)
+        }
+        .onChange(of: openAIAPIKey) { _, newKey in
+            viewModel.updateProvider(providerSelection, openAIKey: newKey)
+        }
+        .alert("AI Provider Issue", isPresented: Binding(get: { viewModel.modalError != nil }, set: { show in if !show { viewModel.modalError = nil } })) {
+            Button("OK", role: .cancel) { viewModel.modalError = nil }
+        } message: {
+            Text(viewModel.modalError ?? "")
+        }
+    }
+
+    private var resolvedProvider: AIProvider {
+        episode.aiProviderSelection ?? AIProvider(rawValue: aiProviderDefaultRaw) ?? .apple
     }
     
     private var unavailableView: some View {
         ContentUnavailableView {
-            Label("Apple Intelligence Unavailable", systemImage: "exclamationmark.triangle")
+            Label(providerSelection == .openAI ? "OpenAI Unavailable" : "Apple Intelligence Unavailable", systemImage: "exclamationmark.triangle")
         } description: {
             VStack(spacing: 12) {
-                Text("AI Ideas requires Apple Intelligence (macOS 26+)")
+                Text(providerSelection == .openAI ? "Add a valid OpenAI API key in Settings" : "AI Ideas requires Apple Intelligence (macOS 26+)")
                     .foregroundStyle(.secondary)
                 
                 if let error = viewModel.errorMessage {
@@ -114,6 +137,48 @@ public struct AIIdeasView: View {
                 }
             }
         }
+    }
+
+    private var providerPickerSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("AI Provider", systemImage: "switch.2")
+                    .font(.headline)
+                Spacer()
+                Text("Default: \(AIProvider(rawValue: aiProviderDefaultRaw)?.displayName ?? AIProvider.apple.displayName)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Picker("Provider", selection: $providerSelection) {
+                ForEach(AIProvider.allCases, id: \.self) { provider in
+                    Text(provider.displayName).tag(provider)
+                }
+            }
+            .pickerStyle(.segmented)
+            
+            if providerSelection == .openAI {
+                HStack(spacing: 8) {
+                    Image(systemName: openAIAPIKey.isEmpty ? "exclamationmark.triangle.fill" : "key.fill")
+                        .foregroundStyle(openAIAPIKey.isEmpty ? .orange : .green)
+                    Text(openAIAPIKey.isEmpty ? "Enter your OpenAI API key in Settings to enable cloud generation" : "Using OpenAI via saved API key")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+            } else {
+                HStack(spacing: 8) {
+                    Image(systemName: "lock.shield")
+                        .foregroundStyle(.blue)
+                    Text("On-device Apple Intelligence; fastest and private")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+            }
+        }
+        .padding(16)
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+        .cornerRadius(8)
     }
     
     private var transcriptInfoSection: some View {
@@ -201,7 +266,12 @@ public struct AIIdeasView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(viewModel.isGeneratingShrunkTranscript || viewModel.isGeneratingAll)
+                .disabled(viewModel.isGeneratingShrunkTranscript || viewModel.isGeneratingAll || providerSelection == .openAI)
+            }
+            if providerSelection == .openAI {
+                Text("Transcript shrinker runs on-device only. Switch provider to On-Device to enable.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             
             // Progress details
@@ -341,7 +411,7 @@ public struct AIIdeasView: View {
                     .foregroundStyle(.secondary)
                     .font(.subheadline)
             } else {
-                VStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 8) {
                     ForEach(Array(viewModel.titleSuggestions.enumerated()), id: \.offset) { index, title in
                         HStack(spacing: 12) {
                             Text("\(index + 1).")
@@ -366,6 +436,25 @@ public struct AIIdeasView: View {
                         .padding(8)
                         .background(Color(NSColor.controlBackgroundColor))
                         .cornerRadius(6)
+                    }
+                    
+                    HStack {
+                        Button {
+                            if let firstTitle = viewModel.titleSuggestions.first {
+                                viewModel.copyToClipboard(firstTitle)
+                            }
+                        } label: {
+                            Label("Copy First", systemImage: "doc.on.doc")
+                        }
+                        .buttonStyle(.bordered)
+                        
+                        Button {
+                            viewModel.applyToPodcast()
+                        } label: {
+                            Label("Apply to Episode", systemImage: "checkmark.circle.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .help("Apply first title to episode")
                     }
                 }
             }

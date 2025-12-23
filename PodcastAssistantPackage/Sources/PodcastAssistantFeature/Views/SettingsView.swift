@@ -396,6 +396,24 @@ private struct AIFeaturesSettingsTab: View {
                 Text("Configure AI-powered features and content generation")
                     .foregroundStyle(.secondary)
             }
+
+            Section {
+                Picker("Default Provider", selection: $viewModel.defaultAIProvider) {
+                    ForEach(AIProvider.allCases, id: \.self) { provider in
+                        Text(provider.displayName).tag(provider)
+                    }
+                }
+
+                SecureField("OpenAI API Key", text: $viewModel.openAIAPIKey)
+                    .textFieldStyle(.roundedBorder)
+                    .disableAutocorrection(true)
+                    .help("Stored locally in UserDefaults; not synced")
+            } header: {
+                Text("Provider")
+            } footer: {
+                Text("Set a global default. Episodes can override this provider individually. OpenAI keys are stored in UserDefaults only and never synced.")
+                    .font(.caption)
+            }
             
             Section {
                 Stepper("Max Window Characters: \(viewModel.transcriptShrinkerMaxWindowCharacters)", 

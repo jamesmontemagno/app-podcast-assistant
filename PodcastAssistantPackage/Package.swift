@@ -13,11 +13,17 @@ let package = Package(
             targets: ["PodcastAssistantFeature"]
         ),
     ],
+    dependencies: [
+        .package(url: "https://github.com/praeclarum/SwiftIntelligence", branch: "main")
+    ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "PodcastAssistantFeature"
+            name: "PodcastAssistantFeature",
+            dependencies: [
+                .product(name: "SwiftIntelligence", package: "SwiftIntelligence")
+            ]
         ),
         .testTarget(
             name: "PodcastAssistantFeatureTests",
