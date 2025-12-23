@@ -85,8 +85,10 @@ public final class Episode {
             self.outlineColorHex = "#000000"
         }
         
-        // Create empty content relationship
-        self.content = EpisodeContent()
+        // Initialize heavy content and copy podcast thumbnail defaults
+        let content = EpisodeContent()
+        content.thumbnailOverlayData = podcast?.defaultOverlayData
+        self.content = content
     }
     
     // MARK: - Convenience Accessors
