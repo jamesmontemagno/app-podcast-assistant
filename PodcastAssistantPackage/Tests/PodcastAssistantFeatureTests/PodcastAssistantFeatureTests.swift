@@ -86,6 +86,47 @@ import SwiftData
     #expect(episode.textPositionY == 0.7)
 }
 
+@Test func testThumbnailSettingsAutoPersist() async throws {
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try ModelContainer(
+        for: Podcast.self, Episode.self, EpisodeContent.self,
+        configurations: config
+    )
+    let context = ModelContext(container)
+
+    let podcast = Podcast(name: "Test Podcast")
+    context.insert(podcast)
+
+    let episode = Episode(
+        title: "Episode 1",
+        episodeNumber: 1,
+        podcast: podcast
+    )
+    context.insert(episode)
+    try context.save()
+
+    let viewModel = await MainActor.run {
+        ThumbnailViewModel(episode: episode, modelContext: context)
+    }
+
+    await MainActor.run {
+        viewModel.loadInitialData()
+    }
+    try await Task.sleep(nanoseconds: 150_000_000)
+
+    await MainActor.run {
+        viewModel.selectedFont = "Impact"
+        viewModel.fontSize = 88
+        viewModel.horizontalPadding = 72
+    }
+
+    try await Task.sleep(nanoseconds: 500_000_000)
+
+    #expect(episode.fontName == "Impact")
+    #expect(episode.fontSize == 88)
+    #expect(episode.horizontalPadding == 72)
+}
+
 @Test func testCascadeDelete() async throws {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = try ModelContainer(
