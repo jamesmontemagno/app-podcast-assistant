@@ -344,3 +344,79 @@ Today we're talking about podcasts
     #expect(AppTheme.light.displayName == "Light")
     #expect(AppTheme.dark.displayName == "Dark")
 }
+
+@available(macOS 26.0, *)
+@MainActor
+@Test func testTitlePromptIncludesStyleGuidance() async throws {
+    let transcript = "Episode transcript sample"
+    let style = TitleStyle.professional
+
+    let applePrompt = TitleGenerationService.buildTitlePrompt(
+        processedTranscript: transcript,
+        transcriptNote: "",
+        styleGuidance: style.promptGuidance
+    )
+    #expect(applePrompt.contains(style.promptGuidance))
+
+    let openAIPrompt = OpenAIContentService.buildTitlePrompt(
+        processedTranscript: transcript,
+        styleGuidance: style.promptGuidance
+    )
+    #expect(openAIPrompt.contains(style.promptGuidance))
+}
+
+@available(macOS 26.0, *)
+@MainActor
+@Test func testAIIdeasViewModelLoadsPersistedStyleAndSuggestions() async throws {
+    UserDefaults.standard.set(TitleStyle.professional.rawValue, forKey: "aiTitleStyle")
+    defer { UserDefaults.standard.removeObject(forKey: "aiTitleStyle") }
+
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try ModelContainer(
+        for: Podcast.self, Episode.self, EpisodeContent.self,
+        configurations: config
+    )
+    let context = ModelContext(container)
+
+    let podcast = Podcast(name: "Test Podcast")
+    let episode = Episode(title: "Episode", episodeNumber: 1, podcast: podcast)
+    episode.aiTitleSuggestions = ["Title 1", "Title 2"]
+    episode.aiSocialPosts = [StoredAISocialPost(platform: "future-platform", content: "Persisted post")]
+
+    context.insert(podcast)
+    context.insert(episode)
+    try context.save()
+
+    let viewModel = AIIdeasViewModel(episode: episode, modelContext: context)
+
+    #expect(viewModel.titleStyle == .professional)
+    #expect(viewModel.titleSuggestions == ["Title 1", "Title 2"])
+    #expect(viewModel.socialPosts.count == 1)
+    #expect(viewModel.socialPosts.first?.platform == AIIdeasViewModel.SocialPlatform.unknown)
+}
+
+@available(macOS 26.0, *)
+@MainActor
+@Test func testAIIdeasViewModelSanitizesInvalidStoredTitleStyle() async throws {
+    UserDefaults.standard.set("invalid-style", forKey: "aiTitleStyle")
+    defer { UserDefaults.standard.removeObject(forKey: "aiTitleStyle") }
+
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try ModelContainer(
+        for: Podcast.self, Episode.self, EpisodeContent.self,
+        configurations: config
+    )
+    let context = ModelContext(container)
+
+    let podcast = Podcast(name: "Test Podcast")
+    let episode = Episode(title: "Episode", episodeNumber: 1, podcast: podcast)
+
+    context.insert(podcast)
+    context.insert(episode)
+    try context.save()
+
+    let viewModel = AIIdeasViewModel(episode: episode, modelContext: context)
+
+    #expect(viewModel.titleStyle == .default)
+    #expect(UserDefaults.standard.string(forKey: "aiTitleStyle") == TitleStyle.default.rawValue)
+}

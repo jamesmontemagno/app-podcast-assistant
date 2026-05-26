@@ -25,6 +25,18 @@ public final class EpisodeContent {
     
     @Attribute(.externalStorage)
     public var shrunkTranscript: String?
+
+    @Attribute(.externalStorage)
+    public var aiTitleSuggestionsJSON: String?
+
+    @Attribute(.externalStorage)
+    public var aiGeneratedDescription: String?
+
+    @Attribute(.externalStorage)
+    public var aiSocialPostsJSON: String?
+
+    @Attribute(.externalStorage)
+    public var aiChapterMarkersJSON: String?
     
     // Relationship back to episode
     public var episode: Episode?
@@ -37,7 +49,11 @@ public final class EpisodeContent {
         thumbnailBackgroundData: Data? = nil,
         thumbnailOverlayData: Data? = nil,
         thumbnailOutputData: Data? = nil,
-        shrunkTranscript: String? = nil
+        shrunkTranscript: String? = nil,
+        aiTitleSuggestionsJSON: String? = nil,
+        aiGeneratedDescription: String? = nil,
+        aiSocialPostsJSON: String? = nil,
+        aiChapterMarkersJSON: String? = nil
     ) {
         self.id = UUID().uuidString
         self.transcriptInputText = transcriptInputText
@@ -46,6 +62,10 @@ public final class EpisodeContent {
         self.thumbnailOverlayData = thumbnailOverlayData
         self.thumbnailOutputData = thumbnailOutputData
         self.shrunkTranscript = shrunkTranscript
+        self.aiTitleSuggestionsJSON = aiTitleSuggestionsJSON
+        self.aiGeneratedDescription = aiGeneratedDescription
+        self.aiSocialPostsJSON = aiSocialPostsJSON
+        self.aiChapterMarkersJSON = aiChapterMarkersJSON
     }
 }
 

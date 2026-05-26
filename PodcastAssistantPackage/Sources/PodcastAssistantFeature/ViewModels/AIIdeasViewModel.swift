@@ -12,6 +12,7 @@ public class AIIdeasViewModel: ObservableObject {
     // MARK: - Published State
     
     @Published public var titleSuggestions: [String] = []
+    @Published public var titleStyle: TitleStyle = .default
     @Published public var generatedDescription: String = ""
     @Published public var descriptionLength: DescriptionGenerationService.DescriptionLength = .medium
     @Published public var socialPosts: [SocialPost] = []
@@ -59,6 +60,7 @@ public class AIIdeasViewModel: ObservableObject {
     @AppStorage("transcriptShrinkerMaxWindowCharacters") private var maxWindowChars: Int = 5000
     @AppStorage("transcriptShrinkerOverlap") private var overlap: Double = 0.2
     @AppStorage("transcriptShrinkerFallbackOnError") private var fallbackOnError: Bool = true
+    @AppStorage("aiTitleStyle") private var titleStyleRaw: String = TitleStyle.default.rawValue
     
     // MARK: - Computed Properties
     
@@ -109,8 +111,11 @@ public class AIIdeasViewModel: ObservableObject {
     public init(episode: Episode, modelContext: ModelContext? = nil) {
         self.episode = episode
         self.modelContext = modelContext
+        self.titleStyle = TitleStyle.fromPersisted(titleStyleRaw) ?? .default
+        self.titleStyleRaw = self.titleStyle.rawValue
         checkModelAvailability(provider: provider, openAIKey: openAIAPIKey)
         loadShrunkTranscriptIfExists()
+        loadPersistedAIContentIfExists()
     }
     
     // MARK: - Model Availability
@@ -170,6 +175,18 @@ public class AIIdeasViewModel: ObservableObject {
         shrunkTranscriptStrippedCharCount = stripped.count
         shrunkTranscriptCleanedCharCount = transcriptCleaner.cleanForAI(stripped).count
     }
+
+    private func loadPersistedAIContentIfExists() {
+        titleSuggestions = episode.aiTitleSuggestions
+        generatedDescription = episode.aiGeneratedDescription
+        socialPosts = episode.aiSocialPosts.map { post in
+            let platform = SocialPlatform.fromPersisted(post.platform)
+            return SocialPost(platform: platform, content: post.content)
+        }
+        chapterMarkers = episode.aiChapterMarkers.map {
+            ChapterMarker(timestamp: $0.timestamp, title: $0.title, summary: $0.summary)
+        }
+    }
     
     // MARK: - Content Generation
     
@@ -225,11 +242,20 @@ public class AIIdeasViewModel: ObservableObject {
             }
             
             if provider == .openAI {
-                titleSuggestions = try await openAIService.generateTitles(from: transcript, apiKey: openAIAPIKey)
+                titleSuggestions = try await openAIService.generateTitles(
+                    from: transcript,
+                    style: titleStyle,
+                    apiKey: openAIAPIKey
+                )
             } else {
-                titleSuggestions = try await titleService.generateTitles(from: transcript, isShrunkTranscript: isShrunk)
+                titleSuggestions = try await titleService.generateTitles(
+                    from: transcript,
+                    isShrunkTranscript: isShrunk,
+                    style: titleStyle
+                )
             }
-            statusMessage = "Generated \(titleSuggestions.count) title suggestions"
+            persistTitleSuggestions()
+            statusMessage = "Generated \(titleSuggestions.count) \(titleStyle.displayName.lowercased()) title suggestions"
         } catch {
             errorMessage = "Failed to generate titles: \(error.localizedDescription)"
             statusMessage = ""
@@ -268,6 +294,7 @@ public class AIIdeasViewModel: ObservableObject {
                     isShrunkTranscript: isShrunk
                 )
             }
+            persistGeneratedDescription()
             statusMessage = "Description generated (\(generatedDescription.count) characters)"
         } catch {
             errorMessage = "Failed to generate description: \(error.localizedDescription)"
@@ -299,7 +326,9 @@ public class AIIdeasViewModel: ObservableObject {
                     title: episode.title,
                     apiKey: openAIAPIKey
                 )
-                posts = generated.map { SocialPost(platform: SocialPlatform(rawValue: $0.platform.rawValue) ?? .twitter, content: $0.content) }
+                posts = generated.map {
+                    SocialPost(platform: SocialPlatform.fromPersisted($0.platform.rawValue), content: $0.content)
+                }
             } else {
                 let generated = try await socialService.generateSocialPosts(
                     from: transcript,
@@ -307,11 +336,12 @@ public class AIIdeasViewModel: ObservableObject {
                     isShrunkTranscript: isShrunk
                 )
                 posts = generated.map {
-                    SocialPost(platform: SocialPlatform(rawValue: $0.platform.rawValue) ?? .twitter, content: $0.content)
+                    SocialPost(platform: SocialPlatform.fromPersisted($0.platform.rawValue), content: $0.content)
                 }
             }
             
             socialPosts = posts
+            persistSocialPosts()
             statusMessage = "Generated \(socialPosts.count) social posts"
         } catch {
             errorMessage = "Failed to generate social posts: \(error.localizedDescription)"
@@ -375,7 +405,7 @@ public class AIIdeasViewModel: ObservableObject {
                     )
                 }
             }
-            
+            persistChapterMarkers()
             statusMessage = "Generated \(chapterMarkers.count) chapter markers"
             progressDetails = ""
         } catch {
@@ -514,6 +544,35 @@ public class AIIdeasViewModel: ObservableObject {
         episode.episodeDescription = generatedDescription
         saveEpisode()
     }
+
+    public func updateTitleStyle(_ style: TitleStyle) {
+        titleStyle = style
+        titleStyleRaw = style.rawValue
+    }
+
+    private func persistTitleSuggestions() {
+        episode.aiTitleSuggestions = titleSuggestions
+        saveEpisode()
+    }
+
+    private func persistGeneratedDescription() {
+        episode.aiGeneratedDescription = generatedDescription
+        saveEpisode()
+    }
+
+    private func persistSocialPosts() {
+        episode.aiSocialPosts = socialPosts.map {
+            StoredAISocialPost(platform: $0.platform.storageIdentifier, content: $0.content)
+        }
+        saveEpisode()
+    }
+
+    private func persistChapterMarkers() {
+        episode.aiChapterMarkers = chapterMarkers.map {
+            StoredAIChapterMarker(timestamp: $0.timestamp, title: $0.title, summary: $0.summary)
+        }
+        saveEpisode()
+    }
     
     private func saveEpisode() {
         do {
@@ -564,15 +623,47 @@ public extension AIIdeasViewModel {
     }
     
     enum SocialPlatform: String, CaseIterable {
-        case twitter = "Twitter/X"
-        case linkedin = "LinkedIn"
-        case threads = "Threads"
-        
+        case twitter = "twitter"
+        case linkedin = "linkedin"
+        case threads = "threads"
+        case unknown = "unknown"
+
+        static func fromPersisted(_ value: String) -> SocialPlatform {
+            switch value {
+            case Self.twitter.rawValue, "Twitter/X":
+                return .twitter
+            case Self.linkedin.rawValue, "LinkedIn":
+                return .linkedin
+            case Self.threads.rawValue, "Threads":
+                return .threads
+            default:
+                return .unknown
+            }
+        }
+
+        public var displayName: String {
+            switch self {
+            case .twitter:
+                return "Twitter/X"
+            case .linkedin:
+                return "LinkedIn"
+            case .threads:
+                return "Threads"
+            case .unknown:
+                return "Unknown Platform"
+            }
+        }
+
+        public var storageIdentifier: String {
+            rawValue
+        }
+         
         public var icon: String {
             switch self {
             case .twitter: return "at.circle.fill"
             case .linkedin: return "briefcase.circle.fill"
             case .threads: return "text.bubble.fill"
+            case .unknown: return "questionmark.circle.fill"
             }
         }
     }

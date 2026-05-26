@@ -392,6 +392,19 @@ public struct AIIdeasView: View {
                 }
                 
                 Spacer()
+                Picker(
+                    "Style",
+                    selection: Binding(
+                        get: { viewModel.titleStyle },
+                        set: { viewModel.updateTitleStyle($0) }
+                    )
+                ) {
+                    ForEach(TitleStyle.allCases, id: \.self) { style in
+                        Text(style.displayName).tag(style)
+                    }
+                }
+                .pickerStyle(.menu)
+
                 Button {
                     Task { await viewModel.generateTitles() }
                 } label: {
@@ -423,7 +436,18 @@ public struct AIIdeasView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             
                             Spacer()
-                            
+
+                            Button {
+                                viewModel.copyToClipboard(title)
+                            } label: {
+                                Label("Copy", systemImage: "doc.on.doc")
+                                    .labelStyle(.iconOnly)
+                            }
+                            .buttonStyle(.bordered)
+                            .help("Copy this title")
+                            .accessibilityLabel("Copy title to clipboard")
+                            .accessibilityHint("Copies this title suggestion")
+                             
                             Button {
                                 viewModel.applyTitle(title)
                             } label: {
@@ -569,9 +593,9 @@ public struct AIIdeasView: View {
                     ForEach(viewModel.socialPosts) { post in
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Image(systemName: post.platform.rawValue == "Twitter/X" ? "xmark" : post.platform.rawValue == "LinkedIn" ? "briefcase" : "photo")
+                                Image(systemName: post.platform.icon)
                                     .foregroundStyle(.blue)
-                                Text(post.platform.rawValue)
+                                Text(post.platform.displayName)
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
                                 Spacer()

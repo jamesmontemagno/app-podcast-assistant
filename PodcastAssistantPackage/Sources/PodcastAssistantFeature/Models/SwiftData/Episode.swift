@@ -5,6 +5,9 @@ import SwiftData
 /// Heavy content (transcripts, images) stored in separate EpisodeContent relationship
 @Model
 public final class Episode {
+    private static let aiJSONEncoder = JSONEncoder()
+    private static let aiJSONDecoder = JSONDecoder()
+
     @Attribute(.unique) public var id: String
     public var title: String
     public var episodeNumber: Int32
@@ -164,10 +167,88 @@ public final class Episode {
         }
     }
 
+    public var aiTitleSuggestions: [String] {
+        get {
+            decodeAIData(from: content?.aiTitleSuggestionsJSON, as: [String].self) ?? []
+        }
+        set {
+            if content == nil {
+                content = EpisodeContent()
+            }
+            content?.aiTitleSuggestionsJSON = encodeAIData(newValue)
+        }
+    }
+
+    public var aiGeneratedDescription: String {
+        get { content?.aiGeneratedDescription ?? "" }
+        set {
+            if content == nil {
+                content = EpisodeContent()
+            }
+            content?.aiGeneratedDescription = newValue
+        }
+    }
+
+    public var aiSocialPosts: [StoredAISocialPost] {
+        get {
+            decodeAIData(from: content?.aiSocialPostsJSON, as: [StoredAISocialPost].self) ?? []
+        }
+        set {
+            if content == nil {
+                content = EpisodeContent()
+            }
+            content?.aiSocialPostsJSON = encodeAIData(newValue)
+        }
+    }
+
+    public var aiChapterMarkers: [StoredAIChapterMarker] {
+        get {
+            decodeAIData(from: content?.aiChapterMarkersJSON, as: [StoredAIChapterMarker].self) ?? []
+        }
+        set {
+            if content == nil {
+                content = EpisodeContent()
+            }
+            content?.aiChapterMarkersJSON = encodeAIData(newValue)
+        }
+    }
+
+    private func encodeAIData<T: Encodable>(_ value: T) -> String? {
+        guard let data = try? Self.aiJSONEncoder.encode(value) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    private func decodeAIData<T: Decodable>(from json: String?, as type: T.Type) -> T? {
+        guard let json, let data = json.data(using: .utf8) else { return nil }
+        return try? Self.aiJSONDecoder.decode(type, from: data)
+    }
+
     /// Convenience typed access to provider override
     public var aiProviderSelection: AIProvider? {
         get { aiProvider.flatMap(AIProvider.init(rawValue:)) }
         set { aiProvider = newValue?.rawValue }
+    }
+}
+
+public struct StoredAISocialPost: Codable {
+    public var platform: String
+    public var content: String
+
+    public init(platform: String, content: String) {
+        self.platform = platform
+        self.content = content
+    }
+}
+
+public struct StoredAIChapterMarker: Codable {
+    public var timestamp: String
+    public var title: String
+    public var summary: String
+
+    public init(timestamp: String, title: String, summary: String) {
+        self.timestamp = timestamp
+        self.title = title
+        self.summary = summary
     }
 }
 

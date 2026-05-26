@@ -20,13 +20,26 @@ public final class OpenAIContentService: Sendable {
         }
     }
     
-    public func generateTitles(from transcript: String, apiKey: String) async throws -> [String] {
+    public func generateTitles(
+        from transcript: String,
+        style: TitleStyle = .default,
+        apiKey: String
+    ) async throws -> [String] {
         let session = makeSession(
             instructions: "You are a creative podcast producer who writes engaging, concise episode titles.",
             apiKey: apiKey
         )
         let processedTranscript = transcriptCleaner.cleanForAI(transcript)
-        let prompt = """
+        let prompt = Self.buildTitlePrompt(
+            processedTranscript: processedTranscript,
+            styleGuidance: style.promptGuidance
+        )
+        let result: TitleSuggestionsPOCO = try await session.respond(to: prompt, generating: TitleSuggestionsPOCO.self)
+        return result.titles
+    }
+
+    static func buildTitlePrompt(processedTranscript: String, styleGuidance: String) -> String {
+        """
         You are generating titles for a podcast episode based on its transcript.
         
         Analyze the transcript and identify the topics that are discussed the most.
@@ -37,12 +50,11 @@ public final class OpenAIContentService: Sendable {
         Generate 5 creative, concise titles for this podcast episode.
         Keep titles under 10 words each.
         Make them engaging, descriptive, and SEO-friendly.
+        Style preference: \(styleGuidance)
         
         Episode Transcript:
         \(processedTranscript)
         """
-        let result: TitleSuggestionsPOCO = try await session.respond(to: prompt, generating: TitleSuggestionsPOCO.self)
-        return result.titles
     }
     
     public func generateDescription(
