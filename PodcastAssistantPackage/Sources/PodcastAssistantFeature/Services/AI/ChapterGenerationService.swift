@@ -260,14 +260,14 @@ public class ChapterGenerationService {
         Think of chapters as major sections viewers would skip to, not every minor topic.
         
         Guidelines:
-        - Create EXACTLY \(targetChapters) chapters (maximum \(maxChapters))
+        - Target approximately \(targetChapters) chapters (up to \(maxChapters) maximum if needed)
         - Only mark MAJOR topic transitions - ignore minor shifts
         - Each chapter should represent 5-10+ minutes of distinct content
         \(chapterGuidance)- For each chapter, extract the start timestamp from the time range
         - Use timestamps that align with where topics actually shift in the segments below
         - Format timestamps as MM:SS or HH:MM:SS (will be normalized automatically)
         \(durationGuidance)
-        - Distribute chapters evenly across this window; avoid any gap > 10 minutes
+        - Distribute chapters reasonably across this window; avoid any gap > 10 minutes
         - Create descriptive titles (under 8 words)
         - Provide a one-sentence summary per chapter
         
